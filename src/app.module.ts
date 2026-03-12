@@ -1,5 +1,5 @@
 import 'dotenv/config';
-import { Module } from '@nestjs/common';
+import { Module, Type } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
@@ -13,32 +13,56 @@ import { SampleModule } from '@/modules/sample/sample.module';
 
 const dbEnabled = (process.env.DB_ENABLED ?? 'false').toLowerCase() === 'true';
 
+type FeatureRegistration = {
+  module: Type<unknown>;
+  path?: string;
+};
+
+const featureRegistrations: FeatureRegistration[] = [
+  {
+    module: SampleModule,
+    path: 'sample',
+  },
+];
+
+const buildCoreImports = () => [
+  ConfigModule.forRoot({
+    isGlobal: true,
+    validationSchema: envValidationSchema,
+    validationOptions: {
+      abortEarly: false,
+      allowUnknown: true,
+    },
+  }),
+  ThrottlerModule.forRoot([
+    {
+      ttl: Number(process.env.RATE_LIMIT_TTL_MS ?? 60000),
+      limit: Number(process.env.RATE_LIMIT_MAX ?? 100),
+    },
+  ]),
+  ...(dbEnabled ? [TypeOrmModule.forRoot(buildTypeOrmOptions())] : []),
+  CommonModule,
+];
+
+const buildFeatureImports = (registrations: FeatureRegistration[]) =>
+  registrations.map((registration) => registration.module);
+
+const buildFeatureRoutes = (registrations: FeatureRegistration[]) =>
+  registrations
+    .filter((registration) => registration.path)
+    .map((registration) => ({
+      path: registration.path as string,
+      module: registration.module,
+    }));
+
+const buildAppImports = () => [
+  ...buildCoreImports(),
+  ...buildFeatureImports(featureRegistrations),
+  RouterModule.register(buildFeatureRoutes(featureRegistrations)),
+];
+
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      validationSchema: envValidationSchema,
-      validationOptions: {
-        abortEarly: false,
-        allowUnknown: true,
-      },
-    }),
-    ThrottlerModule.forRoot([
-      {
-        ttl: Number(process.env.RATE_LIMIT_TTL_MS ?? 60000),
-        limit: Number(process.env.RATE_LIMIT_MAX ?? 100),
-      },
-    ]),
-    ...(dbEnabled ? [TypeOrmModule.forRoot(buildTypeOrmOptions())] : []),
-    CommonModule,
-    SampleModule,
-    RouterModule.register([
-      {
-        path: 'sample',
-        module: SampleModule,
-      },
-    ]),
-  ],
+  imports: buildAppImports(),
   controllers: [AppController],
   providers: [
     AppService,
