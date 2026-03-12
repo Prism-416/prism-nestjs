@@ -1,22 +1,22 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { CreateSampleItemDto } from '@/modules/sample/dto';
-import { SampleUseCase } from '@/modules/sample/usecases';
+import { Body, Controller, Post } from '@nestjs/common';
+import { ApiCreatedResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AuthUseCase } from '@/modules/auth/usecases';
+import {
+  SignUpWithEmailDto,
+  SignUpWithEmailResponseDto,
+} from '@/modules/auth/dto';
 
 @ApiTags('auth')
 @Controller('/signup')
 export class SignUpController {
-  constructor(private readonly sampleUseCase: SampleUseCase) {}
-
-  @Get()
-  @ApiOperation({ summary: 'Sign Up with Email' })
-  list() {
-    return this.sampleUseCase.listItems();
-  }
+  constructor(private readonly usecase: AuthUseCase) {}
 
   @Post()
-  @ApiOperation({ summary: 'Create sample item' })
-  create(@Body() dto: CreateSampleItemDto) {
-    return this.sampleUseCase.createItem(dto);
+  @ApiOperation({ summary: 'Sign Up with Email' })
+  @ApiCreatedResponse({ type: SignUpWithEmailResponseDto })
+  async signUp(
+    @Body() dto: SignUpWithEmailDto,
+  ): Promise<SignUpWithEmailResponseDto> {
+    return await this.usecase.signUpWithEmail(dto);
   }
 }

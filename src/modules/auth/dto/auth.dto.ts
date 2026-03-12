@@ -1,20 +1,23 @@
-import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsString } from 'class-validator';
 
-export class CreateSampleItemDto {
+export class SignUpWithEmailDto {
+  @IsEmail()
+  email!: string;
+
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(80)
+  password!: string;
+
+  @IsString()
   name!: string;
 
-  @IsOptional()
   @IsString()
-  @MaxLength(300)
-  description?: string;
+  displayName!: string;
 }
 
-export interface SampleItem {
-  id: string;
+export class SignUpWithEmailResponseDto {
+  userId: string;
+  email: string;
   name: string;
-  description?: string;
-  createdAt: string;
+  displayName: string;
+  createdAt: Date;
 }

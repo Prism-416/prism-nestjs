@@ -1,7 +1,7 @@
-import { NotExistsError } from '@/common/errors/domain-error';
+import { DuplicateError } from '@/common/errors/domain-error';
 
-export class SampleItemNotFoundError extends NotExistsError {
+export class EmailAlreadyExistsError extends DuplicateError {
   constructor() {
-    super('Sample item not found.', 'SAMPLE_ITEM_NOT_FOUND');
+    super('Email already exists.', 'Email_ALREADY_EXISTS');
   }
 }
