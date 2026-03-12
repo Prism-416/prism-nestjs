@@ -9,7 +9,6 @@ import { AppService } from '@/app.service';
 import { CommonModule } from '@/common/common.module';
 import { envValidationSchema } from '@/config/env.validation';
 import { buildTypeOrmOptions } from '@/database/typeorm.options';
-import { SampleModule } from '@/modules/sample/sample.module';
 
 const dbEnabled = (process.env.DB_ENABLED ?? 'false').toLowerCase() === 'true';
 
@@ -18,12 +17,7 @@ type FeatureRegistration = {
   path?: string;
 };
 
-const featureRegistrations: FeatureRegistration[] = [
-  {
-    module: SampleModule,
-    path: 'sample',
-  },
-];
+const featureRegistrations: FeatureRegistration[] = [];
 
 const buildCoreImports = () => [
   ConfigModule.forRoot({
