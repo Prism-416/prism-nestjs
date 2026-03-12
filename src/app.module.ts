@@ -3,7 +3,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, RouterModule } from '@nestjs/core';
 import { AppController } from '@/app.controller';
 import { AppService } from '@/app.service';
 import { CommonModule } from '@/common/common.module';
@@ -32,6 +32,12 @@ const dbEnabled = (process.env.DB_ENABLED ?? 'false').toLowerCase() === 'true';
     ...(dbEnabled ? [TypeOrmModule.forRoot(buildTypeOrmOptions())] : []),
     CommonModule,
     SampleModule,
+    RouterModule.register([
+      {
+        path: 'sample',
+        module: SampleModule,
+      },
+    ]),
   ],
   controllers: [AppController],
   providers: [
