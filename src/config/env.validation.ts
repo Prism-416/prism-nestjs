@@ -8,6 +8,10 @@ export const envValidationSchema = Joi.object({
   APP_NAME: Joi.string().default('NestJS Template API'),
   APP_DESCRIPTION: Joi.string().default('Reusable NestJS backend template'),
   APP_VERSION: Joi.string().default('1.0.0'),
+  JWT_SECRET: Joi.string().min(16).default('dev-only-change-me'),
+  JWT_REFRESH_SECRET: Joi.string().allow('').default(''),
+  JWT_ACCESS_EXPIRES_IN_SEC: Joi.number().integer().min(60).default(900),
+  JWT_REFRESH_EXPIRES_IN_SEC: Joi.number().integer().min(300).default(1209600),
   CORS_ORIGIN: Joi.string().allow('').default(''),
   DB_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   PG_HOST: Joi.when('DB_ENABLED', {
