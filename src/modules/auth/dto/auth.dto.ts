@@ -8,16 +8,31 @@ export class SignUpWithEmailDto {
   password!: string;
 
   @IsString()
-  name!: string;
+  fullName!: string;
 
   @IsString()
-  displayName!: string;
+  username!: string;
 }
 
 export class SignUpWithEmailResponseDto {
   userId: string;
   email: string;
-  name: string;
-  displayName: string;
   createdAt: Date;
+}
+
+export class SignInWithEmailDto {
+  @IsEmail()
+  email!: string;
+
+  @IsString()
+  password!: string;
+}
+
+export class AuthTokenResponseDto {
+  accessToken: string;
+}
+
+export class AuthTokenPairResponseDto {
+  accessToken: string;
+  refreshToken: string;
 }
