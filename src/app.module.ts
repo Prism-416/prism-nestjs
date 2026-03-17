@@ -9,6 +9,7 @@ import { AppService } from '@/app.service';
 import { CommonModule } from '@/common/common.module';
 import { envValidationSchema } from '@/config/env.validation';
 import { buildTypeOrmOptions } from '@/database/typeorm.options';
+import { AuthModule } from '@/modules/auth/auth.module';
 
 const dbEnabled = (process.env.DB_ENABLED ?? 'false').toLowerCase() === 'true';
 
@@ -17,7 +18,12 @@ type FeatureRegistration = {
   path?: string;
 };
 
-const featureRegistrations: FeatureRegistration[] = [];
+const featureRegistrations: FeatureRegistration[] = [
+  {
+    module: AuthModule,
+    path: 'auth',
+  },
+];
 
 const buildCoreImports = () => [
   ConfigModule.forRoot({
