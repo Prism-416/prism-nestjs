@@ -3,10 +3,11 @@ import { Module, Type } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD, RouterModule } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR, RouterModule } from '@nestjs/core';
 import { AppController } from '@/app.controller';
 import { AppService } from '@/app.service';
 import { CommonModule } from '@/common/common.module';
+import { DataResponseInterceptor } from '@/common/response';
 import { envValidationSchema } from '@/config/env.validation';
 import { buildTypeOrmOptions } from '@/database/typeorm.options';
 import { AuthModule } from '@/modules/auth/auth.module';
@@ -69,6 +70,10 @@ const buildAppImports = () => [
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: DataResponseInterceptor,
     },
   ],
 })

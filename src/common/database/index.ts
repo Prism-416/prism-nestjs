@@ -1,1 +1,1 @@
-export * from '@/common/database/transaction.service';
+export * from '@/common/database/unit-of-work';
