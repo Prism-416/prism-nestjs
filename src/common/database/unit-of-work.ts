@@ -7,14 +7,12 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 
 @Injectable()
-export class TransactionService {
+export class UnitOfWork {
   constructor(
     @Optional() @InjectDataSource() private readonly dataSource?: DataSource,
   ) {}
 
-  runInTransaction<T>(
-    work: (manager: EntityManager) => Promise<T>,
-  ): Promise<T> {
+  run<T>(work: (manager: EntityManager) => Promise<T>): Promise<T> {
     if (!this.dataSource) {
       throw new ServiceUnavailableException('Database is not configured');
     }

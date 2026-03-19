@@ -1,4 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 
 export type JwtTokenType = 'access' | 'refresh';
@@ -17,7 +18,10 @@ type SignPayload = Record<string, unknown> & {
 
 @Injectable()
 export class JwtTokenService {
-  constructor(private readonly jwtService: JwtService) {}
+  constructor(
+    private readonly jwtService: JwtService,
+    private readonly configService: ConfigService,
+  ) {}
 
   createAccessToken(
     subject: string,
@@ -25,7 +29,10 @@ export class JwtTokenService {
   ): string {
     return this.jwtService.sign(this.buildPayload(subject, 'access', claims), {
       secret: this.getAccessSecret(),
-      expiresIn: Number(process.env.JWT_ACCESS_EXPIRES_IN_SEC ?? 900),
+      expiresIn: this.configService.get<number>(
+        'JWT_ACCESS_EXPIRES_IN_SEC',
+        900,
+      ),
     });
   }
 
@@ -35,7 +42,10 @@ export class JwtTokenService {
   ): string {
     return this.jwtService.sign(this.buildPayload(subject, 'refresh', claims), {
       secret: this.getRefreshSecret(),
-      expiresIn: Number(process.env.JWT_REFRESH_EXPIRES_IN_SEC ?? 1209600),
+      expiresIn: this.configService.get<number>(
+        'JWT_REFRESH_EXPIRES_IN_SEC',
+        1209600,
+      ),
     });
   }
 
@@ -85,7 +95,7 @@ export class JwtTokenService {
   }
 
   private getAccessSecret(): string {
-    const secret = process.env.JWT_SECRET;
+    const secret = this.configService.get<string>('JWT_SECRET');
     if (!secret) {
       throw new UnauthorizedException('JWT secret is not configured');
     }
@@ -93,6 +103,9 @@ export class JwtTokenService {
   }
 
   private getRefreshSecret(): string {
-    return process.env.JWT_REFRESH_SECRET || this.getAccessSecret();
+    return (
+      this.configService.get<string>('JWT_REFRESH_SECRET') ||
+      this.getAccessSecret()
+    );
   }
 }
