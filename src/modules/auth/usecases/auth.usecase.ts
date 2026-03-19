@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { JwtTokenService } from '@/common/auth';
-import { TransactionService } from '@/common/database';
+import { UnitOfWork } from '@/common/database';
 import { PasswordService } from '@/common/security';
 import {
   AuthTokenPairResponseDto,
@@ -13,12 +13,13 @@ import {
   InvalidRefreshTokenError,
 } from '@/modules/auth/errors';
 import { AuthRepository } from '@/modules/auth/repository';
+import { EntityManager } from 'typeorm';
 
 @Injectable()
 export class AuthUseCase {
   constructor(
     private readonly repo: AuthRepository,
-    private readonly transactionService: TransactionService,
+    private readonly uow: UnitOfWork,
     private readonly jwtService: JwtTokenService,
     private readonly pwdService: PasswordService,
   ) {}
@@ -26,7 +27,7 @@ export class AuthUseCase {
   async signUpWithEmail(dto: SignUpWithEmailDto) {
     const passwordHash = await this.pwdService.hash(dto.password);
 
-    return this.transactionService.runInTransaction(async (manager) => {
+    return this.uow.run(async (manager) => {
       const existingUser = await this.repo.findUserByEmail(dto.email, manager);
       if (existingUser) {
         throw new EmailAlreadyExistsError();
@@ -60,7 +61,7 @@ export class AuthUseCase {
       throw new InvalidCredentialsError();
     }
 
-    return this.transactionService.runInTransaction(async (manager) => {
+    return this.uow.run(async (manager) => {
       return this.issueTokenPair(user.userId, user.email, manager);
     });
   }
@@ -69,7 +70,7 @@ export class AuthUseCase {
     const payload = this.jwtService.verifyRefreshToken(refreshToken);
     const userId = String(payload.sub);
 
-    return this.transactionService.runInTransaction(async (manager) => {
+    return this.uow.run(async (manager) => {
       const user = await this.repo.findUserById(userId, manager);
       if (!user) {
         throw new InvalidRefreshTokenError();
@@ -99,10 +100,19 @@ export class AuthUseCase {
     });
   }
 
+  async logout(refreshToken: string): Promise<void> {
+    const payload = this.jwtService.verifyRefreshToken(refreshToken);
+    const userId = String(payload.sub);
+
+    await this.uow.run(async (manager) => {
+      await this.repo.invalidateRefreshTokensByUserId(userId, manager);
+    });
+  }
+
   private async issueTokenPair(
     userId: string,
     email: string,
-    manager?: import('typeorm').EntityManager,
+    manager: EntityManager,
   ): Promise<AuthTokenPairResponseDto> {
     const accessToken = this.jwtService.createAccessToken(userId, { email });
     const refreshToken = this.jwtService.createRefreshToken(userId, { email });

@@ -3,7 +3,7 @@ import { UnauthorizedDomainError } from '@/common/errors/domain-error';
 
 export class EmailAlreadyExistsError extends DuplicateError {
   constructor() {
-    super('Email already exists.', 'Email_ALREADY_EXISTS');
+    super('Email already exists.', 'EMAIL_ALREADY_EXISTS');
   }
 }
 
