@@ -18,6 +18,7 @@ import { ApiDataResponse } from '@/common/response';
 import { AuthUseCase } from '@/modules/auth/usecases';
 import {
   AuthTokenResponseDto,
+  SignInWithGoogleDto,
   SignInWithEmailDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
@@ -43,6 +44,14 @@ export class AuthController {
   @UseInterceptors(AuthTokenCookieInterceptor)
   async signIn(@Body() dto: SignInWithEmailDto) {
     return await this.usecase.signInWithEmail(dto);
+  }
+
+  @Post('google-sign-in')
+  @ApiOperation({ summary: 'Sign In with Google ID Token' })
+  @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
+  @UseInterceptors(AuthTokenCookieInterceptor)
+  async signInWithGoogle(@Body() dto: SignInWithGoogleDto) {
+    return await this.usecase.signInWithGoogle(dto);
   }
 
   @Post('refresh')

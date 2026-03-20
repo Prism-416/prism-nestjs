@@ -40,6 +40,11 @@ export class SignInWithEmailDto {
   password!: string;
 }
 
+export class SignInWithGoogleDto {
+  @IsString()
+  idToken!: string;
+}
+
 export class AuthTokenResponseDto {
   @ApiProperty()
   accessToken: string;

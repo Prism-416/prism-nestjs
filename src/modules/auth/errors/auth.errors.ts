@@ -18,3 +18,15 @@ export class InvalidRefreshTokenError extends UnauthorizedDomainError {
     super('Invalid refresh token.', 'INVALID_REFRESH_TOKEN');
   }
 }
+
+export class InvalidGoogleIdTokenError extends UnauthorizedDomainError {
+  constructor() {
+    super('Invalid Google ID token.', 'INVALID_GOOGLE_ID_TOKEN');
+  }
+}
+
+export class UnverifiedGoogleEmailError extends UnauthorizedDomainError {
+  constructor() {
+    super('Google account email is not verified.', 'UNVERIFIED_GOOGLE_EMAIL');
+  }
+}
