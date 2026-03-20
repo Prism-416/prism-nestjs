@@ -19,3 +19,17 @@ export type RefreshTokenRow = {
   expiresAt: Date;
   revokedAt: Date | null;
 };
+
+export type GoogleProfile = {
+  subject: string;
+  email: string;
+  emailVerified: boolean;
+  fullName: string;
+};
+
+export type GithubProfile = {
+  subject: string;
+  email: string;
+  emailVerified: boolean;
+  fullName: string;
+};

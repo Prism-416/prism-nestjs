@@ -5,13 +5,8 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OAuth2Client, TokenPayload } from 'google-auth-library';
-
-export type GoogleProfile = {
-  subject: string;
-  email: string;
-  emailVerified: boolean;
-  fullName: string;
-};
+import { GoogleProfile } from '@/modules/auth/types';
+import { pickDisplayName } from '@/modules/auth/utils';
 
 @Injectable()
 export class GoogleTokenVerifierService {
@@ -56,11 +51,12 @@ export class GoogleTokenVerifierService {
       subject: payload.sub,
       email: payload.email ?? '',
       emailVerified: payload.email_verified === true,
-      fullName:
-        payload.name?.trim() ||
-        payload.given_name?.trim() ||
-        payload.email?.split('@')[0] ||
+      fullName: pickDisplayName(
         'Google User',
+        payload.name,
+        payload.given_name,
+        payload.email?.split('@')[0],
+      ),
     };
   }
 }
