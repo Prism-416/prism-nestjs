@@ -13,6 +13,8 @@ export const envValidationSchema = Joi.object({
   JWT_ACCESS_EXPIRES_IN_SEC: Joi.number().integer().min(60).default(900),
   JWT_REFRESH_EXPIRES_IN_SEC: Joi.number().integer().min(300).default(1209600),
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
+  GITHUB_CLIENT_ID: Joi.string().allow('').default(''),
+  GITHUB_CLIENT_SECRET: Joi.string().allow('').default(''),
   CORS_ORIGIN: Joi.string().allow('').default(''),
   DB_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   PG_HOST: Joi.when('DB_ENABLED', {
