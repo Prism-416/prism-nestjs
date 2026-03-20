@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsString, MaxLength, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class SignUpWithEmailDto {
   @IsEmail()
@@ -43,6 +49,15 @@ export class SignInWithEmailDto {
 export class SignInWithGoogleDto {
   @IsString()
   idToken!: string;
+}
+
+export class SignInWithGithubDto {
+  @IsString()
+  code!: string;
+
+  @IsOptional()
+  @IsString()
+  redirectUri?: string;
 }
 
 export class AuthTokenResponseDto {
