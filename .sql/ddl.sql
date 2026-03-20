@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS prism_users_l
     user_id      UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
     email        VARCHAR(320) NOT NULL,
     full_name    VARCHAR(100) NOT NULL,
-    display_name VARCHAR(50)  NOT NULL,
+    username VARCHAR(50)  NOT NULL,
     created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (email)

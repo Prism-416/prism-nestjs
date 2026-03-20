@@ -1,19 +1,32 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { randomInt } from 'node:crypto';
 import { JwtTokenService } from '@/common/auth';
 import { UnitOfWork } from '@/common/database';
 import { PasswordService } from '@/common/security';
 import {
   AuthTokenPairResponseDto,
+  SignInWithGithubDto,
+  SignInWithGoogleDto,
   SignInWithEmailDto,
   SignUpWithEmailDto,
 } from '@/modules/auth/dto';
 import {
   EmailAlreadyExistsError,
+  InvalidGithubAuthorizationCodeError,
+  InvalidGoogleIdTokenError,
   InvalidCredentialsError,
   InvalidRefreshTokenError,
+  UnverifiedGithubEmailError,
+  UnverifiedGoogleEmailError,
 } from '@/modules/auth/errors';
 import { AuthRepository } from '@/modules/auth/repository';
+import {
+  GithubTokenVerifierService,
+  GoogleTokenVerifierService,
+} from '@/modules/auth/services';
 import { EntityManager } from 'typeorm';
+import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
+import { buildUsernameSeeds } from '@/modules/auth/utils';
 
 @Injectable()
 export class AuthUseCase {
@@ -22,6 +35,8 @@ export class AuthUseCase {
     private readonly uow: UnitOfWork,
     private readonly jwtService: JwtTokenService,
     private readonly pwdService: PasswordService,
+    private readonly google: GoogleTokenVerifierService,
+    private readonly github: GithubTokenVerifierService,
   ) {}
 
   async signUpWithEmail(dto: SignUpWithEmailDto) {
@@ -62,6 +77,128 @@ export class AuthUseCase {
     }
 
     return this.uow.run(async (manager) => {
+      return this.issueTokenPair(user.userId, user.email, manager);
+    });
+  }
+
+  async signInWithGoogle(
+    dto: SignInWithGoogleDto,
+  ): Promise<AuthTokenPairResponseDto> {
+    let googleProfile: GoogleProfile;
+    try {
+      googleProfile = await this.google.verify(dto.idToken);
+    } catch (error) {
+      if (!(error instanceof UnauthorizedException)) {
+        throw error;
+      }
+
+      throw new InvalidGoogleIdTokenError();
+    }
+
+    if (!googleProfile.emailVerified) {
+      throw new UnverifiedGoogleEmailError();
+    }
+
+    return this.uow.run(async (manager) => {
+      const linkedUser = await this.repo.findUserByProvider(
+        'google',
+        googleProfile.subject,
+        manager,
+      );
+      if (linkedUser) {
+        return this.issueTokenPair(
+          linkedUser.userId,
+          linkedUser.email,
+          manager,
+        );
+      }
+
+      let user = await this.repo.findUserByEmail(googleProfile.email, manager);
+      if (!user) {
+        const username = await this.generateUniqueUsername(
+          googleProfile.email,
+          googleProfile.fullName,
+          manager,
+        );
+        user = await this.repo.createUser(
+          {
+            email: googleProfile.email,
+            fullName: googleProfile.fullName,
+            username,
+          },
+          manager,
+        );
+      }
+
+      await this.repo.createOAuthAuth(
+        user.userId,
+        'google',
+        googleProfile.subject,
+        googleProfile.email,
+        manager,
+      );
+
+      return this.issueTokenPair(user.userId, user.email, manager);
+    });
+  }
+
+  async signInWithGithub(
+    dto: SignInWithGithubDto,
+  ): Promise<AuthTokenPairResponseDto> {
+    let githubProfile: GithubProfile;
+    try {
+      githubProfile = await this.github.verify(dto.code, dto.redirectUri);
+    } catch (error) {
+      if (!(error instanceof UnauthorizedException)) {
+        throw error;
+      }
+
+      throw new InvalidGithubAuthorizationCodeError();
+    }
+
+    if (!githubProfile.emailVerified) {
+      throw new UnverifiedGithubEmailError();
+    }
+
+    return this.uow.run(async (manager) => {
+      const linkedUser = await this.repo.findUserByProvider(
+        'github',
+        githubProfile.subject,
+        manager,
+      );
+      if (linkedUser) {
+        return this.issueTokenPair(
+          linkedUser.userId,
+          linkedUser.email,
+          manager,
+        );
+      }
+
+      let user = await this.repo.findUserByEmail(githubProfile.email, manager);
+      if (!user) {
+        const username = await this.generateUniqueUsername(
+          githubProfile.email,
+          githubProfile.fullName,
+          manager,
+        );
+        user = await this.repo.createUser(
+          {
+            email: githubProfile.email,
+            fullName: githubProfile.fullName,
+            username,
+          },
+          manager,
+        );
+      }
+
+      await this.repo.createOAuthAuth(
+        user.userId,
+        'github',
+        githubProfile.subject,
+        githubProfile.email,
+        manager,
+      );
+
       return this.issueTokenPair(user.userId, user.email, manager);
     });
   }
@@ -131,5 +268,34 @@ export class AuthUseCase {
       accessToken,
       refreshToken,
     };
+  }
+
+  private async generateUniqueUsername(
+    email: string,
+    fullName: string,
+    manager: EntityManager,
+  ): Promise<string> {
+    const seeds = buildUsernameSeeds(fullName, email);
+
+    for (const seed of seeds) {
+      const existingUser = await this.repo.findUserByUsername(seed, manager);
+      if (!existingUser) {
+        return seed;
+      }
+    }
+
+    const base = seeds[0] ?? 'user';
+    for (let attempt = 0; attempt < 20; attempt += 1) {
+      const candidate = `${base}${randomInt(1000, 9999)}`.slice(0, 30);
+      const existingUser = await this.repo.findUserByUsername(
+        candidate,
+        manager,
+      );
+      if (!existingUser) {
+        return candidate;
+      }
+    }
+
+    return `user${Date.now().toString().slice(-8)}`.slice(0, 30);
   }
 }
