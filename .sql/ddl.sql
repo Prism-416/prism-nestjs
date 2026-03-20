@@ -52,7 +52,7 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id
 CREATE TABLE IF NOT EXISTS prism_workspaces_l
 (
     workspace_id   UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
-    owner_user_id  UUID         NOT NULL REFERENCES prism_users_l (user_id),
+    owner_id  UUID         NOT NULL REFERENCES prism_users_l (user_id),
     name           VARCHAR(100) NOT NULL,
     slug           VARCHAR(60)  NOT NULL,
     description    TEXT,
@@ -66,23 +66,21 @@ CREATE TABLE IF NOT EXISTS prism_workspaces_l
 );
 
 CREATE INDEX IF NOT EXISTS idx_workspaces_owner_user_id
-    ON prism_workspaces_l (owner_user_id);
+    ON prism_workspaces_l (owner_id);
 
 CREATE INDEX IF NOT EXISTS idx_workspaces_status
     ON prism_workspaces_l (status);
 
 CREATE TABLE IF NOT EXISTS prism_workspace_members_l
 (
-    workspace_member_id UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
     workspace_id        UUID         NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
     user_id             UUID         NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
     role                VARCHAR(20)  NOT NULL,
     joined_at           TIMESTAMPTZ,
-    invited_by          UUID REFERENCES prism_users_l (user_id),
     invited_at          TIMESTAMPTZ,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     archived_at         TIMESTAMPTZ,
-    UNIQUE (workspace_id, user_id),
+    PRIMARY KEY (workspace_id, user_id),
     CHECK (role IN ('admin', 'member', 'viewer'))
 );
 
