@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS prism_workspaces_l
     status         VARCHAR(20)  NOT NULL DEFAULT 'active',
     created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     archived_at    TIMESTAMPTZ,
-    UNIQUE (slug),
+    CONSTRAINT uq_workspaces_slug UNIQUE (slug),
     CHECK (status IN ('active', 'archived'))
 );
 
