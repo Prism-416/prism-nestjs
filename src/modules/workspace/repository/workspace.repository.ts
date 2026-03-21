@@ -7,29 +7,6 @@ import { WorkspaceRow } from '@/modules/workspace/types';
 export class WorkspaceRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  async findWorkspaceBySlug(
-    slug: string,
-    manager?: EntityManager,
-  ): Promise<WorkspaceRow | null> {
-    const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
-      `
-        SELECT
-          workspace_id AS "workspaceId",
-          owner_id AS "ownerId",
-          name,
-          slug,
-          description,
-          created_at AS "createdAt"
-        FROM prism_workspaces_l
-        WHERE slug = $1
-        LIMIT 1
-      `,
-      [slug],
-    );
-
-    return workspaces[0] ?? null;
-  }
-
   async createWorkspace(
     params: {
       name: string;

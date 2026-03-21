@@ -4,18 +4,15 @@ import {
   CreateWorkspaceDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
-import {
-  isWorkspaceSlugUniqueViolation,
-  WorkspaceSlugAlreadyExistsError,
-} from '@/modules/workspace/errors';
 import { WorkspaceRepository } from '@/modules/workspace/repository';
-import { WorkspaceRow } from '@/modules/workspace/types';
+import { WorkspaceSlugService } from '@/modules/workspace/services';
 
 @Injectable()
 export class WorkspaceUseCase {
   constructor(
     private readonly repo: WorkspaceRepository,
     private readonly uow: UnitOfWork,
+    private readonly workspaceSlugService: WorkspaceSlugService,
   ) {}
 
   async createWorkspace(
@@ -23,31 +20,15 @@ export class WorkspaceUseCase {
     dto: CreateWorkspaceDto,
   ): Promise<WorkspaceResponseDto> {
     return this.uow.run(async (manager) => {
-      const existingWorkspace = await this.repo.findWorkspaceBySlug(
-        dto.slug,
-        manager,
-      );
-      if (existingWorkspace) {
-        throw new WorkspaceSlugAlreadyExistsError();
-      }
-
-      let workspace: WorkspaceRow;
-      try {
-        workspace = await this.repo.createWorkspace(
+      const workspace =
+        await this.workspaceSlugService.createWorkspaceWithGeneratedSlug(
           {
             ownerId: userId,
             name: dto.name,
-            slug: dto.slug,
             description: dto.description,
           },
           manager,
         );
-      } catch (error) {
-        if (isWorkspaceSlugUniqueViolation(error)) {
-          throw new WorkspaceSlugAlreadyExistsError();
-        }
-        throw error;
-      }
 
       await this.repo.createOwnerMembership(
         workspace.workspaceId,

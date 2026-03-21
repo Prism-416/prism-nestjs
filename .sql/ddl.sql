@@ -2,12 +2,12 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE TABLE IF NOT EXISTS prism_users_l
 (
-    user_id      UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
-    email        VARCHAR(320) NOT NULL,
-    full_name    VARCHAR(100) NOT NULL,
-    username VARCHAR(50)  NOT NULL,
-    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    updated_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    user_id    UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
+    email      VARCHAR(320) NOT NULL,
+    full_name  VARCHAR(100) NOT NULL,
+    username   VARCHAR(50)  NOT NULL,
+    created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (email)
 );
 
@@ -51,16 +51,16 @@ CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id
 
 CREATE TABLE IF NOT EXISTS prism_workspaces_l
 (
-    workspace_id   UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
-    owner_id  UUID         NOT NULL REFERENCES prism_users_l (user_id),
-    name           VARCHAR(100) NOT NULL,
-    slug           VARCHAR(60)  NOT NULL,
-    description    TEXT,
-    timezone       VARCHAR(50)  NOT NULL DEFAULT 'UTC',
-    locale         VARCHAR(20)  NOT NULL DEFAULT 'en-US',
-    status         VARCHAR(20)  NOT NULL DEFAULT 'active',
-    created_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    archived_at    TIMESTAMPTZ,
+    workspace_id UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    owner_id     UUID        NOT NULL REFERENCES prism_users_l (user_id),
+    name         VARCHAR(20) NOT NULL,
+    slug         VARCHAR(30) NOT NULL,
+    description  VARCHAR(1000),
+    timezone     VARCHAR(50) NOT NULL DEFAULT 'UTC',
+    locale       VARCHAR(20) NOT NULL DEFAULT 'en-US',
+    status       VARCHAR(20) NOT NULL DEFAULT 'active',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    archived_at  TIMESTAMPTZ,
     CONSTRAINT uq_workspaces_slug UNIQUE (slug),
     CHECK (status IN ('active', 'archived'))
 );
@@ -73,13 +73,13 @@ CREATE INDEX IF NOT EXISTS idx_workspaces_status
 
 CREATE TABLE IF NOT EXISTS prism_workspace_members_l
 (
-    workspace_id        UUID         NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
-    user_id             UUID         NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
-    role                VARCHAR(20)  NOT NULL,
-    joined_at           TIMESTAMPTZ,
-    invited_at          TIMESTAMPTZ,
-    created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    archived_at         TIMESTAMPTZ,
+    workspace_id UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
+    user_id      UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    role         VARCHAR(20) NOT NULL,
+    joined_at    TIMESTAMPTZ,
+    invited_at   TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    archived_at  TIMESTAMPTZ,
     PRIMARY KEY (workspace_id, user_id),
     CHECK (role IN ('admin', 'member', 'viewer'))
 );
