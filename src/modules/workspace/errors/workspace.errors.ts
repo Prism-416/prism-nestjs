@@ -1,0 +1,25 @@
+import { DuplicateError } from '@/common/errors';
+import { QueryFailedError } from 'typeorm';
+
+const WORKSPACE_SLUG_UNIQUE_CONSTRAINT = 'uq_workspaces_slug';
+
+export class WorkspaceSlugAlreadyExistsError extends DuplicateError {
+  constructor() {
+    super('Workspace slug already exists.', 'WORKSPACE_SLUG_ALREADY_EXISTS');
+  }
+}
+
+export function isWorkspaceSlugUniqueViolation(error: unknown): boolean {
+  if (!(error instanceof QueryFailedError)) {
+    return false;
+  }
+
+  const driverError = error.driverError as
+    | { code?: string; constraint?: string }
+    | undefined;
+
+  return (
+    driverError?.code === '23505' &&
+    driverError.constraint === WORKSPACE_SLUG_UNIQUE_CONSTRAINT
+  );
+}
