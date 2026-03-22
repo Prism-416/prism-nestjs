@@ -49,6 +49,19 @@ CREATE TABLE IF NOT EXISTS prism_refresh_tokens_l
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id
     ON prism_refresh_tokens_l (user_id);
 
+CREATE TABLE IF NOT EXISTS prism_email_tokens_l
+(
+    email_token_id   UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    auth_id          UUID        NOT NULL REFERENCES prism_user_auths_l (auth_id) ON DELETE CASCADE,
+    email_token_hash TEXT        NOT NULL,
+    expires_at       TIMESTAMPTZ,
+    used_at          TIMESTAMPTZ,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_email_tokens_auth_id
+    ON prism_email_tokens_l (auth_id);
+
 CREATE TABLE IF NOT EXISTS prism_workspaces_l
 (
     workspace_id UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
