@@ -1,0 +1,85 @@
+name: Deploy NestJS App to OCI (DEV)
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [development]
+    types: [closed]
+
+jobs:
+  deploy:
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+      || (github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
+
+    env:
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/prism-dev:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.ref != '' && github.event.inputs.ref || github.sha }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image to GHCR
+        run: |
+          echo "Building: $IMAGE_NAME"
+          docker build -t "$IMAGE_NAME" .
+          docker push "$IMAGE_NAME"
+
+      - name: Deploy to OCI (SSH + docker compose)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.OCI_HOST }}
+          username: ${{ secrets.OCI_SSH_USER }}
+          key: ${{ secrets.OCI_SSH_KEY }}
+          script: |
+            set -e
+            cd /opt/prism
+
+            echo "${{ secrets.GHCR_PAT }}" | docker login ghcr.io \
+              -u "${{ secrets.GHCR_USERNAME }}" --password-stdin
+
+            docker compose pull dev
+            docker compose up -d --no-deps dev
+            docker image prune -f
+
+      - name: Health Check
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          URL="${{ secrets.DEV_API_ENDPOINT }}/health"
+          MAX_RETRIES=30
+          SLEEP_SEC=5
+
+          echo "Checking health: $URL"
+          for i in $(seq 1 $MAX_RETRIES); do
+            STATUS=$(curl -sS -o /tmp/health_body.txt -w "%{http_code}" "$URL" || true)
+            if [ "$STATUS" = "200" ]; then
+              echo "Healthy (HTTP 200)"
+              exit 0
+            fi
+            echo "Attempt $i/$MAX_RETRIES: got HTTP $STATUS"
+            echo "Body:"
+            head -c 500 /tmp/health_body.txt || true
+            echo ""
+            sleep $SLEEP_SEC
+          done
+          echo "Health check failed after $MAX_RETRIES tries"
+          exit 1
