@@ -18,7 +18,7 @@ jobs:
       packages: write
 
     env:
-      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/prism-dev:latest
+      IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/prism-nestjs:dev
 
     steps:
       - name: Checkout code
