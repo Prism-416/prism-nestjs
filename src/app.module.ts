@@ -18,16 +18,19 @@ const dbEnabled = (process.env.DB_ENABLED ?? 'false').toLowerCase() === 'true';
 type FeatureRegistration = {
   module: Type<unknown>;
   path?: string;
+  requiresDb?: boolean;
 };
 
 const featureRegistrations: FeatureRegistration[] = [
   {
     module: AuthModule,
     path: 'auth',
+    requiresDb: true,
   },
   {
     module: WorkspaceModule,
     path: 'workspaces',
+    requiresDb: true,
   },
 ];
 
@@ -51,10 +54,13 @@ const buildCoreImports = () => [
 ];
 
 const buildFeatureImports = (registrations: FeatureRegistration[]) =>
-  registrations.map((registration) => registration.module);
+  registrations
+    .filter((registration) => dbEnabled || !registration.requiresDb)
+    .map((registration) => registration.module);
 
 const buildFeatureRoutes = (registrations: FeatureRegistration[]) =>
   registrations
+    .filter((registration) => dbEnabled || !registration.requiresDb)
     .filter((registration) => registration.path)
     .map((registration) => ({
       path: registration.path as string,
