@@ -13,6 +13,21 @@ export class InvalidCredentialsError extends UnauthorizedDomainError {
   }
 }
 
+export class EmailNotVerifiedError extends UnauthorizedDomainError {
+  constructor() {
+    super('Email is not verified.', 'EMAIL_NOT_VERIFIED');
+  }
+}
+
+export class InvalidEmailVerificationTokenError extends UnauthorizedDomainError {
+  constructor() {
+    super(
+      'Invalid or expired email verification token.',
+      'INVALID_EMAIL_VERIFICATION_TOKEN',
+    );
+  }
+}
+
 export class InvalidRefreshTokenError extends UnauthorizedDomainError {
   constructor() {
     super('Invalid refresh token.', 'INVALID_REFRESH_TOKEN');

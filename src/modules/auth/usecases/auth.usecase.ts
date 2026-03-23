@@ -1,20 +1,27 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { randomInt } from 'node:crypto';
+import { createHash, randomInt, randomUUID } from 'node:crypto';
 import { JwtTokenService } from '@/common/auth';
 import { UnitOfWork } from '@/common/database';
+import { OciEmailDeliveryService } from '@/common/email';
 import { PasswordService } from '@/common/security';
 import {
   AuthTokenPairResponseDto,
+  RequestEmailVerificationDto,
+  RequestEmailVerificationResponseDto,
+  SignInWithEmailDto,
   SignInWithGithubDto,
   SignInWithGoogleDto,
-  SignInWithEmailDto,
   SignUpWithEmailDto,
+  VerifyEmailDto,
+  VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
 import {
   EmailAlreadyExistsError,
+  EmailNotVerifiedError,
+  InvalidCredentialsError,
+  InvalidEmailVerificationTokenError,
   InvalidGithubAuthorizationCodeError,
   InvalidGoogleIdTokenError,
-  InvalidCredentialsError,
   InvalidRefreshTokenError,
   UnverifiedGithubEmailError,
   UnverifiedGoogleEmailError,
@@ -30,11 +37,16 @@ import { buildUsernameSeeds } from '@/modules/auth/utils';
 
 @Injectable()
 export class AuthUseCase {
+  private static readonly EMAIL_VERIFICATION_TOKEN_TTL_MINUTES = 10;
+  private readonly verificationPageUrl =
+    process.env.EMAIL_VERIFICATION_PAGE_URL ?? '';
+
   constructor(
     private readonly repo: AuthRepository,
     private readonly uow: UnitOfWork,
     private readonly jwtService: JwtTokenService,
     private readonly pwdService: PasswordService,
+    private readonly emailDelivery: OciEmailDeliveryService,
     private readonly google: GoogleTokenVerifierService,
     private readonly github: GithubTokenVerifierService,
   ) {}
@@ -57,12 +69,13 @@ export class AuthUseCase {
         manager,
       );
 
-      await this.repo.createEmailAuth(
+      const auth = await this.repo.createEmailAuth(
         user.userId,
         dto.email,
         passwordHash,
         manager,
       );
+      await this.issueEmailVerification(dto.email, auth.authId, manager);
 
       return user;
     });
@@ -74,6 +87,9 @@ export class AuthUseCase {
     const user = await this.repo.findUserByEmailForSignIn(dto);
     if (!user || !(await this.pwdService.verify(dto.password, user.password))) {
       throw new InvalidCredentialsError();
+    }
+    if (!user.isVerified) {
+      throw new EmailNotVerifiedError();
     }
 
     return this.uow.run(async (manager) => {
@@ -246,6 +262,43 @@ export class AuthUseCase {
     });
   }
 
+  async requestEmailVerification(
+    dto: RequestEmailVerificationDto,
+  ): Promise<RequestEmailVerificationResponseDto> {
+    await this.uow.run(async (manager) => {
+      const auth = await this.repo.findEmailAuthByEmail(dto.email, manager);
+      if (!auth) {
+        return;
+      }
+
+      await this.issueEmailVerification(dto.email, auth.authId, manager);
+    });
+
+    return { requested: true };
+  }
+
+  async verifyEmail(dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
+    return this.uow.run(async (manager) => {
+      const tokenHash = this.hashVerificationToken(dto.token);
+      const token = await this.repo.findValidEmailVerificationTokenByHash(
+        tokenHash,
+        new Date(),
+        manager,
+      );
+      if (!token) {
+        throw new InvalidEmailVerificationTokenError();
+      }
+
+      await this.repo.markEmailVerificationTokenAsUsed(
+        token.emailTokenId,
+        manager,
+      );
+      await this.repo.deleteUnusedEmailTokensByAuthId(token.authId, manager);
+
+      return { verified: true };
+    });
+  }
+
   private async issueTokenPair(
     userId: string,
     email: string,
@@ -297,5 +350,47 @@ export class AuthUseCase {
     }
 
     return `user${Date.now().toString().slice(-8)}`.slice(0, 30);
+  }
+
+  private async issueEmailVerification(
+    email: string,
+    authId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const token = randomUUID();
+    const tokenHash = this.hashVerificationToken(token);
+    const expiresAt = new Date(
+      Date.now() + AuthUseCase.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES * 60 * 1000,
+    );
+
+    await this.repo.deleteUnusedEmailTokensByAuthId(authId, manager);
+    await this.repo.createEmailVerificationToken(
+      authId,
+      tokenHash,
+      expiresAt,
+      manager,
+    );
+
+    const verificationLink = this.buildVerificationLink(token);
+    await this.emailDelivery.sendEmail({
+      to: [{ email }],
+      subject: 'Verify your email',
+      bodyText: verificationLink
+        ? `Verify your email by opening this link: ${verificationLink}\n\nThis link expires in ${AuthUseCase.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES} minutes.`
+        : `Your email verification token is ${token}\n\nSend this token to the verification endpoint. It expires in ${AuthUseCase.EMAIL_VERIFICATION_TOKEN_TTL_MINUTES} minutes.`,
+    });
+  }
+
+  private hashVerificationToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
+  private buildVerificationLink(token: string): string {
+    if (!this.verificationPageUrl) {
+      return '';
+    }
+
+    const separator = this.verificationPageUrl.includes('?') ? '&' : '?';
+    return `${this.verificationPageUrl}${separator}token=${encodeURIComponent(token)}`;
   }
 }

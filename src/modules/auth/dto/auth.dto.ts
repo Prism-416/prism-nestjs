@@ -3,6 +3,7 @@ import {
   IsEmail,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -44,6 +45,26 @@ export class SignInWithEmailDto {
 
   @IsString()
   password!: string;
+}
+
+export class RequestEmailVerificationDto {
+  @IsEmail()
+  email!: string;
+}
+
+export class VerifyEmailDto {
+  @IsUUID()
+  token!: string;
+}
+
+export class RequestEmailVerificationResponseDto {
+  @ApiProperty()
+  requested: boolean;
+}
+
+export class VerifyEmailResponseDto {
+  @ApiProperty()
+  verified: boolean;
 }
 
 export class SignInWithGoogleDto {

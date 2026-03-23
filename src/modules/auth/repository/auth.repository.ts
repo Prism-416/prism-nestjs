@@ -5,6 +5,7 @@ import { SignInWithEmailDto, SignUpWithEmailDto } from '@/modules/auth/dto';
 import {
   AuthProvider,
   CreatedUserRow,
+  EmailVerificationTokenRow,
   RefreshTokenRow,
   UserCredentialRow,
   UserProfileRow,
@@ -61,8 +62,8 @@ export class AuthRepository {
     email: string,
     passwordHash: string,
     manager?: EntityManager,
-  ): Promise<void> {
-    await this.getManager(manager).query(
+  ): Promise<{ authId: string }> {
+    const auths = await this.getManager(manager).query<{ authId: string }[]>(
       `
         INSERT INTO prism_user_auths_l (
           user_id,
@@ -72,9 +73,12 @@ export class AuthRepository {
           password_hash
         )
         VALUES ($1, 'email', $2, $2, $3)
+        RETURNING auth_id AS "authId"
       `,
       [userId, email, passwordHash],
     );
+
+    return auths[0];
   }
 
   async createOAuthAuth(
@@ -180,11 +184,18 @@ export class AuthRepository {
     const users = await this.dataSource.query<UserCredentialRow[]>(
       `
         SELECT
+          ua.auth_id AS "authId",
           u.user_id AS "userId",
           u.email,
           ua.password_hash AS "password",
           u.full_name AS "fullName",
-          u.username
+          u.username,
+          EXISTS (
+            SELECT 1
+            FROM prism_email_tokens_l et
+            WHERE et.auth_id = ua.auth_id
+              AND et.used_at IS NOT NULL
+          ) AS "emailVerified"
         FROM prism_user_auths_l ua
         INNER JOIN prism_users_l u ON u.user_id = ua.user_id
         WHERE ua.provider = 'email'
@@ -195,6 +206,100 @@ export class AuthRepository {
     );
 
     return users[0] ?? null;
+  }
+
+  async findEmailAuthByEmail(
+    email: string,
+    manager?: EntityManager,
+  ): Promise<{ authId: string } | null> {
+    const auths = await this.getManager(manager).query<{ authId: string }[]>(
+      `
+        SELECT auth_id AS "authId"
+        FROM prism_user_auths_l
+        WHERE provider = 'email'
+          AND email = $1
+        LIMIT 1
+      `,
+      [email],
+    );
+
+    return auths[0] ?? null;
+  }
+
+  async deleteUnusedEmailTokensByAuthId(
+    authId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        DELETE FROM prism_email_tokens_l
+        WHERE auth_id = $1
+          AND used_at IS NULL
+      `,
+      [authId],
+    );
+  }
+
+  async createEmailVerificationToken(
+    authId: string,
+    emailTokenHash: string,
+    expiresAt: Date,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        INSERT INTO prism_email_tokens_l (
+          auth_id,
+          email_token_hash,
+          expires_at
+        )
+        VALUES ($1, $2, $3)
+      `,
+      [authId, emailTokenHash, expiresAt],
+    );
+  }
+
+  async findValidEmailVerificationTokenByHash(
+    emailTokenHash: string,
+    now: Date,
+    manager?: EntityManager,
+  ): Promise<EmailVerificationTokenRow | null> {
+    const tokens = await this.getManager(manager).query<
+      EmailVerificationTokenRow[]
+    >(
+      `
+        SELECT
+          email_token_id AS "emailTokenId",
+          auth_id AS "authId",
+          email_token_hash AS "emailTokenHash",
+          expires_at AS "expiresAt",
+          used_at AS "usedAt"
+        FROM prism_email_tokens_l
+        WHERE email_token_hash = $1
+          AND used_at IS NULL
+          AND (expires_at IS NULL OR expires_at > $2)
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [emailTokenHash, now],
+    );
+
+    return tokens[0] ?? null;
+  }
+
+  async markEmailVerificationTokenAsUsed(
+    emailTokenId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        UPDATE prism_email_tokens_l
+        SET used_at = NOW()
+        WHERE email_token_id = $1
+          AND used_at IS NULL
+      `,
+      [emailTokenId],
+    );
   }
 
   async findUserByProvider(
