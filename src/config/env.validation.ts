@@ -15,6 +15,19 @@ export const envValidationSchema = Joi.object({
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
   GITHUB_CLIENT_ID: Joi.string().allow('').default(''),
   GITHUB_CLIENT_SECRET: Joi.string().allow('').default(''),
+  EMAIL_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  EMAIL_SENDER_EMAIL: Joi.string().allow('').default(''),
+  EMAIL_SENDER_NAME: Joi.string().allow('').default(''),
+  EMAIL_VERIFICATION_PAGE_URL: Joi.string().allow('').default(''),
+  OCI_AUTH_MODE: Joi.string()
+    .valid('api_key', 'instance_principal', 'resource_principal')
+    .default('api_key'),
+  OCI_COMPARTMENT_ID: Joi.string().allow('').default(''),
+  OCI_REGION: Joi.string().allow('').default(''),
+  OCI_TENANCY_OCID: Joi.string().allow('').default(''),
+  OCI_USER_OCID: Joi.string().allow('').default(''),
+  OCI_FINGERPRINT: Joi.string().allow('').default(''),
+  OCI_PRIVATE_KEY: Joi.string().allow('').default(''),
   CORS_ORIGIN: Joi.string().allow('').default(''),
   DB_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   PG_HOST: Joi.when('DB_ENABLED', {

@@ -18,11 +18,15 @@ import { ApiDataResponse } from '@/common/response';
 import { AuthUseCase } from '@/modules/auth/usecases';
 import {
   AuthTokenResponseDto,
+  RequestEmailVerificationDto,
+  RequestEmailVerificationResponseDto,
   SignInWithGithubDto,
   SignInWithGoogleDto,
   SignInWithEmailDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
+  VerifyEmailDto,
+  VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
 
 @ApiTags('Authentication')
@@ -45,6 +49,22 @@ export class AuthController {
   @UseInterceptors(AuthTokenCookieInterceptor)
   async signIn(@Body() dto: SignInWithEmailDto) {
     return await this.usecase.signInWithEmail(dto);
+  }
+
+  @Post('email-verification')
+  @ApiOperation({ summary: 'Request Email Verification' })
+  @ApiDataResponse(RequestEmailVerificationResponseDto, {
+    status: HttpStatus.CREATED,
+  })
+  async requestEmailVerification(@Body() dto: RequestEmailVerificationDto) {
+    return await this.usecase.requestEmailVerification(dto);
+  }
+
+  @Post('email-verification/verify')
+  @ApiOperation({ summary: 'Verify Email with Token' })
+  @ApiDataResponse(VerifyEmailResponseDto, { status: HttpStatus.CREATED })
+  async verifyEmail(@Body() dto: VerifyEmailDto) {
+    return await this.usecase.verifyEmail(dto);
   }
 
   @Post('google-sign-in')
