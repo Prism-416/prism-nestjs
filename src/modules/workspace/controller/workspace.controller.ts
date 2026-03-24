@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpStatus, Param, Post } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/common/auth';
 import { ApiDataResponse } from '@/common/response';
@@ -22,6 +22,16 @@ export class WorkspaceController {
     @CurrentUser() user: JwtPayload,
   ): Promise<WorkspaceResponseDto[]> {
     return this.usecase.getWorkspaces(String(user.sub));
+  }
+
+  @Get(':workspaceId')
+  @ApiOperation({ summary: 'Retrieve a workspace the user belongs to' })
+  @ApiDataResponse(WorkspaceResponseDto)
+  async getWorkspace(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+  ): Promise<WorkspaceResponseDto> {
+    return this.usecase.getWorkspace(String(user.sub), workspaceId);
   }
 
   @Post()
