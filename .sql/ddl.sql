@@ -92,8 +92,6 @@ CREATE TABLE IF NOT EXISTS prism_workspace_members_l
     role         VARCHAR(20) NOT NULL,
     joined_at    TIMESTAMPTZ,
     invited_at   TIMESTAMPTZ,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    archived_at  TIMESTAMPTZ,
     PRIMARY KEY (workspace_id, user_id),
     CHECK (role IN ('admin', 'member', 'viewer'))
 );

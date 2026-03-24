@@ -21,6 +21,10 @@ export class WorkspaceUseCase {
     private readonly uow: UnitOfWork,
   ) {}
 
+  async getWorkspaces(userId: string): Promise<WorkspaceResponseDto[]> {
+    return this.repo.findWorkspacesByMemberUserId(userId);
+  }
+
   async createWorkspace(
     userId: string,
     dto: CreateWorkspaceDto,
