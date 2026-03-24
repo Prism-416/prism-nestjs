@@ -21,7 +21,6 @@ export class WorkspaceRepository {
         INNER JOIN prism_workspace_members_l wm
           ON wm.workspace_id = w.workspace_id
         WHERE wm.user_id = $1
-          AND wm.archived_at IS NULL
           AND w.archived_at IS NULL
           AND w.status = 'active'
         ORDER BY w.created_at DESC
