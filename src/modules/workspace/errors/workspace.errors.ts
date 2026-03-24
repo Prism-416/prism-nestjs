@@ -1,4 +1,4 @@
-import { DuplicateError } from '@/common/errors';
+import { DuplicateError, NotExistsError } from '@/common/errors';
 import { QueryFailedError } from 'typeorm';
 
 const WORKSPACE_SLUG_UNIQUE_CONSTRAINT = 'uq_workspaces_slug';
@@ -6,6 +6,12 @@ const WORKSPACE_SLUG_UNIQUE_CONSTRAINT = 'uq_workspaces_slug';
 export class WorkspaceSlugAlreadyExistsError extends DuplicateError {
   constructor() {
     super('Workspace slug already exists.', 'WORKSPACE_SLUG_ALREADY_EXISTS');
+  }
+}
+
+export class WorkspaceNotFoundError extends NotExistsError {
+  constructor() {
+    super('Workspace not found.', 'WORKSPACE_NOT_FOUND');
   }
 }
 

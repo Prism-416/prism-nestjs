@@ -8,6 +8,7 @@ import {
 import { MAX_WORKSPACE_SLUG_GENERATION_ATTEMPTS } from '@/modules/workspace/constants';
 import {
   isWorkspaceSlugUniqueViolation,
+  WorkspaceNotFoundError,
   WorkspaceSlugAlreadyExistsError,
 } from '@/modules/workspace/errors';
 import { WorkspaceRepository } from '@/modules/workspace/repository';
@@ -23,6 +24,20 @@ export class WorkspaceUseCase {
 
   async getWorkspaces(userId: string): Promise<WorkspaceResponseDto[]> {
     return this.repo.findWorkspacesByMemberUserId(userId);
+  }
+
+  async getWorkspace(
+    userId: string,
+    workspaceId: string,
+  ): Promise<WorkspaceResponseDto> {
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+    return workspace;
   }
 
   async createWorkspace(
