@@ -3,7 +3,7 @@ name: Deploy NestJS App to OCI (DEV)
 on:
   workflow_dispatch:
   pull_request:
-    branches: [development]
+    branches: [develop]
     types: [closed]
 
 jobs:
