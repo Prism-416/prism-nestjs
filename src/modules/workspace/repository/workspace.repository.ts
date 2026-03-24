@@ -7,6 +7,29 @@ import { WorkspaceRow } from '@/modules/workspace/types';
 export class WorkspaceRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
+  async findWorkspacesByMemberUserId(userId: string): Promise<WorkspaceRow[]> {
+    return this.dataSource.query<WorkspaceRow[]>(
+      `
+        SELECT
+          w.workspace_id AS "workspaceId",
+          w.name,
+          w.slug,
+          w.description,
+          w.owner_id AS "ownerId",
+          w.created_at AS "createdAt"
+        FROM prism_workspaces_l w
+        INNER JOIN prism_workspace_members_l wm
+          ON wm.workspace_id = w.workspace_id
+        WHERE wm.user_id = $1
+          AND wm.archived_at IS NULL
+          AND w.archived_at IS NULL
+          AND w.status = 'active'
+        ORDER BY w.created_at DESC
+      `,
+      [userId],
+    );
+  }
+
   async createWorkspace(
     params: {
       name: string;
