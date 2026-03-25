@@ -1,10 +1,19 @@
-import { Body, Controller, Get, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/common/auth';
 import { ApiDataResponse } from '@/common/response';
 import type { JwtPayload } from '@/common/auth/jwt-token.service';
 import {
   CreateWorkspaceDto,
+  UpdateWorkspaceDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
 import { WorkspaceUseCase } from '@/modules/workspace/usecases';
@@ -32,6 +41,17 @@ export class WorkspaceController {
     @Param('workspaceId') workspaceId: string,
   ): Promise<WorkspaceResponseDto> {
     return this.usecase.getWorkspace(String(user.sub), workspaceId);
+  }
+
+  @Patch(':workspaceId')
+  @ApiOperation({ summary: 'Update a workspace the user administers' })
+  @ApiDataResponse(WorkspaceResponseDto)
+  async updateWorkspace(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: UpdateWorkspaceDto,
+  ): Promise<WorkspaceResponseDto> {
+    return this.usecase.updateWorkspace(String(user.sub), workspaceId, dto);
   }
 
   @Post()

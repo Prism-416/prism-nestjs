@@ -27,6 +27,22 @@ export class CreateWorkspaceDto {
   description?: string;
 }
 
+export class UpdateWorkspaceDto {
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(20)
+  name?: string;
+
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+}
+
 export class WorkspaceResponseDto {
   @ApiProperty()
   workspaceId!: string;
