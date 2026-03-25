@@ -7,6 +7,35 @@ import { WorkspaceRow } from '@/modules/workspace/types';
 export class WorkspaceRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
+  async findWorkspaceByIdAndAdminUserId(
+    workspaceId: string,
+    userId: string,
+  ): Promise<WorkspaceRow | null> {
+    const workspaces = await this.dataSource.query<WorkspaceRow[]>(
+      `
+        SELECT
+          w.workspace_id AS "workspaceId",
+          w.name,
+          w.slug,
+          w.description,
+          w.owner_id AS "ownerId",
+          w.created_at AS "createdAt"
+        FROM prism_workspaces_l w
+        INNER JOIN prism_workspace_members_l wm
+          ON wm.workspace_id = w.workspace_id
+        WHERE w.workspace_id = $1
+          AND wm.user_id = $2
+          AND wm.role = 'admin'
+          AND w.archived_at IS NULL
+          AND w.status = 'active'
+        LIMIT 1
+      `,
+      [workspaceId, userId],
+    );
+
+    return workspaces[0] ?? null;
+  }
+
   async findWorkspaceByIdAndMemberUserId(
     workspaceId: string,
     userId: string,
@@ -96,6 +125,34 @@ export class WorkspaceRepository {
       `,
       [workspaceId, userId],
     );
+  }
+
+  async updateWorkspace(
+    params: {
+      workspaceId: string;
+      name: string;
+      description: string | null;
+    },
+    manager?: EntityManager,
+  ): Promise<WorkspaceRow> {
+    const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
+      `
+        UPDATE prism_workspaces_l
+        SET name = $2,
+            description = $3
+        WHERE workspace_id = $1
+        RETURNING
+          workspace_id AS "workspaceId",
+          name,
+          slug,
+          description,
+          owner_id AS "ownerId",
+          created_at AS "createdAt"
+      `,
+      [params.workspaceId, params.name, params.description],
+    );
+
+    return workspaces[0];
   }
 
   private getManager(manager?: EntityManager): DataSource | EntityManager {

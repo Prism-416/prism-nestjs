@@ -3,6 +3,7 @@ import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/common/database';
 import {
   CreateWorkspaceDto,
+  UpdateWorkspaceDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
 import { MAX_WORKSPACE_SLUG_GENERATION_ATTEMPTS } from '@/modules/workspace/constants';
@@ -60,6 +61,26 @@ export class WorkspaceUseCase {
         manager,
       );
       return workspace;
+    });
+  }
+
+  async updateWorkspace(
+    userId: string,
+    workspaceId: string,
+    dto: UpdateWorkspaceDto,
+  ): Promise<WorkspaceResponseDto> {
+    const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.repo.updateWorkspace({
+      workspaceId,
+      name: dto.name ?? workspace.name,
+      description: dto.description ?? workspace.description,
     });
   }
 
