@@ -6,3 +6,12 @@ export type WorkspaceRow = {
   ownerId: string;
   createdAt: Date;
 };
+
+export type WorkspaceMemberRow = {
+  userId: string;
+  fullName: string;
+  username: string;
+  role: 'admin' | 'member' | 'viewer';
+  joinedAt: Date | null;
+  invitedAt: Date | null;
+};

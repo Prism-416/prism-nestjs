@@ -4,6 +4,7 @@ import { UnitOfWork } from '@/common/database';
 import {
   CreateWorkspaceDto,
   UpdateWorkspaceDto,
+  WorkspaceMemberResponseDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
 import { MAX_WORKSPACE_SLUG_GENERATION_ATTEMPTS } from '@/modules/workspace/constants';
@@ -39,6 +40,21 @@ export class WorkspaceUseCase {
       throw new WorkspaceNotFoundError();
     }
     return workspace;
+  }
+
+  async getWorkspaceMembers(
+    userId: string,
+    workspaceId: string,
+  ): Promise<WorkspaceMemberResponseDto[]> {
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.repo.findWorkspaceMembersByWorkspaceId(workspaceId);
   }
 
   async createWorkspace(

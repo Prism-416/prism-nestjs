@@ -62,3 +62,23 @@ export class WorkspaceResponseDto {
   @ApiProperty()
   createdAt!: Date;
 }
+
+export class WorkspaceMemberResponseDto {
+  @ApiProperty()
+  userId!: string;
+
+  @ApiProperty()
+  fullName!: string;
+
+  @ApiProperty()
+  username!: string;
+
+  @ApiProperty({ enum: ['admin', 'member', 'viewer'] })
+  role!: 'admin' | 'member' | 'viewer';
+
+  @ApiProperty({ nullable: true })
+  joinedAt!: Date | null;
+
+  @ApiProperty({ nullable: true })
+  invitedAt!: Date | null;
+}
