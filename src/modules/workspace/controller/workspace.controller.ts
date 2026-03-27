@@ -14,6 +14,7 @@ import type { JwtPayload } from '@/common/auth/jwt-token.service';
 import {
   CreateWorkspaceDto,
   UpdateWorkspaceDto,
+  WorkspaceMemberResponseDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
 import { WorkspaceUseCase } from '@/modules/workspace/usecases';
@@ -41,6 +42,18 @@ export class WorkspaceController {
     @Param('workspaceId') workspaceId: string,
   ): Promise<WorkspaceResponseDto> {
     return this.usecase.getWorkspace(String(user.sub), workspaceId);
+  }
+
+  @Get(':workspaceId/members')
+  @ApiOperation({
+    summary: 'Retrieve members of a workspace the user belongs to',
+  })
+  @ApiDataResponse(WorkspaceMemberResponseDto, { isArray: true })
+  async getWorkspaceMembers(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+  ): Promise<WorkspaceMemberResponseDto[]> {
+    return this.usecase.getWorkspaceMembers(String(user.sub), workspaceId);
   }
 
   @Patch(':workspaceId')
