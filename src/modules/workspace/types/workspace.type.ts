@@ -15,3 +15,8 @@ export type WorkspaceMemberRow = {
   joinedAt: Date | null;
   invitedAt: Date | null;
 };
+
+export type InsertedWorkspaceMemberRow = Pick<
+  WorkspaceMemberRow,
+  'userId' | 'role' | 'joinedAt' | 'invitedAt'
+>;

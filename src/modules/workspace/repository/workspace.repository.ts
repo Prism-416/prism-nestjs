@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
-import { WorkspaceMemberRow, WorkspaceRow } from '@/modules/workspace/types';
+import {
+  InsertedWorkspaceMemberRow,
+  WorkspaceMemberRow,
+  WorkspaceRow,
+} from '@/modules/workspace/types';
 
 @Injectable()
 export class WorkspaceRepository {
@@ -114,6 +118,31 @@ export class WorkspaceRepository {
     );
   }
 
+  async findUserById(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<Pick<
+    WorkspaceMemberRow,
+    'userId' | 'fullName' | 'username'
+  > | null> {
+    const users = await this.getManager(manager).query<
+      Pick<WorkspaceMemberRow, 'userId' | 'fullName' | 'username'>[]
+    >(
+      `
+        SELECT
+          user_id AS "userId",
+          full_name AS "fullName",
+          username
+        FROM prism_users_l
+        WHERE user_id = $1
+        LIMIT 1
+      `,
+      [userId],
+    );
+
+    return users[0] ?? null;
+  }
+
   async createWorkspace(
     params: {
       name: string;
@@ -153,6 +182,57 @@ export class WorkspaceRepository {
       `,
       [workspaceId, userId],
     );
+  }
+
+  async addWorkspaceMember(
+    params: {
+      workspaceId: string;
+      userId: string;
+      role: WorkspaceMemberRow['role'];
+    },
+    manager?: EntityManager,
+  ): Promise<WorkspaceMemberRow> {
+    const members = await this.getManager(manager).query<
+      InsertedWorkspaceMemberRow[]
+    >(
+      `
+        INSERT INTO prism_workspace_members_l (
+          workspace_id,
+          user_id,
+          role,
+          joined_at
+        )
+        SELECT
+          $1,
+          u.user_id,
+          $3,
+          NOW()
+        FROM prism_users_l u
+        WHERE u.user_id = $2
+        RETURNING
+          user_id AS "userId",
+          role,
+          joined_at AS "joinedAt",
+          invited_at AS "invitedAt"
+      `,
+      [params.workspaceId, params.userId, params.role],
+    );
+
+    const member = members[0];
+    if (!member) {
+      throw new Error('Workspace member insert returned no rows.');
+    }
+
+    const user = await this.findUserById(params.userId, manager);
+    if (!user) {
+      throw new Error('Workspace member user disappeared during insert.');
+    }
+
+    return {
+      ...member,
+      fullName: user.fullName,
+      username: user.username,
+    };
   }
 
   async updateWorkspace(

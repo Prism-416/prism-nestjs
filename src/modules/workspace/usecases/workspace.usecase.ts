@@ -3,13 +3,17 @@ import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/common/database';
 import {
   CreateWorkspaceDto,
+  CreateWorkspaceMemberDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
 import { MAX_WORKSPACE_SLUG_GENERATION_ATTEMPTS } from '@/modules/workspace/constants';
 import {
+  isWorkspaceMemberDuplicateViolation,
   isWorkspaceSlugUniqueViolation,
+  WorkspaceMemberAlreadyExistsError,
+  WorkspaceMemberUserNotFoundError,
   WorkspaceNotFoundError,
   WorkspaceSlugAlreadyExistsError,
 } from '@/modules/workspace/errors';
@@ -55,6 +59,43 @@ export class WorkspaceUseCase {
     }
 
     return this.repo.findWorkspaceMembersByWorkspaceId(workspaceId);
+  }
+
+  async addWorkspaceMember(
+    userId: string,
+    workspaceId: string,
+    dto: CreateWorkspaceMemberDto,
+  ): Promise<WorkspaceMemberResponseDto> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+        workspaceId,
+        userId,
+      );
+      if (!workspace) {
+        throw new WorkspaceNotFoundError();
+      }
+
+      const memberUser = await this.repo.findUserById(dto.userId, manager);
+      if (!memberUser) {
+        throw new WorkspaceMemberUserNotFoundError();
+      }
+
+      try {
+        return await this.repo.addWorkspaceMember(
+          {
+            workspaceId,
+            userId: dto.userId,
+            role: dto.role,
+          },
+          manager,
+        );
+      } catch (error) {
+        if (isWorkspaceMemberDuplicateViolation(error)) {
+          throw new WorkspaceMemberAlreadyExistsError();
+        }
+        throw error;
+      }
+    });
   }
 
   async createWorkspace(
