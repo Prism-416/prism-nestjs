@@ -104,3 +104,25 @@ CREATE INDEX IF NOT EXISTS idx_workspace_members_user_id
 
 CREATE INDEX IF NOT EXISTS idx_workspace_members_role
     ON prism_workspace_members_l (role);
+
+CREATE TABLE IF NOT EXISTS prism_workspace_invitations_l
+(
+    invitation_id         UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    workspace_id          UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
+    sender_user_id        UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    receiver_user_id      UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    role                  VARCHAR(20) NOT NULL,
+    invitation_token_hash TEXT        NOT NULL,
+    expires_at            TIMESTAMPTZ NOT NULL,
+    accepted_at           TIMESTAMPTZ,
+    denied_at             TIMESTAMPTZ,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (invitation_token_hash),
+    CHECK (role IN ('admin', 'member', 'viewer'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_workspace_invitations_workspace_id
+    ON prism_workspace_invitations_l (workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_workspace_invitations_receiver_user_id
+    ON prism_workspace_invitations_l (receiver_user_id);
