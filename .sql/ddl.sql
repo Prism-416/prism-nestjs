@@ -125,4 +125,4 @@ CREATE INDEX IF NOT EXISTS idx_workspace_invitations_workspace_id
     ON prism_workspace_invitations_l (workspace_id);
 
 CREATE INDEX IF NOT EXISTS idx_workspace_invitations_receiver_user_id
-    ON prism_workspace_invitations_l (receiver_user_id);
+    ON prism_workspace_invitations_l (receiver_id);
