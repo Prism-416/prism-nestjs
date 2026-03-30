@@ -13,8 +13,10 @@ import { ApiDataResponse } from '@/common/response';
 import type { JwtPayload } from '@/common/auth/jwt-token.service';
 import {
   CreateWorkspaceDto,
+  CreateWorkspaceInvitationDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
+  WorkspaceInvitationResponseDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
 import { WorkspaceUseCase } from '@/modules/workspace/usecases';
@@ -54,6 +56,25 @@ export class WorkspaceController {
     @Param('workspaceId') workspaceId: string,
   ): Promise<WorkspaceMemberResponseDto[]> {
     return this.usecase.getWorkspaceMembers(String(user.sub), workspaceId);
+  }
+
+  @Post(':workspaceId/invitations')
+  @ApiOperation({
+    summary: 'Create a workspace invitation for a user',
+  })
+  @ApiDataResponse(WorkspaceInvitationResponseDto, {
+    status: HttpStatus.CREATED,
+  })
+  async createWorkspaceInvitation(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: CreateWorkspaceInvitationDto,
+  ): Promise<WorkspaceInvitationResponseDto> {
+    return this.usecase.createWorkspaceInvitation(
+      String(user.sub),
+      workspaceId,
+      dto,
+    );
   }
 
   @Patch(':workspaceId')

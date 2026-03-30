@@ -1,7 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
-import { WorkspaceMemberRow, WorkspaceRow } from '@/modules/workspace/types';
+import {
+  WorkspaceInvitationEventRow,
+  WorkspaceInvitationEventType,
+  WorkspaceInvitationRow,
+  WorkspaceMemberRow,
+  WorkspaceRow,
+  WorkspaceUserRow,
+} from '@/modules/workspace/types';
 
 @Injectable()
 export class WorkspaceRepository {
@@ -21,8 +28,8 @@ export class WorkspaceRepository {
           w.owner_id AS "ownerId",
           w.created_at AS "createdAt"
         FROM prism_workspaces_l w
-        INNER JOIN prism_workspace_members_l wm
-          ON wm.workspace_id = w.workspace_id
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = w.workspace_id
         WHERE w.workspace_id = $1
           AND wm.user_id = $2
           AND wm.role = 'admin'
@@ -50,8 +57,8 @@ export class WorkspaceRepository {
           w.owner_id AS "ownerId",
           w.created_at AS "createdAt"
         FROM prism_workspaces_l w
-        INNER JOIN prism_workspace_members_l wm
-          ON wm.workspace_id = w.workspace_id
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = w.workspace_id
         WHERE w.workspace_id = $1
           AND wm.user_id = $2
           AND w.archived_at IS NULL
@@ -75,8 +82,8 @@ export class WorkspaceRepository {
           w.owner_id AS "ownerId",
           w.created_at AS "createdAt"
         FROM prism_workspaces_l w
-        INNER JOIN prism_workspace_members_l wm
-          ON wm.workspace_id = w.workspace_id
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = w.workspace_id
         WHERE wm.user_id = $1
           AND w.archived_at IS NULL
           AND w.status = 'active'
@@ -99,19 +106,95 @@ export class WorkspaceRepository {
           wm.joined_at AS "joinedAt",
           wm.invited_at AS "invitedAt"
         FROM prism_workspace_members_l wm
-        INNER JOIN prism_users_l u
-          ON u.user_id = wm.user_id
+               INNER JOIN prism_users_l u
+                          ON u.user_id = wm.user_id
         WHERE wm.workspace_id = $1
         ORDER BY
           CASE wm.role
             WHEN 'admin' THEN 0
             WHEN 'member' THEN 1
             ELSE 2
-          END,
+            END,
           u.username ASC
       `,
       [workspaceId],
     );
+  }
+
+  async findWorkspaceMember(
+    workspaceId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceMemberRow | null> {
+    const members = await this.getManager(manager).query<WorkspaceMemberRow[]>(
+      `
+        SELECT
+          u.user_id AS "userId",
+          u.full_name AS "fullName",
+          u.username,
+          wm.role,
+          wm.joined_at AS "joinedAt",
+          wm.invited_at AS "invitedAt"
+        FROM prism_workspace_members_l wm
+               INNER JOIN prism_users_l u
+                          ON u.user_id = wm.user_id
+        WHERE wm.workspace_id = $1
+          AND wm.user_id = $2
+        LIMIT 1
+      `,
+      [workspaceId, userId],
+    );
+
+    return members[0] ?? null;
+  }
+
+  async findUserById(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceUserRow | null> {
+    const users = await this.getManager(manager).query<WorkspaceUserRow[]>(
+      `
+        SELECT
+          user_id AS "userId",
+          email,
+          full_name AS "fullName",
+          username
+        FROM prism_users_l
+        WHERE user_id = $1
+        LIMIT 1
+      `,
+      [userId],
+    );
+
+    return users[0] ?? null;
+  }
+
+  async findPendingWorkspaceInvitation(
+    workspaceId: string,
+    receiverId: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceInvitationRow | null> {
+    const invitations = await this.getManager(manager).query<
+      WorkspaceInvitationRow[]
+    >(
+      `
+        SELECT
+          invitation_id AS "invitationId",
+          workspace_id AS "workspaceId",
+          sender_id AS "senderId",
+          receiver_id AS "receiverId",
+          role,
+          invitation_token_hash AS "tokenHash",
+          expires_at AS "expiresAt"
+        FROM prism_workspace_invitations_l
+        WHERE workspace_id = $1
+          AND receiver_id = $2
+        LIMIT 1
+      `,
+      [workspaceId, receiverId],
+    );
+
+    return invitations[0] ?? null;
   }
 
   async createWorkspace(
@@ -153,6 +236,127 @@ export class WorkspaceRepository {
       `,
       [workspaceId, userId],
     );
+  }
+
+  async createWorkspaceInvitation(
+    params: {
+      invitationId: string;
+      workspaceId: string;
+      senderId: string;
+      receiverId: string;
+      role: WorkspaceMemberRow['role'];
+      tokenHash: string;
+      expiresAt: Date;
+    },
+    manager?: EntityManager,
+  ): Promise<WorkspaceInvitationRow> {
+    const invitations = await this.getManager(manager).query<
+      WorkspaceInvitationRow[]
+    >(
+      `
+        INSERT INTO prism_workspace_invitations_l (
+          invitation_id,
+          workspace_id,
+          sender_id,
+          receiver_id,
+          role,
+          invitation_token_hash,
+          expires_at
+        )
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING
+          invitation_id AS "invitationId",
+          workspace_id AS "workspaceId",
+          sender_id AS "senderId",
+          receiver_id AS "receiverId",
+          role,
+          invitation_token_hash AS "tokenHash",
+          expires_at AS "expiresAt"
+      `,
+      [
+        params.invitationId,
+        params.workspaceId,
+        params.senderId,
+        params.receiverId,
+        params.role,
+        params.tokenHash,
+        params.expiresAt,
+      ],
+    );
+
+    return invitations[0];
+  }
+
+  async updatePendingWorkspaceInvitation(
+    params: {
+      invitationId: string;
+      senderId: string;
+      role: WorkspaceMemberRow['role'];
+      tokenHash: string;
+      expiresAt: Date;
+    },
+    manager?: EntityManager,
+  ): Promise<WorkspaceInvitationRow> {
+    const invitations = await this.getManager(manager).query<
+      WorkspaceInvitationRow[]
+    >(
+      `
+        UPDATE prism_workspace_invitations_l
+        SET sender_id = $2,
+            role = $3,
+            invitation_token_hash = $4,
+            expires_at = $5
+        WHERE invitation_id = $1
+        RETURNING
+          invitation_id AS "invitationId",
+          workspace_id AS "workspaceId",
+          sender_id AS "senderId",
+          receiver_id AS "receiverId",
+          role,
+          invitation_token_hash AS "tokenHash",
+          expires_at AS "expiresAt"
+      `,
+      [
+        params.invitationId,
+        params.senderId,
+        params.role,
+        params.tokenHash,
+        params.expiresAt,
+      ],
+    );
+
+    return invitations[0];
+  }
+
+  async createWorkspaceInvitationEvent(
+    params: {
+      invitationId: string;
+      actorId?: string | null;
+      eventType: WorkspaceInvitationEventType;
+    },
+    manager?: EntityManager,
+  ): Promise<WorkspaceInvitationEventRow> {
+    const events = await this.getManager(manager).query<
+      WorkspaceInvitationEventRow[]
+    >(
+      `
+        INSERT INTO prism_workspace_invitation_events_l (
+          invitation_id,
+          actor_id,
+          event_type
+        )
+        VALUES ($1, $2, $3)
+        RETURNING
+          event_id AS "eventId",
+          invitation_id AS "invitationId",
+          actor_id AS "actorId",
+          event_type AS "eventType",
+          created_at AS "createdAt"
+      `,
+      [params.invitationId, params.actorId ?? null, params.eventType],
+    );
+
+    return events[0];
   }
 
   async updateWorkspace(

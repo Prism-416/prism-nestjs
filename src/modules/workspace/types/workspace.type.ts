@@ -15,3 +15,30 @@ export type WorkspaceMemberRow = {
   joinedAt: Date | null;
   invitedAt: Date | null;
 };
+
+export type WorkspaceInvitationRow = {
+  invitationId: string;
+  workspaceId: string;
+  senderId: string;
+  receiverId: string;
+  role: WorkspaceMemberRow['role'];
+  tokenHash: string;
+  expiresAt: Date;
+};
+
+export type WorkspaceInvitationEventType = 'sent' | 'accepted' | 'denied';
+
+export type WorkspaceInvitationEventRow = {
+  eventId: string;
+  invitationId: string;
+  actorId: string | null;
+  eventType: WorkspaceInvitationEventType;
+  createdAt: Date;
+};
+
+export type WorkspaceUserRow = {
+  userId: string;
+  email: string;
+  fullName: string;
+  username: string;
+};
