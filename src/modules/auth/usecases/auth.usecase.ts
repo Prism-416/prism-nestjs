@@ -12,7 +12,6 @@ import {
   SignInWithGithubDto,
   SignInWithGoogleDto,
   SignUpWithEmailDto,
-  VerifyEmailDto,
   VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
 import {
@@ -277,9 +276,9 @@ export class AuthUseCase {
     return { requested: true };
   }
 
-  async verifyEmail(dto: VerifyEmailDto): Promise<VerifyEmailResponseDto> {
+  async verifyEmail(tokenPayload: string): Promise<VerifyEmailResponseDto> {
     return this.uow.run(async (manager) => {
-      const tokenHash = this.hashVerificationToken(dto.token);
+      const tokenHash = this.hashVerificationToken(tokenPayload);
       const token = await this.repo.findValidEmailVerificationTokenByHash(
         tokenHash,
         new Date(),
