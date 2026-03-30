@@ -4,6 +4,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   Res,
   UseInterceptors,
 } from '@nestjs/common';
@@ -11,8 +12,8 @@ import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
   AuthTokenCookieInterceptor,
-  RefreshToken,
   REFRESH_TOKEN_COOKIE,
+  RefreshToken,
 } from '@/common/auth';
 import { ApiDataResponse } from '@/common/response';
 import { AuthUseCase } from '@/modules/auth/usecases';
@@ -20,12 +21,11 @@ import {
   AuthTokenResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
+  SignInWithEmailDto,
   SignInWithGithubDto,
   SignInWithGoogleDto,
-  SignInWithEmailDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
-  VerifyEmailDto,
   VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
 
@@ -60,14 +60,14 @@ export class AuthController {
     return await this.usecase.requestEmailVerification(dto);
   }
 
-  @Post('email-verification/verify')
+  @Post('verify')
   @ApiOperation({ summary: 'Verify Email with Token' })
   @ApiDataResponse(VerifyEmailResponseDto, { status: HttpStatus.CREATED })
-  async verifyEmail(@Body() dto: VerifyEmailDto) {
-    return await this.usecase.verifyEmail(dto);
+  async verifyEmail(@Query('token') token: string) {
+    return await this.usecase.verifyEmail(token);
   }
 
-  @Post('google-sign-in')
+  @Post('google/signin')
   @ApiOperation({ summary: 'Sign In with Google ID Token' })
   @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)
@@ -75,7 +75,7 @@ export class AuthController {
     return await this.usecase.signInWithGoogle(dto);
   }
 
-  @Post('github-sign-in')
+  @Post('github/signin')
   @ApiOperation({ summary: 'Sign In with GitHub Authorization Code' })
   @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)
