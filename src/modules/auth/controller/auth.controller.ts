@@ -67,7 +67,7 @@ export class AuthController {
     return await this.usecase.verifyEmail(token);
   }
 
-  @Post('google/callback')
+  @Post('oauth/google')
   @ApiOperation({ summary: 'Authorize User with Google ID Token' })
   @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)
@@ -75,7 +75,7 @@ export class AuthController {
     return await this.usecase.signInWithGoogle(dto);
   }
 
-  @Post('github/callback')
+  @Post('oauth/github')
   @ApiOperation({ summary: 'Authorize User with GitHub Authorization Code' })
   @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)

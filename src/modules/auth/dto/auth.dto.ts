@@ -3,7 +3,6 @@ import {
   IsEmail,
   IsOptional,
   IsString,
-  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -50,11 +49,6 @@ export class SignInWithEmailDto {
 export class RequestEmailVerificationDto {
   @IsEmail()
   email!: string;
-}
-
-export class VerifyEmailDto {
-  @IsUUID()
-  token!: string;
 }
 
 export class RequestEmailVerificationResponseDto {
