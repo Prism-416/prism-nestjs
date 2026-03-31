@@ -1,9 +1,11 @@
 import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  IsIn,
   IsOptional,
   IsNotEmpty,
   IsString,
+  IsUUID,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -81,4 +83,41 @@ export class WorkspaceMemberResponseDto {
 
   @ApiProperty({ nullable: true })
   invitedAt!: Date | null;
+}
+
+export class CreateWorkspaceInvitationDto {
+  @ApiProperty()
+  @IsUUID()
+  receiverId!: string;
+
+  @ApiProperty({ enum: ['admin', 'member', 'viewer'] })
+  @IsString()
+  @IsIn(['admin', 'member', 'viewer'])
+  role!: 'admin' | 'member' | 'viewer';
+}
+
+export class WorkspaceInvitationResponseDto {
+  @ApiProperty()
+  invitationId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  senderId!: string;
+
+  @ApiProperty()
+  receiverId!: string;
+
+  @ApiProperty({ enum: ['admin', 'member', 'viewer'] })
+  role!: 'admin' | 'member' | 'viewer';
+
+  @ApiProperty()
+  expiresAt!: Date;
+
+  @ApiProperty()
+  token!: string;
+
+  @ApiProperty()
+  invitationLink!: string;
 }

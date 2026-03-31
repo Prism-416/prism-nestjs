@@ -15,6 +15,21 @@ export class WorkspaceNotFoundError extends NotExistsError {
   }
 }
 
+export class WorkspaceMemberUserNotFoundError extends NotExistsError {
+  constructor() {
+    super('User not found.', 'WORKSPACE_MEMBER_USER_NOT_FOUND');
+  }
+}
+
+export class WorkspaceMemberAlreadyExistsError extends DuplicateError {
+  constructor() {
+    super(
+      'User is already a workspace member.',
+      'WORKSPACE_MEMBER_ALREADY_EXISTS',
+    );
+  }
+}
+
 export function isWorkspaceSlugUniqueViolation(error: unknown): boolean {
   if (!(error instanceof QueryFailedError)) {
     return false;
