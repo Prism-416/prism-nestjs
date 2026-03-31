@@ -112,10 +112,10 @@ CREATE TABLE IF NOT EXISTS prism_workspace_invitations_l
     sender_id             UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
     receiver_id           UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
     role                  VARCHAR(20) NOT NULL,
-    invitation_token_hash TEXT        NOT NULL,
+    invitation_token      UUID        NOT NULL,
     expires_at            TIMESTAMPTZ NOT NULL,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (invitation_token_hash),
+    UNIQUE (invitation_token),
     CHECK (role IN ('admin', 'member', 'viewer'))
 );
 
