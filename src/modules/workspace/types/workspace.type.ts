@@ -22,7 +22,7 @@ export type WorkspaceInvitationRow = {
   senderId: string;
   receiverId: string;
   role: WorkspaceMemberRow['role'];
-  tokenHash: string;
+  token: string;
   expiresAt: Date;
 };
 

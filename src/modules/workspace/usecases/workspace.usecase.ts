@@ -1,8 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash, randomUUID } from 'crypto';
+import { randomUUID } from 'crypto';
 import { EntityManager } from 'typeorm';
-import { JwtTokenService } from '@/common/auth';
 import { UnitOfWork } from '@/common/database';
 import {
   CreateWorkspaceDto,
@@ -14,7 +13,6 @@ import {
 } from '@/modules/workspace/dto';
 import { MAX_WORKSPACE_SLUG_GENERATION_ATTEMPTS } from '@/modules/workspace/constants';
 import {
-  isWorkspacePendingInvitationUniqueViolation,
   isWorkspaceSlugUniqueViolation,
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberUserNotFoundError,
@@ -24,7 +22,6 @@ import {
 import { WorkspaceRepository } from '@/modules/workspace/repository';
 import { WorkspaceInvitationNotifier } from '@/modules/workspace/services/workspace-invitation-notifier';
 import {
-  WorkspaceInvitationEventType,
   WorkspaceInvitationRow,
   WorkspaceRow,
 } from '@/modules/workspace/types';
@@ -37,7 +34,6 @@ export class WorkspaceUseCase {
   constructor(
     private readonly repo: WorkspaceRepository,
     private readonly uow: UnitOfWork,
-    private readonly jwtService: JwtTokenService,
     private readonly invitationNotifier: WorkspaceInvitationNotifier,
     private readonly configService: ConfigService,
   ) {
@@ -95,13 +91,6 @@ export class WorkspaceUseCase {
           throw new WorkspaceNotFoundError();
         }
 
-        const existingInvitation =
-          await this.repo.findPendingWorkspaceInvitation(
-            workspaceId,
-            dto.receiverId,
-            manager,
-          );
-
         const receiver = await this.repo.findUserById(dto.receiverId, manager);
         if (!receiver) {
           throw new WorkspaceMemberUserNotFoundError();
@@ -116,16 +105,7 @@ export class WorkspaceUseCase {
           throw new WorkspaceMemberAlreadyExistsError();
         }
 
-        const createInvitationToken = (invitationId: string) =>
-          this.jwtService.createInvitationToken(invitationId, {
-            senderId: userId,
-            workspaceId,
-            receiverId: dto.receiverId,
-            role: dto.role,
-          });
-
-        const invitationId = existingInvitation?.invitationId ?? randomUUID();
-        let token = createInvitationToken(invitationId);
+        const token = randomUUID();
         const expiresAt = new Date(
           Date.now() +
             this.configService.get<number>(
@@ -135,70 +115,24 @@ export class WorkspaceUseCase {
               1000,
         );
 
-        let invitation: WorkspaceInvitationRow;
-        let eventType: WorkspaceInvitationEventType;
-        try {
-          if (existingInvitation) {
-            invitation = await this.repo.updatePendingWorkspaceInvitation(
-              {
-                invitationId: existingInvitation.invitationId,
-                senderId: userId,
-                role: dto.role,
-                tokenHash: this.hashInvitationToken(token),
-                expiresAt,
-              },
-              manager,
-            );
-            eventType = 'sent';
-          } else {
-            invitation = await this.repo.createWorkspaceInvitation(
-              {
-                invitationId,
-                workspaceId,
-                senderId: userId,
-                receiverId: dto.receiverId,
-                role: dto.role,
-                tokenHash: this.hashInvitationToken(token),
-                expiresAt,
-              },
-              manager,
-            );
-            eventType = 'sent';
-          }
-        } catch (error) {
-          if (isWorkspacePendingInvitationUniqueViolation(error)) {
-            const currentInvitation =
-              await this.repo.findPendingWorkspaceInvitation(
-                workspaceId,
-                dto.receiverId,
-                manager,
-              );
-            if (!currentInvitation) {
-              throw error;
-            }
-
-            token = createInvitationToken(currentInvitation.invitationId);
-            invitation = await this.repo.updatePendingWorkspaceInvitation(
-              {
-                invitationId: currentInvitation.invitationId,
-                senderId: userId,
-                role: dto.role,
-                tokenHash: this.hashInvitationToken(token),
-                expiresAt,
-              },
-              manager,
-            );
-            eventType = 'sent';
-          } else {
-            throw error;
-          }
-        }
+        const invitation: WorkspaceInvitationRow =
+          await this.repo.createWorkspaceInvitation(
+            {
+              workspaceId,
+              senderId: userId,
+              receiverId: dto.receiverId,
+              role: dto.role,
+              token,
+              expiresAt,
+            },
+            manager,
+          );
 
         await this.repo.createWorkspaceInvitationEvent(
           {
             invitationId: invitation.invitationId,
             actorId: userId,
-            eventType,
+            eventType: 'sent',
           },
           manager,
         );
@@ -213,8 +147,8 @@ export class WorkspaceUseCase {
             receiverId: invitation.receiverId,
             role: invitation.role,
             expiresAt: invitation.expiresAt,
-            token,
-            invitationLink: this.buildInvitationLink(token),
+            token: invitation.token,
+            invitationLink: this.buildInvitationLink(invitation.token),
           },
         };
       },
@@ -309,15 +243,10 @@ export class WorkspaceUseCase {
     throw new WorkspaceSlugAlreadyExistsError();
   }
 
-  private hashInvitationToken(token: string): string {
-    return createHash('sha256').update(token).digest('hex');
-  }
-
   private buildInvitationLink(token: string): string {
     if (!this.invitationPageUrl) {
       return token;
     }
-    const separator = this.invitationPageUrl.includes('?') ? '&' : '?';
-    return `${this.invitationPageUrl}${separator}token=${encodeURIComponent(token)}`;
+    return `${this.invitationPageUrl}?token=${encodeURIComponent(token)}`;
   }
 }

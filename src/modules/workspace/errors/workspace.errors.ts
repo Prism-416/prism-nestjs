@@ -2,8 +2,6 @@ import { DuplicateError, NotExistsError } from '@/common/errors';
 import { QueryFailedError } from 'typeorm';
 
 const WORKSPACE_SLUG_UNIQUE_CONSTRAINT = 'uq_workspaces_slug';
-const WORKSPACE_PENDING_INVITATION_UNIQUE_CONSTRAINT =
-  'uq_workspace_pending_invitation_receiver';
 
 export class WorkspaceSlugAlreadyExistsError extends DuplicateError {
   constructor() {
@@ -44,22 +42,5 @@ export function isWorkspaceSlugUniqueViolation(error: unknown): boolean {
   return (
     driverError?.code === '23505' &&
     driverError.constraint === WORKSPACE_SLUG_UNIQUE_CONSTRAINT
-  );
-}
-
-export function isWorkspacePendingInvitationUniqueViolation(
-  error: unknown,
-): boolean {
-  if (!(error instanceof QueryFailedError)) {
-    return false;
-  }
-
-  const driverError = error.driverError as
-    | { code?: string; constraint?: string }
-    | undefined;
-
-  return (
-    driverError?.code === '23505' &&
-    driverError.constraint === WORKSPACE_PENDING_INVITATION_UNIQUE_CONSTRAINT
   );
 }

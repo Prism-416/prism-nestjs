@@ -115,7 +115,7 @@ export class WorkspaceRepository {
             WHEN 'member' THEN 1
             ELSE 2
             END,
-          u.username ASC
+          u.username
       `,
       [workspaceId],
     );
@@ -169,34 +169,6 @@ export class WorkspaceRepository {
     return users[0] ?? null;
   }
 
-  async findPendingWorkspaceInvitation(
-    workspaceId: string,
-    receiverId: string,
-    manager?: EntityManager,
-  ): Promise<WorkspaceInvitationRow | null> {
-    const invitations = await this.getManager(manager).query<
-      WorkspaceInvitationRow[]
-    >(
-      `
-        SELECT
-          invitation_id AS "invitationId",
-          workspace_id AS "workspaceId",
-          sender_id AS "senderId",
-          receiver_id AS "receiverId",
-          role,
-          invitation_token_hash AS "tokenHash",
-          expires_at AS "expiresAt"
-        FROM prism_workspace_invitations_l
-        WHERE workspace_id = $1
-          AND receiver_id = $2
-        LIMIT 1
-      `,
-      [workspaceId, receiverId],
-    );
-
-    return invitations[0] ?? null;
-  }
-
   async createWorkspace(
     params: {
       name: string;
@@ -240,12 +212,11 @@ export class WorkspaceRepository {
 
   async createWorkspaceInvitation(
     params: {
-      invitationId: string;
       workspaceId: string;
       senderId: string;
       receiverId: string;
       role: WorkspaceMemberRow['role'];
-      tokenHash: string;
+      token: string;
       expiresAt: Date;
     },
     manager?: EntityManager,
@@ -255,72 +226,34 @@ export class WorkspaceRepository {
     >(
       `
         INSERT INTO prism_workspace_invitations_l (
-          invitation_id,
           workspace_id,
           sender_id,
           receiver_id,
           role,
-          invitation_token_hash,
+          invitation_token,
           expires_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        ON CONFLICT (workspace_id, receiver_id)
+        DO UPDATE SET
+          sender_id = EXCLUDED.sender_id,
+          role = EXCLUDED.role,
+          expires_at = EXCLUDED.expires_at
         RETURNING
           invitation_id AS "invitationId",
           workspace_id AS "workspaceId",
           sender_id AS "senderId",
           receiver_id AS "receiverId",
           role,
-          invitation_token_hash AS "tokenHash",
+          invitation_token AS "token",
           expires_at AS "expiresAt"
       `,
       [
-        params.invitationId,
         params.workspaceId,
         params.senderId,
         params.receiverId,
         params.role,
-        params.tokenHash,
-        params.expiresAt,
-      ],
-    );
-
-    return invitations[0];
-  }
-
-  async updatePendingWorkspaceInvitation(
-    params: {
-      invitationId: string;
-      senderId: string;
-      role: WorkspaceMemberRow['role'];
-      tokenHash: string;
-      expiresAt: Date;
-    },
-    manager?: EntityManager,
-  ): Promise<WorkspaceInvitationRow> {
-    const invitations = await this.getManager(manager).query<
-      WorkspaceInvitationRow[]
-    >(
-      `
-        UPDATE prism_workspace_invitations_l
-        SET sender_id = $2,
-            role = $3,
-            invitation_token_hash = $4,
-            expires_at = $5
-        WHERE invitation_id = $1
-        RETURNING
-          invitation_id AS "invitationId",
-          workspace_id AS "workspaceId",
-          sender_id AS "senderId",
-          receiver_id AS "receiverId",
-          role,
-          invitation_token_hash AS "tokenHash",
-          expires_at AS "expiresAt"
-      `,
-      [
-        params.invitationId,
-        params.senderId,
-        params.role,
-        params.tokenHash,
+        params.token,
         params.expiresAt,
       ],
     );
@@ -353,7 +286,7 @@ export class WorkspaceRepository {
           event_type AS "eventType",
           created_at AS "createdAt"
       `,
-      [params.invitationId, params.actorId ?? null, params.eventType],
+      [params.invitationId, params.actorId, params.eventType],
     );
 
     return events[0];
