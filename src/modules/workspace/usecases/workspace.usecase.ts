@@ -20,7 +20,7 @@ import {
   WorkspaceSlugAlreadyExistsError,
 } from '@/modules/workspace/errors';
 import { WorkspaceRepository } from '@/modules/workspace/repository';
-import { WorkspaceInvitationNotifier } from '@/modules/workspace/services/workspace-invitation-notifier';
+import { WorkspaceInvitationNotifierService } from '@/modules/workspace/services';
 import {
   WorkspaceInvitationRow,
   WorkspaceRow,
@@ -34,7 +34,7 @@ export class WorkspaceUseCase {
   constructor(
     private readonly repo: WorkspaceRepository,
     private readonly uow: UnitOfWork,
-    private readonly invitationNotifier: WorkspaceInvitationNotifier,
+    private readonly invitationNotifier: WorkspaceInvitationNotifierService,
     private readonly configService: ConfigService,
   ) {
     this.invitationPageUrl = this.configService.get<string>(

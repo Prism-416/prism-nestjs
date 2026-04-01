@@ -2,11 +2,10 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OciEmailDeliveryService } from '@/common/email';
 import { WorkspaceInvitationResponseDto } from '@/modules/workspace/dto';
-import { WorkspaceInvitationNotifier } from '@/modules/workspace/services/workspace-invitation-notifier';
 import { WorkspaceUserRow } from '@/modules/workspace/types';
 
 @Injectable()
-export class WorkspaceInvitationNotifierService implements WorkspaceInvitationNotifier {
+export class WorkspaceInvitationNotifierService {
   private readonly logger = new Logger(WorkspaceInvitationNotifierService.name);
   private readonly emailEnabled: boolean;
 
