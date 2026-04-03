@@ -7,6 +7,8 @@ import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from '@/app.module';
 import { GlobalExceptionFilter } from '@/common/errors/global-exception.filter';
+import { applyPostgresSearchPath } from '@/database/typeorm.options';
+import { DataSource } from 'typeorm';
 
 const resolveSwaggerServerUrl = (nodeEnv?: string) => {
   switch (nodeEnv) {
@@ -23,6 +25,12 @@ const resolveSwaggerServerUrl = (nodeEnv?: string) => {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const dataSource = app.get(DataSource, { strict: false });
+
+  if (dataSource?.isInitialized) {
+    await applyPostgresSearchPath(dataSource);
+  }
+
   const corsOrigin = (process.env.CORS_ORIGIN ?? '')
     .split(',')
     .map((origin) => origin.trim())
