@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { createHash, randomInt, randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { JwtTokenService } from '@/common/auth';
 import { UnitOfWork } from '@/common/database';
 import { OciEmailDeliveryService } from '@/common/email';
@@ -22,6 +22,7 @@ import {
   InvalidGithubAuthorizationCodeError,
   InvalidGoogleIdTokenError,
   InvalidRefreshTokenError,
+  OAuthSignInUserNotFoundError,
   UnverifiedGithubEmailError,
   UnverifiedGoogleEmailError,
 } from '@/modules/auth/errors';
@@ -32,7 +33,6 @@ import {
 } from '@/modules/auth/services';
 import { EntityManager } from 'typeorm';
 import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
-import { buildUsernameSeeds } from '@/modules/auth/utils';
 
 @Injectable()
 export class AuthUseCase {
@@ -128,21 +128,12 @@ export class AuthUseCase {
         );
       }
 
-      let user = await this.repo.findUserByEmail(googleProfile.email, manager);
+      const user = await this.repo.findUserByEmail(
+        googleProfile.email,
+        manager,
+      );
       if (!user) {
-        const username = await this.generateUniqueUsername(
-          googleProfile.email,
-          googleProfile.fullName,
-          manager,
-        );
-        user = await this.repo.createUser(
-          {
-            email: googleProfile.email,
-            fullName: googleProfile.fullName,
-            username,
-          },
-          manager,
-        );
+        throw new OAuthSignInUserNotFoundError();
       }
 
       await this.repo.createOAuthAuth(
@@ -189,21 +180,12 @@ export class AuthUseCase {
         );
       }
 
-      let user = await this.repo.findUserByEmail(githubProfile.email, manager);
+      const user = await this.repo.findUserByEmail(
+        githubProfile.email,
+        manager,
+      );
       if (!user) {
-        const username = await this.generateUniqueUsername(
-          githubProfile.email,
-          githubProfile.fullName,
-          manager,
-        );
-        user = await this.repo.createUser(
-          {
-            email: githubProfile.email,
-            fullName: githubProfile.fullName,
-            username,
-          },
-          manager,
-        );
+        throw new OAuthSignInUserNotFoundError();
       }
 
       await this.repo.createOAuthAuth(
@@ -321,36 +303,6 @@ export class AuthUseCase {
       refreshToken,
     };
   }
-
-  private async generateUniqueUsername(
-    email: string,
-    fullName: string,
-    manager: EntityManager,
-  ): Promise<string> {
-    const seeds = buildUsernameSeeds(fullName, email);
-
-    for (const seed of seeds) {
-      const existingUser = await this.repo.findUserByUsername(seed, manager);
-      if (!existingUser) {
-        return seed;
-      }
-    }
-
-    const base = seeds[0] ?? 'user';
-    for (let attempt = 0; attempt < 20; attempt += 1) {
-      const candidate = `${base}${randomInt(1000, 9999)}`.slice(0, 30);
-      const existingUser = await this.repo.findUserByUsername(
-        candidate,
-        manager,
-      );
-      if (!existingUser) {
-        return candidate;
-      }
-    }
-
-    return `user${Date.now().toString().slice(-8)}`.slice(0, 30);
-  }
-
   private async issueEmailVerification(
     email: string,
     authId: string,

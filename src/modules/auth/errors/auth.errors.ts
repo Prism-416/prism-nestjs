@@ -13,6 +13,15 @@ export class InvalidCredentialsError extends UnauthorizedDomainError {
   }
 }
 
+export class OAuthSignInUserNotFoundError extends UnauthorizedDomainError {
+  constructor() {
+    super(
+      'No account exists for this OAuth identity. Please sign up first.',
+      'OAUTH_SIGNIN_USER_NOT_FOUND',
+    );
+  }
+}
+
 export class EmailNotVerifiedError extends UnauthorizedDomainError {
   constructor() {
     super('Email is not verified.', 'EMAIL_NOT_VERIFIED');
