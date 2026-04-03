@@ -2,7 +2,7 @@ import Joi from 'joi';
 
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
-    .valid('development', 'test', 'production')
+    .valid('development', 'test', 'production', 'local')
     .default('development'),
   PORT: Joi.number().port().default(3000),
   APP_NAME: Joi.string().default('NestJS Template API'),

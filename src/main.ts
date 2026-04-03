@@ -8,17 +8,17 @@ import compression from 'compression';
 import { AppModule } from '@/app.module';
 import { GlobalExceptionFilter } from '@/common/errors/global-exception.filter';
 
-const resolveSwaggerServerUrl = (requestUrl?: string) => {
-  const normalizedUrl = requestUrl?.split('?')[0] ?? '';
-  const docsSuffixPattern = /\/docs(?:-json|-yaml)?\/?$/;
-
-  if (!normalizedUrl || !docsSuffixPattern.test(normalizedUrl)) {
-    return '/';
+const resolveSwaggerServerUrl = (nodeEnv?: string) => {
+  switch (nodeEnv) {
+    case 'development':
+      return '/dev';
+    case 'production':
+      return '/prod';
+    case 'local':
+      return '/';
+    default:
+      return '/';
   }
-
-  const basePath = normalizedUrl.replace(docsSuffixPattern, '') || '/';
-
-  return basePath.startsWith('/') ? basePath : `/${basePath}`;
 };
 
 async function bootstrap() {
@@ -50,28 +50,19 @@ async function bootstrap() {
   const appDescription =
     process.env.APP_DESCRIPTION ?? 'Reusable NestJS backend template';
   const appVersion = process.env.APP_VERSION ?? '1.0.0';
+  const swaggerServerUrl = resolveSwaggerServerUrl(process.env.NODE_ENV);
   const swaggerConfig = new DocumentBuilder()
     .setTitle(appName)
     .setDescription(appDescription)
     .setVersion(appVersion)
+    .addServer(swaggerServerUrl)
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
       'bearer',
     )
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, swaggerDocument, {
-    patchDocumentOnRequest: (req, _res, document) => ({
-      ...document,
-      servers: [
-        {
-          url: resolveSwaggerServerUrl(
-            (req as Request).originalUrl ?? (req as Request).url,
-          ),
-        },
-      ],
-    }),
-  });
+  SwaggerModule.setup('docs', app, swaggerDocument);
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
