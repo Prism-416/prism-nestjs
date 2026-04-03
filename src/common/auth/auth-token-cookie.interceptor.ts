@@ -10,12 +10,14 @@ import { map, Observable } from 'rxjs';
 import { REFRESH_TOKEN_COOKIE } from '@/common/auth/refresh-token.decorator';
 
 type AuthTokenPair = {
-  accessToken: string;
-  refreshToken: string;
+  accessToken?: string;
+  refreshToken?: string;
+  newUser?: boolean;
 };
 
 type AuthTokenResponse = {
-  accessToken: string;
+  accessToken?: string;
+  newUser?: boolean;
 };
 
 @Injectable()
@@ -33,20 +35,25 @@ export class AuthTokenCookieInterceptor implements NestInterceptor<
 
     return next.handle().pipe(
       map((tokens) => {
-        response.cookie(REFRESH_TOKEN_COOKIE, tokens.refreshToken, {
-          httpOnly: true,
-          secure: this.configService.get<string>('NODE_ENV') === 'production',
-          sameSite: 'lax',
-          path: '/',
-          maxAge:
-            this.configService.get<number>(
-              'JWT_REFRESH_EXPIRES_IN_SEC',
-              1209600,
-            ) * 1000,
-        });
+        if (tokens.refreshToken) {
+          response.cookie(REFRESH_TOKEN_COOKIE, tokens.refreshToken, {
+            httpOnly: true,
+            secure: this.configService.get<string>('NODE_ENV') === 'production',
+            sameSite: 'lax',
+            path: '/',
+            maxAge:
+              this.configService.get<number>(
+                'JWT_REFRESH_EXPIRES_IN_SEC',
+                1209600,
+              ) * 1000,
+          });
+        } else {
+          response.clearCookie(REFRESH_TOKEN_COOKIE, { path: '/' });
+        }
 
         return {
-          accessToken: tokens.accessToken,
+          ...(tokens.accessToken ? { accessToken: tokens.accessToken } : {}),
+          ...(tokens.newUser !== undefined ? { newUser: tokens.newUser } : {}),
         };
       }),
     );

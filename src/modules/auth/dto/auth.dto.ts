@@ -80,6 +80,17 @@ export class AuthTokenResponseDto {
   accessToken: string;
 }
 
+export class OAuthSignInResponseDto {
+  @ApiProperty({ required: false })
+  accessToken?: string;
+
+  @ApiProperty({
+    required: false,
+    description: 'True when the OAuth identity is not linked to an existing user.',
+  })
+  newUser?: boolean;
+}
+
 export class AuthTokenPairResponseDto {
   @ApiProperty()
   accessToken: string;

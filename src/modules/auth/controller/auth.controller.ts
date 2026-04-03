@@ -19,6 +19,7 @@ import { ApiDataResponse } from '@/common/response';
 import { AuthUseCase } from '@/modules/auth/usecases';
 import {
   AuthTokenResponseDto,
+  OAuthSignInResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
   SignInWithEmailDto,
@@ -69,7 +70,7 @@ export class AuthController {
 
   @Post('oauth/google')
   @ApiOperation({ summary: 'Authorize User with Google ID Token' })
-  @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
+  @ApiDataResponse(OAuthSignInResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)
   async signInWithGoogle(@Body() dto: SignInWithGoogleDto) {
     return await this.usecase.signInWithGoogle(dto);
@@ -77,7 +78,7 @@ export class AuthController {
 
   @Post('oauth/github')
   @ApiOperation({ summary: 'Authorize User with GitHub Authorization Code' })
-  @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
+  @ApiDataResponse(OAuthSignInResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)
   async signInWithGithub(@Body() dto: SignInWithGithubDto) {
     return await this.usecase.signInWithGithub(dto);

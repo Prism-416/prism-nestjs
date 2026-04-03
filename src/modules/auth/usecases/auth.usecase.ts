@@ -6,6 +6,7 @@ import { OciEmailDeliveryService } from '@/common/email';
 import { PasswordService } from '@/common/security';
 import {
   AuthTokenPairResponseDto,
+  OAuthSignInResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
   SignInWithEmailDto,
@@ -22,7 +23,6 @@ import {
   InvalidGithubAuthorizationCodeError,
   InvalidGoogleIdTokenError,
   InvalidRefreshTokenError,
-  OAuthSignInUserNotFoundError,
   UnverifiedGithubEmailError,
   UnverifiedGoogleEmailError,
 } from '@/modules/auth/errors';
@@ -98,7 +98,7 @@ export class AuthUseCase {
 
   async signInWithGoogle(
     dto: SignInWithGoogleDto,
-  ): Promise<AuthTokenPairResponseDto> {
+  ): Promise<AuthTokenPairResponseDto | OAuthSignInResponseDto> {
     let googleProfile: GoogleProfile;
     try {
       googleProfile = await this.google.verify(dto.idToken);
@@ -133,7 +133,7 @@ export class AuthUseCase {
         manager,
       );
       if (!user) {
-        throw new OAuthSignInUserNotFoundError();
+        return { newUser: true };
       }
 
       await this.repo.createOAuthAuth(
@@ -150,7 +150,7 @@ export class AuthUseCase {
 
   async signInWithGithub(
     dto: SignInWithGithubDto,
-  ): Promise<AuthTokenPairResponseDto> {
+  ): Promise<AuthTokenPairResponseDto | OAuthSignInResponseDto> {
     let githubProfile: GithubProfile;
     try {
       githubProfile = await this.github.verify(dto.code, dto.redirectUri);
@@ -185,7 +185,7 @@ export class AuthUseCase {
         manager,
       );
       if (!user) {
-        throw new OAuthSignInUserNotFoundError();
+        return { newUser: true };
       }
 
       await this.repo.createOAuthAuth(
