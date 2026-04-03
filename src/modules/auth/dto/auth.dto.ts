@@ -86,7 +86,8 @@ export class OAuthSignInResponseDto {
 
   @ApiProperty({
     required: false,
-    description: 'True when the OAuth identity is not linked to an existing user.',
+    description:
+      'True when the OAuth identity is not linked to an existing user.',
   })
   newUser?: boolean;
 }
