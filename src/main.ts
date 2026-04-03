@@ -8,6 +8,19 @@ import compression from 'compression';
 import { AppModule } from '@/app.module';
 import { GlobalExceptionFilter } from '@/common/errors/global-exception.filter';
 
+const resolveSwaggerServerUrl = (requestUrl?: string) => {
+  const normalizedUrl = requestUrl?.split('?')[0] ?? '';
+  const docsSuffixPattern = /\/docs(?:-json|-yaml)?\/?$/;
+
+  if (!normalizedUrl || !docsSuffixPattern.test(normalizedUrl)) {
+    return '/';
+  }
+
+  const basePath = normalizedUrl.replace(docsSuffixPattern, '') || '/';
+
+  return basePath.startsWith('/') ? basePath : `/${basePath}`;
+};
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const corsOrigin = (process.env.CORS_ORIGIN ?? '')
@@ -47,7 +60,18 @@ async function bootstrap() {
     )
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('docs', app, swaggerDocument);
+  SwaggerModule.setup('docs', app, swaggerDocument, {
+    patchDocumentOnRequest: (req, _res, document) => ({
+      ...document,
+      servers: [
+        {
+          url: resolveSwaggerServerUrl(
+            (req as Request).originalUrl ?? (req as Request).url,
+          ),
+        },
+      ],
+    }),
+  });
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
