@@ -98,7 +98,7 @@ export class AuthUseCase {
 
   async signInWithGoogle(
     dto: SignInWithGoogleDto,
-  ): Promise<AuthTokenPairResponseDto | OAuthSignInResponseDto> {
+  ): Promise<OAuthSignInResponseDto> {
     let googleProfile: GoogleProfile;
     try {
       googleProfile = await this.google.verify(dto.idToken);
@@ -114,45 +114,12 @@ export class AuthUseCase {
       throw new UnverifiedGoogleEmailError();
     }
 
-    return this.uow.run(async (manager) => {
-      const linkedUser = await this.repo.findUserByProvider(
-        'google',
-        googleProfile.subject,
-        manager,
-      );
-      if (linkedUser) {
-        return this.issueTokenPair(
-          linkedUser.userId,
-          linkedUser.email,
-          manager,
-        );
-      }
-
-      const user = await this.repo.findUserByEmail(
-        googleProfile.email,
-        manager,
-      );
-      if (!user) {
-        return { newUser: true };
-      }
-
-      const auth = await this.repo.createOAuthAuth(
-        user.userId,
-        'google',
-        googleProfile.subject,
-        googleProfile.email,
-        manager,
-      );
-
-      await this.repo.markUserAuthVerified(auth.authId, manager);
-
-      return this.issueTokenPair(user.userId, user.email, manager);
-    });
+    return await this.signInWithOAuth('google', googleProfile.subject);
   }
 
   async signInWithGithub(
     dto: SignInWithGithubDto,
-  ): Promise<AuthTokenPairResponseDto | OAuthSignInResponseDto> {
+  ): Promise<OAuthSignInResponseDto> {
     let githubProfile: GithubProfile;
     try {
       githubProfile = await this.github.verify(dto.code, dto.redirectUri);
@@ -168,38 +135,7 @@ export class AuthUseCase {
       throw new UnverifiedGithubEmailError();
     }
 
-    return this.uow.run(async (manager) => {
-      const linkedUser = await this.repo.findUserByProvider(
-        'github',
-        githubProfile.subject,
-        manager,
-      );
-      if (linkedUser) {
-        return this.issueTokenPair(
-          linkedUser.userId,
-          linkedUser.email,
-          manager,
-        );
-      }
-
-      const user = await this.repo.findUserByEmail(
-        githubProfile.email,
-        manager,
-      );
-      if (!user) {
-        return { newUser: true };
-      }
-
-      await this.repo.createOAuthAuth(
-        user.userId,
-        'github',
-        githubProfile.subject,
-        githubProfile.email,
-        manager,
-      );
-
-      return this.issueTokenPair(user.userId, user.email, manager);
-    });
+    return await this.signInWithOAuth('github', githubProfile.subject);
   }
 
   async refresh(refreshToken: string): Promise<AuthTokenPairResponseDto> {
@@ -305,6 +241,29 @@ export class AuthUseCase {
       refreshToken,
     };
   }
+
+  private async signInWithOAuth(
+    provider: 'google' | 'github',
+    providerUserId: string,
+  ): Promise<OAuthSignInResponseDto> {
+    return this.uow.run(async (manager) => {
+      const linkedUser = await this.repo.findUserByProvider(
+        provider,
+        providerUserId,
+        manager,
+      );
+      if (linkedUser) {
+        return this.issueTokenPair(
+          linkedUser.userId,
+          linkedUser.email,
+          manager,
+        );
+      }
+
+      return { newUser: true };
+    });
+  }
+
   private async issueEmailVerification(
     email: string,
     authId: string,

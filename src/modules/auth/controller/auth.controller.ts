@@ -72,7 +72,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Authorize User with Google ID Token' })
   @ApiDataResponse(OAuthSignInResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)
-  async signInWithGoogle(@Body() dto: SignInWithGoogleDto) {
+  async signInWithGoogle(
+    @Body() dto: SignInWithGoogleDto,
+  ): Promise<OAuthSignInResponseDto> {
     return await this.usecase.signInWithGoogle(dto);
   }
 
@@ -80,7 +82,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Authorize User with GitHub Authorization Code' })
   @ApiDataResponse(OAuthSignInResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)
-  async signInWithGithub(@Body() dto: SignInWithGithubDto) {
+  async signInWithGithub(
+    @Body() dto: SignInWithGithubDto,
+  ): Promise<OAuthSignInResponseDto> {
     return await this.usecase.signInWithGithub(dto);
   }
 
