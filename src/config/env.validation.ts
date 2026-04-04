@@ -1,5 +1,15 @@
 import Joi from 'joi';
 
+type EnvValidationValues = Record<string, unknown>;
+
+function hasConfiguredValue(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+
+  return typeof value === 'number' || typeof value === 'boolean';
+}
+
 export const envValidationSchema = Joi.object({
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production', 'local')
@@ -63,4 +73,38 @@ export const envValidationSchema = Joi.object({
   PG_SCHEMA: Joi.string().allow('').default(''),
   RATE_LIMIT_TTL_MS: Joi.number().integer().min(1000).default(60000),
   RATE_LIMIT_MAX: Joi.number().integer().min(1).default(100),
-});
+})
+  .custom((env, helpers) => {
+    const values = env as EnvValidationValues;
+
+    if (values.EMAIL_ENABLED !== true) {
+      return values;
+    }
+
+    const missingKeys = ['EMAIL_SENDER_EMAIL', 'OCI_COMPARTMENT_ID'].filter(
+      (key) => !hasConfiguredValue(values[key]),
+    );
+
+    if (values.OCI_AUTH_MODE === 'api_key') {
+      missingKeys.push(
+        ...[
+          'OCI_REGION',
+          'OCI_TENANCY_OCID',
+          'OCI_USER_OCID',
+          'OCI_FINGERPRINT',
+          'OCI_PRIVATE_KEY',
+        ].filter((key) => !hasConfiguredValue(values[key])),
+      );
+    }
+
+    if (missingKeys.length > 0) {
+      return helpers.error('any.custom', {
+        message: `Missing required email configuration: ${missingKeys.join(', ')}`,
+      });
+    }
+
+    return values;
+  }, 'OCI email validation')
+  .messages({
+    'any.custom': '{{#message}}',
+  });

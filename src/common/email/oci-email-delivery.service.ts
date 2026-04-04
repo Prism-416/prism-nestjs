@@ -78,9 +78,8 @@ export class OciEmailDeliveryService {
       );
     }
 
-    const client = await this.getClient();
-
     try {
+      const client = await this.getClient();
       const response = await client.submitEmail({
         submitEmailDetails: {
           messageId: input.messageId,
@@ -105,7 +104,7 @@ export class OciEmailDeliveryService {
       };
     } catch (error) {
       const err = error as Error;
-      this.logger.error(`OCI email submission failed: ${err.message}`);
+      this.logger.error(this.formatEmailFailureMessage(err));
       throw new InternalServerErrorException('Failed to send email.');
     }
   }
@@ -195,5 +194,35 @@ export class OciEmailDeliveryService {
 
   private getEnv(key: string): string | undefined {
     return process.env[key];
+  }
+
+  private formatEmailFailureMessage(error: Error): string {
+    const hints: string[] = [];
+
+    if (this.authMode === 'instance_principal') {
+      hints.push(
+        'verify the app runs on an OCI compute instance',
+        'verify the instance belongs to a dynamic group',
+        'verify that dynamic group can `use email-family` in the sender compartment',
+        'verify the runtime can reach OCI instance metadata at http://169.254.169.254/opc/v2/',
+      );
+    }
+
+    if (
+      error.message.includes('Authorization failed') ||
+      error.message.includes('not authorized or not found')
+    ) {
+      hints.push(
+        'verify EMAIL_SENDER_EMAIL matches an approved sender exactly',
+        'verify OCI_COMPARTMENT_ID is the compartment that contains that approved sender',
+        'verify the approved sender exists in the same OCI region as the request',
+      );
+    }
+
+    if (hints.length === 0) {
+      return `OCI email submission failed: ${error.message}`;
+    }
+
+    return `OCI email submission failed: ${error.message}. Check: ${hints.join('; ')}.`;
   }
 }
