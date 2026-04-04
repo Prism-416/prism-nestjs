@@ -7,7 +7,7 @@ import { SignUpUseCase } from '@/modules/auth/usecases';
 export class SignUpController {
   constructor(private readonly usecase: SignUpUseCase) {}
 
-  @Get('username')
+  @Get('username/:username')
   @ApiOperation({ summary: 'Check Username Availability' })
   @ApiNoContentResponse({ description: 'Username Available' })
   async checkUsername(@Param('username') username: string) {
