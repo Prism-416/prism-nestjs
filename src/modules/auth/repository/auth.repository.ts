@@ -189,10 +189,7 @@ export class AuthRepository {
                ua.password_hash                      AS "password",
                u.full_name                           AS "fullName",
                u.username,
-               EXISTS (SELECT 1
-                       FROM prism_email_tokens_l et
-                       WHERE et.auth_id = ua.auth_id
-                         AND et.used_at IS NOT NULL) AS "emailVerified"
+               ua.is_verified                        AS "isVerified"
         FROM prism_user_auths_l ua
                INNER JOIN prism_users_l u ON u.user_id = ua.user_id
         WHERE ua.provider = 'email'
