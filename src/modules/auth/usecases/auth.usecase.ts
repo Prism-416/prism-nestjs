@@ -136,13 +136,15 @@ export class AuthUseCase {
         return { newUser: true };
       }
 
-      await this.repo.createOAuthAuth(
+      const auth = await this.repo.createOAuthAuth(
         user.userId,
         'google',
         googleProfile.subject,
         googleProfile.email,
         manager,
       );
+
+      await this.repo.markUserAuthVerified(auth.authId, manager);
 
       return this.issueTokenPair(user.userId, user.email, manager);
     });

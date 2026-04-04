@@ -17,7 +17,6 @@ const resolveSwaggerServerUrl = (nodeEnv?: string) => {
     case 'production':
       return '/prod';
     case 'local':
-      return '/';
     default:
       return '/';
   }

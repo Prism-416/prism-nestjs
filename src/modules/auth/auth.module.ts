@@ -1,17 +1,20 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from '@/modules/auth/controller';
-import { AuthRepository } from '@/modules/auth/repository';
+import { AuthRepository, SignUpRepository } from '@/modules/auth/repository';
 import {
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
-import { AuthUseCase } from '@/modules/auth/usecases';
+import { AuthUseCase, SignUpUseCase } from '@/modules/auth/usecases';
+import { SignUpController } from '@/modules/auth/controller/signup.controller';
 
 @Module({
-  controllers: [AuthController],
+  controllers: [AuthController, SignUpController],
   providers: [
     AuthRepository,
     AuthUseCase,
+    SignUpRepository,
+    SignUpUseCase,
     GoogleTokenVerifierService,
     GithubTokenVerifierService,
   ],

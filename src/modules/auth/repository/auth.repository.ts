@@ -21,11 +21,10 @@ export class AuthRepository {
   ): Promise<UserProfileRow | null> {
     const users = await this.getManager(manager).query<UserProfileRow[]>(
       `
-        SELECT
-          user_id AS "userId",
-          email,
-          full_name AS "fullName",
-          username
+        SELECT user_id   AS "userId",
+               email,
+               full_name AS "fullName",
+               username
         FROM prism_users_l
         WHERE email = $1
         LIMIT 1
@@ -87,8 +86,8 @@ export class AuthRepository {
     providerUserId: string,
     email: string,
     manager?: EntityManager,
-  ): Promise<void> {
-    await this.getManager(manager).query(
+  ): Promise<{ authId: string }> {
+    const auths = await this.getManager(manager).query<{ authId: string }[]>(
       `
         INSERT INTO prism_user_auths_l (
           user_id,
@@ -98,9 +97,11 @@ export class AuthRepository {
           password_hash
         )
         VALUES ($1, $2, $3, $4, NULL)
+        RETURNING auth_id AS "authId"
       `,
       [userId, provider, providerUserId, email],
     );
+    return auths[0];
   }
 
   async createRefreshToken(
@@ -129,12 +130,11 @@ export class AuthRepository {
   ): Promise<RefreshTokenRow | null> {
     const tokens = await this.getManager(manager).query<RefreshTokenRow[]>(
       `
-        SELECT
-          refresh_token_id AS "refreshTokenId",
-          user_id AS "userId",
-          refresh_token_hash AS "refreshTokenHash",
-          expires_at AS "expiresAt",
-          revoked_at AS "revokedAt"
+        SELECT refresh_token_id   AS "refreshTokenId",
+               user_id            AS "userId",
+               refresh_token_hash AS "refreshTokenHash",
+               expires_at         AS "expiresAt",
+               revoked_at         AS "revokedAt"
         FROM prism_refresh_tokens_l
         WHERE user_id = $1
           AND revoked_at IS NULL
@@ -183,21 +183,15 @@ export class AuthRepository {
   ): Promise<UserCredentialRow | null> {
     const users = await this.dataSource.query<UserCredentialRow[]>(
       `
-        SELECT
-          ua.auth_id AS "authId",
-          u.user_id AS "userId",
-          u.email,
-          ua.password_hash AS "password",
-          u.full_name AS "fullName",
-          u.username,
-          EXISTS (
-            SELECT 1
-            FROM prism_email_tokens_l et
-            WHERE et.auth_id = ua.auth_id
-              AND et.used_at IS NOT NULL
-          ) AS "emailVerified"
+        SELECT ua.auth_id                            AS "authId",
+               u.user_id                             AS "userId",
+               u.email,
+               ua.password_hash                      AS "password",
+               u.full_name                           AS "fullName",
+               u.username,
+               ua.is_verified                        AS "isVerified"
         FROM prism_user_auths_l ua
-        INNER JOIN prism_users_l u ON u.user_id = ua.user_id
+               INNER JOIN prism_users_l u ON u.user_id = ua.user_id
         WHERE ua.provider = 'email'
           AND ua.email = $1
         LIMIT 1
@@ -232,7 +226,8 @@ export class AuthRepository {
   ): Promise<void> {
     await this.getManager(manager).query(
       `
-        DELETE FROM prism_email_tokens_l
+        DELETE
+        FROM prism_email_tokens_l
         WHERE auth_id = $1
           AND used_at IS NULL
       `,
@@ -268,12 +263,11 @@ export class AuthRepository {
       EmailVerificationTokenRow[]
     >(
       `
-        SELECT
-          email_token_id AS "emailTokenId",
-          auth_id AS "authId",
-          email_token_hash AS "emailTokenHash",
-          expires_at AS "expiresAt",
-          used_at AS "usedAt"
+        SELECT email_token_id   AS "emailTokenId",
+               auth_id          AS "authId",
+               email_token_hash AS "emailTokenHash",
+               expires_at       AS "expiresAt",
+               used_at          AS "usedAt"
         FROM prism_email_tokens_l
         WHERE email_token_hash = $1
           AND used_at IS NULL
@@ -302,6 +296,20 @@ export class AuthRepository {
     );
   }
 
+  async markUserAuthVerified(
+    authId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        UPDATE prism_user_auths_l
+        SET is_verified = TRUE
+        WHERE auth_id = $1
+      `,
+      [authId],
+    );
+  }
+
   async findUserByProvider(
     provider: AuthProvider,
     providerUserId: string,
@@ -309,13 +317,12 @@ export class AuthRepository {
   ): Promise<UserProfileRow | null> {
     const users = await this.getManager(manager).query<UserProfileRow[]>(
       `
-        SELECT
-          u.user_id AS "userId",
-          u.email,
-          u.full_name AS "fullName",
-          u.username
+        SELECT u.user_id   AS "userId",
+               u.email,
+               u.full_name AS "fullName",
+               u.username
         FROM prism_user_auths_l ua
-        INNER JOIN prism_users_l u ON u.user_id = ua.user_id
+               INNER JOIN prism_users_l u ON u.user_id = ua.user_id
         WHERE ua.provider = $1
           AND ua.provider_user_id = $2
         LIMIT 1
@@ -332,11 +339,10 @@ export class AuthRepository {
   ): Promise<UserProfileRow | null> {
     const users = await this.getManager(manager).query<UserProfileRow[]>(
       `
-        SELECT
-          user_id AS "userId",
-          email,
-          full_name AS "fullName",
-          username
+        SELECT user_id   AS "userId",
+               email,
+               full_name AS "fullName",
+               username
         FROM prism_users_l
         WHERE username = $1
         LIMIT 1
@@ -353,11 +359,10 @@ export class AuthRepository {
   ): Promise<UserProfileRow | null> {
     const users = await this.getManager(manager).query<UserProfileRow[]>(
       `
-        SELECT
-          user_id AS "userId",
-          email,
-          full_name AS "fullName",
-          username
+        SELECT user_id   AS "userId",
+               email,
+               full_name AS "fullName",
+               username
         FROM prism_users_l
         WHERE user_id = $1
         LIMIT 1

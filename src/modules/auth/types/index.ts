@@ -8,6 +8,11 @@ export type UserCredentialRow = {
   isVerified: boolean;
 };
 
+export type UserRow = {
+  userId: string;
+  username: string;
+};
+
 export type UserProfileRow = Omit<UserCredentialRow, 'password'>;
 export type AuthProvider = 'email' | 'google' | 'github';
 export type CreatedUserRow = UserProfileRow & {
