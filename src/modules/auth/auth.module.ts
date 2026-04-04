@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from '@/modules/auth/controller';
-import { AuthRepository, SignUpRepository } from '@/modules/auth/repository';
+import { AuthRepository } from '@/modules/auth/repository';
 import {
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
@@ -13,7 +13,6 @@ import { SignUpController } from '@/modules/auth/controller/signup.controller';
   providers: [
     AuthRepository,
     AuthUseCase,
-    SignUpRepository,
     SignUpUseCase,
     GoogleTokenVerifierService,
     GithubTokenVerifierService,
