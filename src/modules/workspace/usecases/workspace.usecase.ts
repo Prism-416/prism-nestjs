@@ -16,6 +16,8 @@ import {
   isWorkspaceSlugUniqueViolation,
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberUserNotFoundError,
+  WorkspaceInvitationExpiredError,
+  WorkspaceInvitationNotFoundError,
   WorkspaceNotFoundError,
   WorkspaceSlugAlreadyExistsError,
 } from '@/modules/workspace/errors';
@@ -161,6 +163,61 @@ export class WorkspaceUseCase {
     );
 
     return invitationResponse;
+  }
+
+  async acceptWorkspaceInvitation(
+    userId: string,
+    workspaceId: string,
+  ): Promise<WorkspaceResponseDto> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceById(workspaceId, manager);
+      if (!workspace) {
+        throw new WorkspaceNotFoundError();
+      }
+
+      const invitation = await this.repo.findWorkspaceInvitation(
+        workspaceId,
+        userId,
+        manager,
+      );
+      if (!invitation) {
+        throw new WorkspaceInvitationNotFoundError();
+      }
+
+      const existingMember = await this.repo.findWorkspaceMember(
+        workspaceId,
+        userId,
+        manager,
+      );
+      if (existingMember) {
+        throw new WorkspaceMemberAlreadyExistsError();
+      }
+
+      if (invitation.expiresAt.getTime() < Date.now()) {
+        throw new WorkspaceInvitationExpiredError();
+      }
+
+      await this.repo.createWorkspaceMembership(
+        {
+          workspaceId,
+          userId,
+          role: invitation.role,
+          invitedAt: invitation.createdAt,
+        },
+        manager,
+      );
+
+      await this.repo.createWorkspaceInvitationEvent(
+        {
+          invitationId: invitation.invitationId,
+          actorId: userId,
+          eventType: 'accepted',
+        },
+        manager,
+      );
+
+      return workspace;
+    });
   }
 
   async createWorkspace(

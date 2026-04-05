@@ -77,6 +77,21 @@ export class WorkspaceController {
     );
   }
 
+  @Post(':workspaceId/invitations/accept')
+  @ApiOperation({
+    summary: 'Accept a workspace invitation for the authenticated user',
+  })
+  @ApiDataResponse(WorkspaceResponseDto)
+  async acceptWorkspaceInvitation(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+  ): Promise<WorkspaceResponseDto> {
+    return this.usecase.acceptWorkspaceInvitation(
+      String(user.sub),
+      workspaceId,
+    );
+  }
+
   @Patch(':workspaceId')
   @ApiOperation({ summary: 'Update a workspace the user administers' })
   @ApiDataResponse(WorkspaceResponseDto)

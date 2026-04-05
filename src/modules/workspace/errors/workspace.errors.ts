@@ -1,4 +1,4 @@
-import { DuplicateError, NotExistsError } from '@/common/errors';
+import { DomainError, DuplicateError, NotExistsError } from '@/common/errors';
 import { QueryFailedError } from 'typeorm';
 
 const WORKSPACE_SLUG_UNIQUE_CONSTRAINT = 'uq_workspaces_slug';
@@ -26,6 +26,22 @@ export class WorkspaceMemberAlreadyExistsError extends DuplicateError {
     super(
       'User is already a workspace member.',
       'WORKSPACE_MEMBER_ALREADY_EXISTS',
+    );
+  }
+}
+
+export class WorkspaceInvitationNotFoundError extends NotExistsError {
+  constructor() {
+    super('Workspace invitation not found.', 'WORKSPACE_INVITATION_NOT_FOUND');
+  }
+}
+
+export class WorkspaceInvitationExpiredError extends DomainError {
+  constructor() {
+    super(
+      'Workspace invitation has expired.',
+      'WORKSPACE_INVITATION_EXPIRED',
+      400,
     );
   }
 }

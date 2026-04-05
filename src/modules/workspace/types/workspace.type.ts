@@ -24,6 +24,7 @@ export type WorkspaceInvitationRow = {
   role: WorkspaceMemberRow['role'];
   token: string;
   expiresAt: Date;
+  createdAt: Date;
 };
 
 export type WorkspaceInvitationEventType = 'sent' | 'accepted' | 'denied';
