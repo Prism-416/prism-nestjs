@@ -263,6 +263,7 @@ export class WorkspaceRepository {
         DO UPDATE SET
           sender_id = EXCLUDED.sender_id,
           role = EXCLUDED.role,
+          invitation_token = EXCLUDED.invitation_token,
           expires_at = EXCLUDED.expires_at
         RETURNING
           invitation_id AS "invitationId",
@@ -287,9 +288,8 @@ export class WorkspaceRepository {
     return invitations[0];
   }
 
-  async findWorkspaceInvitation(
-    workspaceId: string,
-    receiverId: string,
+  async findWorkspaceInvitationByToken(
+    token: string,
     manager?: EntityManager,
   ): Promise<WorkspaceInvitationRow | null> {
     const invitations = await this.getManager(manager).query<
@@ -306,11 +306,10 @@ export class WorkspaceRepository {
           expires_at AS "expiresAt",
           created_at AS "createdAt"
         FROM prism_workspace_invitations_l
-        WHERE workspace_id = $1
-          AND receiver_id = $2
+        WHERE invitation_token = $1
         LIMIT 1
       `,
-      [workspaceId, receiverId],
+      [token],
     );
 
     return invitations[0] ?? null;
