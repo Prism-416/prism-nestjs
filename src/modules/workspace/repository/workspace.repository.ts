@@ -71,6 +71,31 @@ export class WorkspaceRepository {
     return workspaces[0] ?? null;
   }
 
+  async findWorkspaceById(
+    workspaceId: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceRow | null> {
+    const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
+      `
+        SELECT
+          workspace_id AS "workspaceId",
+          name,
+          slug,
+          description,
+          owner_id AS "ownerId",
+          created_at AS "createdAt"
+        FROM prism_workspaces_l
+        WHERE workspace_id = $1
+          AND archived_at IS NULL
+          AND status = 'active'
+        LIMIT 1
+      `,
+      [workspaceId],
+    );
+
+    return workspaces[0] ?? null;
+  }
+
   async findWorkspacesByMemberUserId(userId: string): Promise<WorkspaceRow[]> {
     return this.dataSource.query<WorkspaceRow[]>(
       `
@@ -238,6 +263,7 @@ export class WorkspaceRepository {
         DO UPDATE SET
           sender_id = EXCLUDED.sender_id,
           role = EXCLUDED.role,
+          invitation_token = EXCLUDED.invitation_token,
           expires_at = EXCLUDED.expires_at
         RETURNING
           invitation_id AS "invitationId",
@@ -246,7 +272,8 @@ export class WorkspaceRepository {
           receiver_id AS "receiverId",
           role,
           invitation_token AS "token",
-          expires_at AS "expiresAt"
+          expires_at AS "expiresAt",
+          created_at AS "createdAt"
       `,
       [
         params.workspaceId,
@@ -259,6 +286,57 @@ export class WorkspaceRepository {
     );
 
     return invitations[0];
+  }
+
+  async findWorkspaceInvitationByToken(
+    token: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceInvitationRow | null> {
+    const invitations = await this.getManager(manager).query<
+      WorkspaceInvitationRow[]
+    >(
+      `
+        SELECT
+          invitation_id AS "invitationId",
+          workspace_id AS "workspaceId",
+          sender_id AS "senderId",
+          receiver_id AS "receiverId",
+          role,
+          invitation_token AS "token",
+          expires_at AS "expiresAt",
+          created_at AS "createdAt"
+        FROM prism_workspace_invitations_l
+        WHERE invitation_token = $1
+        LIMIT 1
+      `,
+      [token],
+    );
+
+    return invitations[0] ?? null;
+  }
+
+  async createWorkspaceMembership(
+    params: {
+      workspaceId: string;
+      userId: string;
+      role: WorkspaceMemberRow['role'];
+      invitedAt: Date;
+    },
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        INSERT INTO prism_workspace_members_l (
+          workspace_id,
+          user_id,
+          role,
+          invited_at,
+          joined_at
+        )
+        VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+      `,
+      [params.workspaceId, params.userId, params.role, params.invitedAt],
+    );
   }
 
   async createWorkspaceInvitationEvent(

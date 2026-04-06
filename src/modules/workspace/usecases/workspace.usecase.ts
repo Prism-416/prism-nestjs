@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/common/database';
 import {
+  AcceptWorkspaceInvitationDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   UpdateWorkspaceDto,
@@ -16,6 +17,8 @@ import {
   isWorkspaceSlugUniqueViolation,
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberUserNotFoundError,
+  WorkspaceInvitationExpiredError,
+  WorkspaceInvitationNotFoundError,
   WorkspaceNotFoundError,
   WorkspaceSlugAlreadyExistsError,
 } from '@/modules/workspace/errors';
@@ -161,6 +164,62 @@ export class WorkspaceUseCase {
     );
 
     return invitationResponse;
+  }
+
+  async acceptWorkspaceInvitation(
+    dto: AcceptWorkspaceInvitationDto,
+  ): Promise<WorkspaceResponseDto> {
+    return this.uow.run(async (manager) => {
+      const invitation = await this.repo.findWorkspaceInvitationByToken(
+        dto.token,
+        manager,
+      );
+      if (!invitation) {
+        throw new WorkspaceInvitationNotFoundError();
+      }
+
+      const workspace = await this.repo.findWorkspaceById(
+        invitation.workspaceId,
+        manager,
+      );
+      if (!workspace) {
+        throw new WorkspaceNotFoundError();
+      }
+
+      const existingMember = await this.repo.findWorkspaceMember(
+        invitation.workspaceId,
+        invitation.receiverId,
+        manager,
+      );
+      if (existingMember) {
+        throw new WorkspaceMemberAlreadyExistsError();
+      }
+
+      if (invitation.expiresAt.getTime() < Date.now()) {
+        throw new WorkspaceInvitationExpiredError();
+      }
+
+      await this.repo.createWorkspaceMembership(
+        {
+          workspaceId: invitation.workspaceId,
+          userId: invitation.receiverId,
+          role: invitation.role,
+          invitedAt: invitation.createdAt,
+        },
+        manager,
+      );
+
+      await this.repo.createWorkspaceInvitationEvent(
+        {
+          invitationId: invitation.invitationId,
+          actorId: invitation.receiverId,
+          eventType: 'accepted',
+        },
+        manager,
+      );
+
+      return workspace;
+    });
   }
 
   async createWorkspace(

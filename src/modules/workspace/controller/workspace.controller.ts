@@ -12,6 +12,7 @@ import { Authenticated, CurrentUser } from '@/common/auth';
 import { ApiDataResponse } from '@/common/response';
 import type { JwtPayload } from '@/common/auth/jwt-token.service';
 import {
+  AcceptWorkspaceInvitationDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   UpdateWorkspaceDto,
@@ -23,11 +24,11 @@ import { WorkspaceUseCase } from '@/modules/workspace/usecases';
 
 @ApiTags('Workspace')
 @Controller()
-@Authenticated()
 export class WorkspaceController {
   constructor(private readonly usecase: WorkspaceUseCase) {}
 
   @Get()
+  @Authenticated()
   @ApiOperation({ summary: 'Retrieve workspaces the user belongs to' })
   @ApiDataResponse(WorkspaceResponseDto, { isArray: true })
   async getWorkspaces(
@@ -37,6 +38,7 @@ export class WorkspaceController {
   }
 
   @Get(':workspaceId')
+  @Authenticated()
   @ApiOperation({ summary: 'Retrieve a workspace the user belongs to' })
   @ApiDataResponse(WorkspaceResponseDto)
   async getWorkspace(
@@ -47,6 +49,7 @@ export class WorkspaceController {
   }
 
   @Get(':workspaceId/members')
+  @Authenticated()
   @ApiOperation({
     summary: 'Retrieve members of a workspace the user belongs to',
   })
@@ -59,6 +62,7 @@ export class WorkspaceController {
   }
 
   @Post(':workspaceId/invitations')
+  @Authenticated()
   @ApiOperation({
     summary: 'Create a workspace invitation for a user',
   })
@@ -77,7 +81,19 @@ export class WorkspaceController {
     );
   }
 
+  @Post('invitations/accept')
+  @ApiOperation({
+    summary: 'Accept a workspace invitation using an invitation token',
+  })
+  @ApiDataResponse(WorkspaceResponseDto)
+  async acceptWorkspaceInvitation(
+    @Body() dto: AcceptWorkspaceInvitationDto,
+  ): Promise<WorkspaceResponseDto> {
+    return this.usecase.acceptWorkspaceInvitation(dto);
+  }
+
   @Patch(':workspaceId')
+  @Authenticated()
   @ApiOperation({ summary: 'Update a workspace the user administers' })
   @ApiDataResponse(WorkspaceResponseDto)
   async updateWorkspace(
@@ -89,6 +105,7 @@ export class WorkspaceController {
   }
 
   @Post()
+  @Authenticated()
   @ApiOperation({ summary: 'Create Workspace' })
   @ApiDataResponse(WorkspaceResponseDto, { status: HttpStatus.CREATED })
   async createWorkspace(

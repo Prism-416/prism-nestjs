@@ -96,6 +96,13 @@ export class CreateWorkspaceInvitationDto {
   role!: 'admin' | 'member' | 'viewer';
 }
 
+export class AcceptWorkspaceInvitationDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  token!: string;
+}
+
 export class WorkspaceInvitationResponseDto {
   @ApiProperty()
   invitationId!: string;
