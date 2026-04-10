@@ -96,6 +96,33 @@ export class WorkspaceRepository {
     return workspaces[0] ?? null;
   }
 
+  async findWorkspaceByOwnerIdAndName(
+    ownerId: string,
+    name: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceRow | null> {
+    const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
+      `
+        SELECT
+          workspace_id AS "workspaceId",
+          name,
+          slug,
+          description,
+          owner_id AS "ownerId",
+          created_at AS "createdAt"
+        FROM prism_workspaces_l
+        WHERE owner_id = $1
+          AND name = $2
+          AND archived_at IS NULL
+          AND status = 'active'
+        LIMIT 1
+      `,
+      [ownerId, name],
+    );
+
+    return workspaces[0] ?? null;
+  }
+
   async findWorkspacesByMemberUserId(userId: string): Promise<WorkspaceRow[]> {
     return this.dataSource.query<WorkspaceRow[]>(
       `

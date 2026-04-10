@@ -11,6 +11,7 @@ import { DataResponseInterceptor } from '@/common/response';
 import { envValidationSchema } from '@/config/env.validation';
 import { buildTypeOrmOptions } from '@/database/typeorm.options';
 import { AuthModule } from '@/modules/auth/auth.module';
+import { OnboardingModule } from '@/modules/onboarding/onboarding.module';
 import { WorkspaceModule } from '@/modules/workspace/workspace.module';
 
 const dbEnabled = (process.env.DB_ENABLED ?? 'false').toLowerCase() === 'true';
@@ -25,6 +26,10 @@ const featureRegistrations: FeatureRegistration[] = [
   {
     module: AuthModule,
     path: 'auth',
+    requiresDb: true,
+  },
+  {
+    module: OnboardingModule,
     requiresDb: true,
   },
   {
