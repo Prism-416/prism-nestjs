@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/common/database';
 import {
   AcceptWorkspaceInvitationDto,
@@ -12,23 +11,19 @@ import {
   WorkspaceInvitationResponseDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
-import { MAX_WORKSPACE_SLUG_GENERATION_ATTEMPTS } from '@/modules/workspace/constants';
 import {
-  isWorkspaceSlugUniqueViolation,
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberUserNotFoundError,
   WorkspaceInvitationExpiredError,
   WorkspaceInvitationNotFoundError,
   WorkspaceNotFoundError,
-  WorkspaceSlugAlreadyExistsError,
 } from '@/modules/workspace/errors';
 import { WorkspaceRepository } from '@/modules/workspace/repository';
-import { WorkspaceInvitationNotifierService } from '@/modules/workspace/services';
 import {
-  WorkspaceInvitationRow,
-  WorkspaceRow,
-} from '@/modules/workspace/types';
-import { generateWorkspaceSlug } from '@/modules/workspace/utils';
+  WorkspaceInvitationNotifierService,
+  WorkspaceProvisioningService,
+} from '@/modules/workspace/services';
+import { WorkspaceInvitationRow } from '@/modules/workspace/types';
 
 @Injectable()
 export class WorkspaceUseCase {
@@ -38,6 +33,7 @@ export class WorkspaceUseCase {
     private readonly repo: WorkspaceRepository,
     private readonly uow: UnitOfWork,
     private readonly invitationNotifier: WorkspaceInvitationNotifierService,
+    private readonly workspaceProvisioning: WorkspaceProvisioningService,
     private readonly configService: ConfigService,
   ) {
     this.invitationPageUrl = this.configService.get<string>(
@@ -227,7 +223,7 @@ export class WorkspaceUseCase {
     dto: CreateWorkspaceDto,
   ): Promise<WorkspaceResponseDto> {
     return this.uow.run(async (manager) => {
-      const workspace = await this.createWorkspaceWithGeneratedSlug(
+      return this.workspaceProvisioning.createOwnedWorkspace(
         {
           ownerId: userId,
           name: dto.name,
@@ -235,13 +231,6 @@ export class WorkspaceUseCase {
         },
         manager,
       );
-
-      await this.repo.createOwnerMembership(
-        workspace.workspaceId,
-        userId,
-        manager,
-      );
-      return workspace;
     });
   }
 
@@ -264,44 +253,6 @@ export class WorkspaceUseCase {
       description: dto.description ?? workspace.description,
     });
   }
-
-  private async createWorkspaceWithGeneratedSlug(
-    params: {
-      ownerId: string;
-      name: string;
-      description?: string;
-    },
-    manager: EntityManager,
-  ): Promise<WorkspaceRow> {
-    for (
-      let attempt = 0;
-      attempt < MAX_WORKSPACE_SLUG_GENERATION_ATTEMPTS;
-      attempt += 1
-    ) {
-      const slug = generateWorkspaceSlug(params.name);
-
-      try {
-        return await this.repo.createWorkspace(
-          {
-            ownerId: params.ownerId,
-            name: params.name,
-            slug,
-            description: params.description,
-          },
-          manager,
-        );
-      } catch (error) {
-        if (isWorkspaceSlugUniqueViolation(error)) {
-          continue;
-        }
-
-        throw error;
-      }
-    }
-
-    throw new WorkspaceSlugAlreadyExistsError();
-  }
-
   private buildInvitationLink(token: string): string {
     if (!this.invitationPageUrl) {
       return token;
