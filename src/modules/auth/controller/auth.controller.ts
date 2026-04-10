@@ -4,7 +4,6 @@ import {
   HttpCode,
   HttpStatus,
   Post,
-  Query,
   Res,
   UseInterceptors,
 } from '@nestjs/common';
@@ -25,24 +24,12 @@ import {
   SignInWithEmailDto,
   SignInWithGithubDto,
   SignInWithGoogleDto,
-  SignUpWithEmailDto,
-  SignUpWithEmailResponseDto,
-  VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
 
 @ApiTags('Authentication')
 @Controller()
 export class AuthController {
   constructor(private readonly usecase: AuthUseCase) {}
-
-  @Post('signup')
-  @ApiOperation({ summary: 'Sign Up with Email' })
-  @ApiDataResponse(SignUpWithEmailResponseDto, { status: HttpStatus.CREATED })
-  async signUp(
-    @Body() dto: SignUpWithEmailDto,
-  ): Promise<SignUpWithEmailResponseDto> {
-    return await this.usecase.signUpWithEmail(dto);
-  }
 
   @Post('signin')
   @ApiOperation({ summary: 'Sign In with Email' })
@@ -59,13 +46,6 @@ export class AuthController {
   })
   async requestEmailVerification(@Body() dto: RequestEmailVerificationDto) {
     return await this.usecase.requestEmailVerification(dto);
-  }
-
-  @Post('verify')
-  @ApiOperation({ summary: 'Verify Email with Token' })
-  @ApiDataResponse(VerifyEmailResponseDto, { status: HttpStatus.CREATED })
-  async verifyEmail(@Query('token') token: string) {
-    return await this.usecase.verifyEmail(token);
   }
 
   @Post('oauth/google')

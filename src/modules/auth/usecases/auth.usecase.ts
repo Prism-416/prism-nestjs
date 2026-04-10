@@ -10,8 +10,6 @@ import {
   SignInWithEmailDto,
   SignInWithGithubDto,
   SignInWithGoogleDto,
-  SignUpWithEmailDto,
-  SignUpWithEmailResponseDto,
 } from '@/modules/auth/dto';
 import {
   EmailNotVerifiedError,
@@ -24,7 +22,6 @@ import {
 } from '@/modules/auth/errors';
 import { AuthRepository } from '@/modules/auth/repository';
 import {
-  AuthRegistrationService,
   EmailVerificationService,
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
@@ -39,26 +36,10 @@ export class AuthUseCase {
     private readonly uow: UnitOfWork,
     private readonly jwtService: JwtTokenService,
     private readonly pwdService: PasswordService,
-    private readonly authRegistration: AuthRegistrationService,
     private readonly emailVerification: EmailVerificationService,
     private readonly google: GoogleTokenVerifierService,
     private readonly github: GithubTokenVerifierService,
   ) {}
-
-  async signUpWithEmail(
-    dto: SignUpWithEmailDto,
-  ): Promise<SignUpWithEmailResponseDto> {
-    return this.uow.run(async (manager) => {
-      const { user, authId } = await this.authRegistration.registerEmailUser(
-        dto,
-        manager,
-      );
-
-      await this.emailVerification.issue(dto.email, authId, manager);
-
-      return user;
-    });
-  }
 
   async signInWithEmail(
     dto: SignInWithEmailDto,
@@ -174,13 +155,6 @@ export class AuthUseCase {
     });
 
     return { requested: true };
-  }
-
-  async verifyEmail(tokenPayload: string) {
-    return this.uow.run(async (manager) => {
-      await this.emailVerification.verifyToken(tokenPayload, manager);
-      return { verified: true };
-    });
   }
 
   private async issueTokenPair(

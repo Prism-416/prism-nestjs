@@ -1,9 +1,11 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UnitOfWork } from '@/common/database';
 import {
+  SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
   SignUpWithGithubDto,
   SignUpWithGoogleDto,
+  VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
 import {
   InvalidGithubAuthorizationCodeError,
@@ -14,22 +16,41 @@ import {
 import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
 import {
   AuthRegistrationService,
+  EmailVerificationService,
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
+import { WorkspaceProvisioningService } from '@/modules/workspace/services';
 
 @Injectable()
-export class SignUpUseCase {
+export class OnboardingUseCase {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly authRegistration: AuthRegistrationService,
+    private readonly emailVerification: EmailVerificationService,
     private readonly google: GoogleTokenVerifierService,
     private readonly github: GithubTokenVerifierService,
+    private readonly workspaceProvisioning: WorkspaceProvisioningService,
   ) {}
 
-  async checkUsername(username: string) {
+  async checkUsername(username: string): Promise<void> {
     return this.uow.run(async (manager) => {
       await this.authRegistration.ensureUsernameAvailable(username, manager);
+    });
+  }
+
+  async signUpWithEmail(
+    dto: SignUpWithEmailDto,
+  ): Promise<SignUpWithEmailResponseDto> {
+    return this.uow.run(async (manager) => {
+      const { user, authId } = await this.authRegistration.registerEmailUser(
+        dto,
+        manager,
+      );
+
+      await this.emailVerification.issue(user.email, authId, manager);
+
+      return user;
     });
   }
 
@@ -72,7 +93,39 @@ export class SignUpUseCase {
     username: string;
   }): Promise<SignUpWithEmailResponseDto> {
     return this.uow.run(async (manager) => {
-      return this.authRegistration.registerOAuthUser(params, manager);
+      const user = await this.authRegistration.registerOAuthUser(
+        params,
+        manager,
+      );
+
+      await this.workspaceProvisioning.createOwnedWorkspace(
+        {
+          ownerId: user.userId,
+          name: this.buildDefaultWorkspaceName(user.username),
+        },
+        manager,
+      );
+
+      return user;
+    });
+  }
+
+  async verifyEmail(tokenPayload: string): Promise<VerifyEmailResponseDto> {
+    return this.uow.run(async (manager) => {
+      const user = await this.emailVerification.verifyToken(
+        tokenPayload,
+        manager,
+      );
+
+      await this.workspaceProvisioning.ensureOwnedWorkspace(
+        {
+          ownerId: user.userId,
+          name: this.buildDefaultWorkspaceName(user.username),
+        },
+        manager,
+      );
+
+      return { verified: true };
     });
   }
 
@@ -117,5 +170,9 @@ export class SignUpUseCase {
     }
 
     return profile;
+  }
+
+  private buildDefaultWorkspaceName(username: string): string {
+    return `${username}'s workspace`;
   }
 }
