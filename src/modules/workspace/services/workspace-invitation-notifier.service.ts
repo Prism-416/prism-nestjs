@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OciEmailDeliveryService } from '@/common/email';
+import { OciEmailDeliveryService } from '@/core/email';
 import { WorkspaceInvitationResponseDto } from '@/modules/workspace/dto';
 import { WorkspaceUserRow } from '@/modules/workspace/types';
 

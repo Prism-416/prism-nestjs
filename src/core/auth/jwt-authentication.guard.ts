@@ -12,9 +12,11 @@ export class JwtAuthenticationGuard implements CanActivate {
   constructor(private readonly jwtTokenService: JwtTokenService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest<
-      Request & { user?: ReturnType<JwtTokenService['verifyAccessToken']> }
-    >();
+    const request = context
+      .switchToHttp()
+      .getRequest<
+        Request & { user?: ReturnType<JwtTokenService['verifyAccessToken']> }
+      >();
     const token = this.extractBearerToken(request.headers.authorization);
 
     request.user = this.jwtTokenService.verifyAccessToken(token);

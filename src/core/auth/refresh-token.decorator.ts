@@ -1,7 +1,4 @@
-import {
-  UnauthorizedException,
-  createParamDecorator,
-} from '@nestjs/common';
+import { UnauthorizedException, createParamDecorator } from '@nestjs/common';
 
 export const REFRESH_TOKEN_COOKIE = 'refreshToken';
 
@@ -9,8 +6,9 @@ export const RefreshToken = createParamDecorator((_data, context) => {
   const request = context
     .switchToHttp()
     .getRequest<{ headers: { cookie?: string } }>();
-  const refreshToken =
-    parseCookies(request.headers.cookie)[REFRESH_TOKEN_COOKIE];
+  const refreshToken = parseCookies(request.headers.cookie)[
+    REFRESH_TOKEN_COOKIE
+  ];
 
   if (!refreshToken) {
     throw new UnauthorizedException('Missing refresh token cookie');
@@ -24,8 +22,9 @@ function parseCookies(cookieHeader?: string): Record<string, string> {
     return {};
   }
 
-  return cookieHeader.split(';').reduce<Record<string, string>>(
-    (cookies, cookie) => {
+  return cookieHeader
+    .split(';')
+    .reduce<Record<string, string>>((cookies, cookie) => {
       const [name, ...valueParts] = cookie.trim().split('=');
       if (!name) {
         return cookies;
@@ -33,7 +32,5 @@ function parseCookies(cookieHeader?: string): Record<string, string> {
 
       cookies[name] = decodeURIComponent(valueParts.join('='));
       return cookies;
-    },
-    {},
-  );
+    }, {});
 }

@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { OciEmailModule } from '@/common/email';
+import { OciEmailModule } from '@/core/email';
 import { WorkspaceController } from '@/modules/workspace/controller';
 import { WorkspaceRepository } from '@/modules/workspace/repository';
 import {

@@ -13,8 +13,8 @@ import {
   AuthTokenCookieInterceptor,
   REFRESH_TOKEN_COOKIE,
   RefreshToken,
-} from '@/common/auth';
-import { ApiDataResponse } from '@/common/response';
+} from '@/core/auth';
+import { ApiDataResponse } from '@/core/response';
 import { AuthUseCase } from '@/modules/auth/usecases';
 import {
   AuthTokenResponseDto,

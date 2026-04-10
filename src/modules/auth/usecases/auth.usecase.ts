@@ -1,7 +1,7 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { JwtTokenService } from '@/common/auth';
-import { UnitOfWork } from '@/common/database';
-import { PasswordService } from '@/common/security';
+import { JwtTokenService } from '@/core/auth';
+import { UnitOfWork } from '@/core/database';
+import { PasswordService } from '@/core/security';
 import {
   AuthTokenPairResponseDto,
   OAuthSignInResponseDto,

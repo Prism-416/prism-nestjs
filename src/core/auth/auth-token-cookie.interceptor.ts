@@ -21,9 +21,10 @@ type AuthTokenResponse = {
 };
 
 @Injectable()
-export class AuthTokenCookieInterceptor
-  implements NestInterceptor<AuthTokenPair, AuthTokenResponse>
-{
+export class AuthTokenCookieInterceptor implements NestInterceptor<
+  AuthTokenPair,
+  AuthTokenResponse
+> {
   constructor(private readonly configService: ConfigService) {}
 
   intercept(

@@ -8,7 +8,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ApiDataResponse } from '@/common/response';
+import { ApiDataResponse } from '@/core/response';
 import { OnboardingUseCase } from '@/modules/onboarding/usecases';
 import {
   SignUpWithEmailDto,

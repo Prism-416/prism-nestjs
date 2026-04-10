@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { EntityManager } from 'typeorm';
-import { OciEmailDeliveryService } from '@/common/email';
+import { OciEmailDeliveryService } from '@/core/email';
 import { InvalidEmailVerificationTokenError } from '@/modules/auth/errors';
 import { AuthRepository } from '@/modules/auth/repository';
 import { UserProfileRow } from '@/modules/auth/types';

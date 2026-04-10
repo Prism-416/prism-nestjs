@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
-import { UnitOfWork } from '@/common/database';
+import { UnitOfWork } from '@/core/database';
 import {
   AcceptWorkspaceInvitationDto,
   CreateWorkspaceDto,

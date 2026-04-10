@@ -8,9 +8,9 @@ import {
   Post,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Authenticated, CurrentUser } from '@/common/auth';
-import { ApiDataResponse } from '@/common/response';
-import type { JwtPayload } from '@/common/auth/jwt-token.service';
+import { Authenticated, CurrentUser } from '@/core/auth';
+import { ApiDataResponse } from '@/core/response';
+import type { JwtPayload } from '@/core/auth/jwt-token.service';
 import {
   AcceptWorkspaceInvitationDto,
   CreateWorkspaceDto,

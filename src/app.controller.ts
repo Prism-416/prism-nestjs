@@ -1,7 +1,7 @@
 import { Controller, Get, Redirect, Req } from '@nestjs/common';
 import type { Request } from 'express';
 import { AppService } from '@/app.service';
-import { Authenticated } from '@/common/auth';
+import { Authenticated } from '@/core/auth';
 
 @Controller()
 export class AppController {

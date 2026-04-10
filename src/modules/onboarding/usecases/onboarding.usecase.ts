@@ -1,5 +1,5 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { UnitOfWork } from '@/common/database';
+import { UnitOfWork } from '@/core/database';
 import {
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,

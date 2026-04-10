@@ -1,4 +1,4 @@
-import { DomainError, DuplicateError, NotExistsError } from '@/common/errors';
+import { DomainError, DuplicateError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
 const WORKSPACE_SLUG_UNIQUE_CONSTRAINT = 'uq_workspaces_slug';

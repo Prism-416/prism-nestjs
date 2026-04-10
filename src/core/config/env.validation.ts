@@ -21,10 +21,7 @@ export const envValidationSchema = Joi.object({
   JWT_SECRET: Joi.string().min(16).default('dev-only-change-me'),
   JWT_REFRESH_SECRET: Joi.string().allow('').default(''),
   JWT_ACCESS_EXPIRES_IN_SEC: Joi.number().integer().min(60).default(900),
-  JWT_REFRESH_EXPIRES_IN_SEC: Joi.number()
-    .integer()
-    .min(300)
-    .default(1209600),
+  JWT_REFRESH_EXPIRES_IN_SEC: Joi.number().integer().min(300).default(1209600),
   WORKSPACE_INVITATION_EXPIRES_IN_SEC: Joi.number()
     .integer()
     .min(300)

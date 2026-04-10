@@ -1,5 +1,5 @@
-import { DuplicateError } from '@/common/errors/domain-error';
-import { UnauthorizedDomainError } from '@/common/errors/domain-error';
+import { DuplicateError } from '@/core/errors/domain-error';
+import { UnauthorizedDomainError } from '@/core/errors/domain-error';
 
 export class EmailAlreadyExistsError extends DuplicateError {
   constructor() {

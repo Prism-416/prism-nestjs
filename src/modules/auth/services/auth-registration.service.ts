@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
-import { PasswordService } from '@/common/security';
+import { PasswordService } from '@/core/security';
 import {
   EmailAlreadyExistsError,
   UsernameAlreadyExistsError,
