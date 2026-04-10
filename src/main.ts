@@ -6,8 +6,8 @@ import type { NextFunction, Request, Response } from 'express';
 import helmet from 'helmet';
 import compression from 'compression';
 import { AppModule } from '@/app.module';
-import { GlobalExceptionFilter } from '@/common/errors/global-exception.filter';
-import { applyPostgresSearchPath } from '@/database/typeorm.options';
+import { GlobalExceptionFilter } from '@/core/errors/global-exception.filter';
+import { applyPostgresSearchPath } from '@/core/database/typeorm.options';
 import { DataSource } from 'typeorm';
 
 const resolveSwaggerServerUrl = (nodeEnv?: string) => {

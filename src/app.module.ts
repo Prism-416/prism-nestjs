@@ -6,10 +6,10 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR, RouterModule } from '@nestjs/core';
 import { AppController } from '@/app.controller';
 import { AppService } from '@/app.service';
-import { CommonModule } from '@/common/common.module';
-import { DataResponseInterceptor } from '@/common/response';
-import { envValidationSchema } from '@/config/env.validation';
-import { buildTypeOrmOptions } from '@/database/typeorm.options';
+import { CoreModule } from '@/core/core.module';
+import { DataResponseInterceptor } from '@/core/response';
+import { envValidationSchema } from '@/core/config/env.validation';
+import { buildTypeOrmOptions } from '@/core/database/typeorm.options';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { OnboardingModule } from '@/modules/onboarding/onboarding.module';
 import { WorkspaceModule } from '@/modules/workspace/workspace.module';
@@ -55,7 +55,7 @@ const buildCoreImports = () => [
     },
   ]),
   ...(dbEnabled ? [TypeOrmModule.forRoot(buildTypeOrmOptions())] : []),
-  CommonModule,
+  CoreModule,
 ];
 
 const buildFeatureImports = (registrations: FeatureRegistration[]) =>
