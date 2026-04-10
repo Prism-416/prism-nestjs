@@ -1,25 +1,19 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { UnitOfWork } from '@/common/database';
-import { AuthRepository } from '@/modules/auth/repository';
-import {
-  EmailAlreadyExistsError,
-  InvalidGithubAuthorizationCodeError,
-  InvalidGoogleIdTokenError,
-  UnverifiedGoogleEmailError,
-  UnverifiedGithubEmailError,
-  UsernameAlreadyExistsError,
-} from '@/modules/auth/errors';
 import {
   SignUpWithEmailResponseDto,
   SignUpWithGithubDto,
   SignUpWithGoogleDto,
 } from '@/modules/auth/dto';
 import {
-  AuthProvider,
-  GithubProfile,
-  GoogleProfile,
-} from '@/modules/auth/types';
+  InvalidGithubAuthorizationCodeError,
+  InvalidGoogleIdTokenError,
+  UnverifiedGithubEmailError,
+  UnverifiedGoogleEmailError,
+} from '@/modules/auth/errors';
+import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
 import {
+  AuthRegistrationService,
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
@@ -27,18 +21,15 @@ import {
 @Injectable()
 export class SignUpUseCase {
   constructor(
-    private readonly repo: AuthRepository,
     private readonly uow: UnitOfWork,
+    private readonly authRegistration: AuthRegistrationService,
     private readonly google: GoogleTokenVerifierService,
     private readonly github: GithubTokenVerifierService,
   ) {}
 
   async checkUsername(username: string) {
     return this.uow.run(async (manager) => {
-      const user = await this.repo.findUserByUsername(username, manager);
-      if (user) {
-        throw new UsernameAlreadyExistsError();
-      }
+      await this.authRegistration.ensureUsernameAvailable(username, manager);
     });
   }
 
@@ -47,13 +38,13 @@ export class SignUpUseCase {
   ): Promise<SignUpWithEmailResponseDto> {
     const googleProfile = await this.verifyGoogleProfile(dto.idToken);
 
-    return await this.signUpWithOAuth(
-      'google',
-      googleProfile.subject,
-      googleProfile.email,
-      dto.fullName,
-      dto.username,
-    );
+    return this.signUpWithOAuth({
+      provider: 'google',
+      providerUserId: googleProfile.subject,
+      email: googleProfile.email,
+      fullName: dto.fullName,
+      username: dto.username,
+    });
   }
 
   async signUpWithGithub(
@@ -64,13 +55,25 @@ export class SignUpUseCase {
       dto.redirectUri,
     );
 
-    return await this.signUpWithOAuth(
-      'github',
-      githubProfile.subject,
-      githubProfile.email,
-      dto.fullName,
-      dto.username,
-    );
+    return this.signUpWithOAuth({
+      provider: 'github',
+      providerUserId: githubProfile.subject,
+      email: githubProfile.email,
+      fullName: dto.fullName,
+      username: dto.username,
+    });
+  }
+
+  private async signUpWithOAuth(params: {
+    provider: 'google' | 'github';
+    providerUserId: string;
+    email: string;
+    fullName: string;
+    username: string;
+  }): Promise<SignUpWithEmailResponseDto> {
+    return this.uow.run(async (manager) => {
+      return this.authRegistration.registerOAuthUser(params, manager);
+    });
   }
 
   private async verifyGoogleProfile(idToken: string): Promise<GoogleProfile> {
@@ -114,57 +117,5 @@ export class SignUpUseCase {
     }
 
     return profile;
-  }
-
-  private async signUpWithOAuth(
-    provider: Exclude<AuthProvider, 'email'>,
-    providerUserId: string,
-    email: string,
-    fullName: string,
-    username: string,
-  ): Promise<SignUpWithEmailResponseDto> {
-    return this.uow.run(async (manager) => {
-      const linkedUser = await this.repo.findUserByProvider(
-        provider,
-        providerUserId,
-        manager,
-      );
-      if (linkedUser) {
-        throw new EmailAlreadyExistsError();
-      }
-
-      const existingUser = await this.repo.findUserByEmail(email, manager);
-      if (existingUser) {
-        throw new EmailAlreadyExistsError();
-      }
-
-      const existingUsername = await this.repo.findUserByUsername(
-        username,
-        manager,
-      );
-      if (existingUsername) {
-        throw new UsernameAlreadyExistsError();
-      }
-
-      const user = await this.repo.createUser(
-        {
-          email,
-          fullName,
-          username,
-        },
-        manager,
-      );
-      const auth = await this.repo.createOAuthAuth(
-        user.userId,
-        provider,
-        providerUserId,
-        email,
-        manager,
-      );
-
-      await this.repo.markUserAuthVerified(auth.authId, manager);
-
-      return user;
-    });
   }
 }

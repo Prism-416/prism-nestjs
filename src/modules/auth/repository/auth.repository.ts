@@ -373,6 +373,28 @@ export class AuthRepository {
     return users[0] ?? null;
   }
 
+  async findUserByAuthId(
+    authId: string,
+    manager?: EntityManager,
+  ): Promise<UserProfileRow | null> {
+    const users = await this.getManager(manager).query<UserProfileRow[]>(
+      `
+        SELECT u.user_id      AS "userId",
+               u.email,
+               u.full_name    AS "fullName",
+               u.username,
+               ua.is_verified AS "isVerified"
+        FROM prism_user_auths_l ua
+               INNER JOIN prism_users_l u ON u.user_id = ua.user_id
+        WHERE ua.auth_id = $1
+        LIMIT 1
+      `,
+      [authId],
+    );
+
+    return users[0] ?? null;
+  }
+
   private getManager(manager?: EntityManager): EntityManager {
     return manager ?? this.dataSource.manager;
   }
