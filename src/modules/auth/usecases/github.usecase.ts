@@ -5,24 +5,22 @@ import {
   Logger,
 } from '@nestjs/common';
 import { DomainError } from '@/core/errors/domain-error';
-import { UnitOfWork } from '@/core/database';
 import {
   AuthTokenPairResponseDto,
   GithubOAuthCallbackQueryDto,
 } from '@/modules/auth/dto';
-import { UnverifiedGithubEmailError } from '@/modules/auth/errors';
 import {
-  AuthRegistrationService,
-  AuthSessionService,
   GithubTokenVerifierService,
+  OAuthIdentityService,
+  OAuthRegistrationService,
 } from '@/modules/auth/services';
 import { GithubProfile } from '@/modules/auth/types';
 import { buildUsernameSeeds, normalizeUsername } from '@/modules/auth/utils';
-import { WorkspaceProvisioningService } from '@/modules/workspace/services';
 
 export type GithubOAuthCallbackResult = {
   redirectUrl: string;
   refreshToken?: string;
+  clearTransactionCookie: boolean;
 };
 
 @Injectable()
@@ -30,11 +28,9 @@ export class GithubOAuthCallbackUseCase {
   private readonly logger = new Logger(GithubOAuthCallbackUseCase.name);
 
   constructor(
-    private readonly uow: UnitOfWork,
     private readonly github: GithubTokenVerifierService,
-    private readonly authRegistration: AuthRegistrationService,
-    private readonly authSession: AuthSessionService,
-    private readonly workspaceProvisioning: WorkspaceProvisioningService,
+    private readonly oauthIdentity: OAuthIdentityService,
+    private readonly oauthRegistration: OAuthRegistrationService,
   ) {}
 
   async handle(
@@ -59,6 +55,7 @@ export class GithubOAuthCallbackUseCase {
             : {}),
           ...(query.error_uri ? { error_uri: query.error_uri } : {}),
         }),
+        clearTransactionCookie: true,
       };
     }
 
@@ -74,6 +71,7 @@ export class GithubOAuthCallbackUseCase {
           state: query.state,
           code: query.code,
         }),
+        clearTransactionCookie: false,
       };
     }
 
@@ -91,6 +89,7 @@ export class GithubOAuthCallbackUseCase {
           accessToken: tokens.accessToken,
         }),
         refreshToken: tokens.refreshToken,
+        clearTransactionCookie: true,
       };
     } catch (error) {
       if (error instanceof DomainError) {
@@ -103,6 +102,7 @@ export class GithubOAuthCallbackUseCase {
             error: error.code,
             error_description: error.message,
           }),
+          clearTransactionCookie: true,
         };
       }
 
@@ -120,6 +120,7 @@ export class GithubOAuthCallbackUseCase {
             error: 'GITHUB_SIGNUP_FAILED',
             error_description: message,
           }),
+          clearTransactionCookie: true,
         };
       }
 
@@ -132,45 +133,18 @@ export class GithubOAuthCallbackUseCase {
     state: string,
     cookieHeader?: string,
   ): Promise<AuthTokenPairResponseDto> {
-    const githubProfile = await this.github.verify({
+    const githubProfile = await this.oauthIdentity.verifyGithubIdentity({
       code,
       state,
       cookieHeader,
     });
 
-    if (!githubProfile.emailVerified) {
-      throw new UnverifiedGithubEmailError();
-    }
-
-    return await this.uow.run(async (manager) => {
-      const username = await this.authRegistration.resolveAvailableUsername(
-        this.buildGithubUsernameSeeds(githubProfile),
-        manager,
-      );
-      const user = await this.authRegistration.registerOAuthUser(
-        {
-          provider: 'github',
-          providerUserId: githubProfile.subject,
-          email: githubProfile.email,
-          fullName: githubProfile.fullName,
-          username,
-        },
-        manager,
-      );
-
-      await this.workspaceProvisioning.createOwnedWorkspace(
-        {
-          ownerId: user.userId,
-          name: this.buildDefaultWorkspaceName(user.username),
-        },
-        manager,
-      );
-
-      return await this.authSession.issueTokenPair(
-        user.userId,
-        user.email,
-        manager,
-      );
+    return await this.oauthRegistration.registerAndIssueSession({
+      provider: 'github',
+      providerUserId: githubProfile.subject,
+      email: githubProfile.email,
+      fullName: githubProfile.fullName,
+      usernameSeeds: this.buildGithubUsernameSeeds(githubProfile),
     });
   }
 
@@ -205,10 +179,6 @@ export class GithubOAuthCallbackUseCase {
     }
 
     return 'GitHub signup failed.';
-  }
-
-  private buildDefaultWorkspaceName(username: string): string {
-    return `${username}'s workspace`;
   }
 
   private buildGithubUsernameSeeds(profile: GithubProfile): string[] {

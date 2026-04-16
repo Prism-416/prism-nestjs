@@ -1,8 +1,4 @@
-import {
-  Injectable,
-  InternalServerErrorException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtTokenService } from '@/core/auth';
 import { UnitOfWork } from '@/core/database';
@@ -19,12 +15,7 @@ import {
 import {
   EmailNotVerifiedError,
   InvalidCredentialsError,
-  InvalidGithubAuthorizationCodeError,
-  InvalidGithubOAuthStateError,
-  InvalidGoogleIdTokenError,
   InvalidRefreshTokenError,
-  UnverifiedGithubEmailError,
-  UnverifiedGoogleEmailError,
 } from '@/modules/auth/errors';
 import { AuthRepository } from '@/modules/auth/repository';
 import {
@@ -32,9 +23,8 @@ import {
   EmailVerificationService,
   GithubAuthorizationRequestResult,
   GithubTokenVerifierService,
-  GoogleTokenVerifierService,
+  OAuthIdentityService,
 } from '@/modules/auth/services';
-import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
 
 @Injectable()
 export class AuthUseCase {
@@ -46,8 +36,8 @@ export class AuthUseCase {
     private readonly pwdService: PasswordService,
     private readonly authSession: AuthSessionService,
     private readonly emailVerification: EmailVerificationService,
-    private readonly google: GoogleTokenVerifierService,
     private readonly github: GithubTokenVerifierService,
+    private readonly oauthIdentity: OAuthIdentityService,
   ) {}
 
   async signInWithEmail(
@@ -73,20 +63,9 @@ export class AuthUseCase {
   async signInWithGoogle(
     dto: SignInWithGoogleDto,
   ): Promise<OAuthSignInResponseDto> {
-    let googleProfile: GoogleProfile;
-    try {
-      googleProfile = await this.google.verify(dto.idToken);
-    } catch (error) {
-      if (!(error instanceof UnauthorizedException)) {
-        throw error;
-      }
-
-      throw new InvalidGoogleIdTokenError();
-    }
-
-    if (!googleProfile.emailVerified) {
-      throw new UnverifiedGoogleEmailError();
-    }
+    const googleProfile = await this.oauthIdentity.verifyGoogleIdentity(
+      dto.idToken,
+    );
 
     return await this.signInWithOAuth('google', googleProfile.subject);
   }
@@ -102,28 +81,11 @@ export class AuthUseCase {
     dto: SignInWithGithubDto,
     cookieHeader?: string,
   ): Promise<OAuthSignInResponseDto> {
-    let githubProfile: GithubProfile;
-    try {
-      githubProfile = await this.github.verify({
-        code: dto.code,
-        state: dto.state,
-        cookieHeader,
-      });
-    } catch (error) {
-      if (error instanceof InvalidGithubOAuthStateError) {
-        throw error;
-      }
-
-      if (!(error instanceof UnauthorizedException)) {
-        throw error;
-      }
-
-      throw new InvalidGithubAuthorizationCodeError();
-    }
-
-    if (!githubProfile.emailVerified) {
-      throw new UnverifiedGithubEmailError();
-    }
+    const githubProfile = await this.oauthIdentity.verifyGithubIdentity({
+      code: dto.code,
+      state: dto.state,
+      cookieHeader,
+    });
 
     return await this.signInWithOAuth('github', githubProfile.subject);
   }

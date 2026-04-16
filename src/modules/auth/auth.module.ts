@@ -10,6 +10,8 @@ import {
   AuthSessionService,
   EmailVerificationService,
   GithubTokenVerifierService,
+  OAuthIdentityService,
+  OAuthRegistrationService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
 import {
@@ -30,6 +32,8 @@ import { WorkspaceModule } from '@/modules/workspace/workspace.module';
     EmailVerificationService,
     GoogleTokenVerifierService,
     GithubTokenVerifierService,
+    OAuthIdentityService,
+    OAuthRegistrationService,
     GitHubOAuthCookieInterceptor,
     GitHubOAuthCallbackInterceptor,
   ],
@@ -40,6 +44,8 @@ import { WorkspaceModule } from '@/modules/workspace/workspace.module';
     EmailVerificationService,
     GoogleTokenVerifierService,
     GithubTokenVerifierService,
+    OAuthIdentityService,
+    OAuthRegistrationService,
     GitHubOAuthCookieInterceptor,
     GitHubOAuthCallbackInterceptor,
   ],

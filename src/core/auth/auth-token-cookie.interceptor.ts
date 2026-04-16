@@ -47,8 +47,6 @@ export class AuthTokenCookieInterceptor implements NestInterceptor<
                 1209600,
               ) * 1000,
           });
-        } else {
-          response.clearCookie(REFRESH_TOKEN_COOKIE, { path: '/' });
         }
 
         return {
