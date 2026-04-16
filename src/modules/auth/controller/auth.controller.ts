@@ -22,7 +22,7 @@ import { AuthUseCase } from '@/modules/auth/usecases';
 import { GitHubOAuthCookieInterceptor } from '@/modules/auth/interceptors';
 import {
   AuthTokenResponseDto,
-  GithubOAuthAuthorizeQueryDto,
+  GithubOAuthCallbackQueryDto,
   GithubOAuthAuthorizeResponseDto,
   OAuthSignInResponseDto,
   RequestEmailVerificationDto,
@@ -58,12 +58,9 @@ export class AuthController {
   @ApiOperation({ summary: 'Create GitHub App Authorization URL' })
   @ApiDataResponse(GithubOAuthAuthorizeResponseDto, { status: HttpStatus.OK })
   createGithubAuthorizationUrl(
-    @Query() query: GithubOAuthAuthorizeQueryDto,
     @Res({ passthrough: true }) res: Response,
   ): GithubOAuthAuthorizeResponseDto {
-    const authorization = this.usecase.createGithubAuthorizationRequest(
-      query.redirectUri,
-    );
+    const authorization = this.usecase.createGithubSignInAuthorizationRequest();
 
     res.cookie(
       authorization.transactionCookie.name,
@@ -76,6 +73,21 @@ export class AuthController {
       state: authorization.state,
       expiresAt: authorization.expiresAt,
     };
+  }
+
+  @Get('oauth/github/callback')
+  @ApiOperation({ summary: 'Handle GitHub OAuth Callback' })
+  redirectGithubCallback(
+    @Query() query: GithubOAuthCallbackQueryDto,
+    @Headers('cookie') cookieHeader: string | undefined,
+    @Res() res: Response,
+  ) {
+    const redirectUrl = this.usecase.resolveGithubCallbackRedirect(
+      query,
+      cookieHeader,
+    );
+
+    return res.redirect(HttpStatus.FOUND, redirectUrl);
   }
 
   @Post('oauth/google')

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Injectable,
   InternalServerErrorException,
   UnauthorizedException,
@@ -37,7 +38,8 @@ type GithubEmail = {
 type GithubOAuthTransactionPayload = {
   state: string;
   codeVerifier: string;
-  redirectUri?: string;
+  redirectUri: string;
+  appRedirectUrl: string;
   expiresAt: number;
 };
 
@@ -75,9 +77,9 @@ export class GithubTokenVerifierService {
   constructor(private readonly configService: ConfigService) {}
 
   createAuthorizationRequest(
-    redirectUri?: string,
+    appRedirectUrl: string,
   ): GithubAuthorizationRequestResult {
-    const transaction = this.createOAuthTransaction(redirectUri);
+    const transaction = this.createOAuthTransaction(appRedirectUrl);
     const maxAgeMs = Math.max(transaction.expiresAt - Date.now(), 1000);
 
     return {
@@ -90,6 +92,50 @@ export class GithubTokenVerifierService {
         options: this.buildTransactionCookieOptions(maxAgeMs),
       },
     };
+  }
+
+  resolveCallbackRedirect(params: {
+    code?: string;
+    state: string;
+    error?: string;
+    errorDescription?: string;
+    errorUri?: string;
+    cookieHeader?: string;
+  }): string {
+    const transaction = this.validateCallbackTransaction({
+      state: params.state,
+      cookieHeader: params.cookieHeader,
+    });
+
+    if (!params.code && !params.error) {
+      throw new BadRequestException(
+        'GitHub callback must include code or error',
+      );
+    }
+
+    const redirectUrl = new URL(transaction.appRedirectUrl);
+    redirectUrl.searchParams.set('state', params.state);
+
+    if (params.code) {
+      redirectUrl.searchParams.set('code', params.code);
+    }
+
+    if (params.error) {
+      redirectUrl.searchParams.set('error', params.error);
+    }
+
+    if (params.errorDescription) {
+      redirectUrl.searchParams.set(
+        'error_description',
+        params.errorDescription,
+      );
+    }
+
+    if (params.errorUri) {
+      redirectUrl.searchParams.set('error_uri', params.errorUri);
+    }
+
+    return redirectUrl.toString();
   }
 
   async verify({
@@ -146,23 +192,21 @@ export class GithubTokenVerifierService {
     );
     url.searchParams.set('code_challenge_method', 'S256');
 
-    if (transaction.redirectUri) {
-      url.searchParams.set('redirect_uri', transaction.redirectUri);
-    }
+    url.searchParams.set('redirect_uri', transaction.redirectUri);
 
     return url.toString();
   }
 
   private createOAuthTransaction(
-    redirectUri?: string,
+    appRedirectUrl: string,
   ): GithubOAuthTransactionPayload {
     const expiresAt = Date.now() + this.getStateTtlSec() * 1000;
-    const normalizedRedirectUri = redirectUri?.trim();
 
     return {
       state: randomBytes(16).toString('hex'),
       codeVerifier: randomBytes(32).toString('base64url'),
-      ...(normalizedRedirectUri ? { redirectUri: normalizedRedirectUri } : {}),
+      redirectUri: this.getRequiredUrlConfig('GITHUB_OAUTH_CALLBACK_URL'),
+      appRedirectUrl: this.normalizeUrl(appRedirectUrl, 'appRedirectUrl'),
       expiresAt,
     };
   }
@@ -213,6 +257,30 @@ export class GithubTokenVerifierService {
     return transaction;
   }
 
+  private validateCallbackTransaction(params: {
+    state: string;
+    cookieHeader?: string;
+  }): GithubOAuthTransactionPayload {
+    const cookieValue = this.parseCookies(params.cookieHeader)[
+      GITHUB_OAUTH_TRANSACTION_COOKIE
+    ];
+
+    if (!cookieValue) {
+      throw new InvalidGithubOAuthStateError();
+    }
+
+    const transaction = this.readSignedOAuthTransaction(cookieValue);
+    if (transaction.expiresAt <= Date.now()) {
+      throw new InvalidGithubOAuthStateError();
+    }
+
+    if (transaction.state !== params.state) {
+      throw new InvalidGithubOAuthStateError();
+    }
+
+    return transaction;
+  }
+
   private readSignedOAuthTransaction(
     cookieValue: string,
   ): GithubOAuthTransactionPayload {
@@ -246,14 +314,9 @@ export class GithubTokenVerifierService {
         !this.isRecord(parsed) ||
         typeof parsed.state !== 'string' ||
         typeof parsed.codeVerifier !== 'string' ||
+        typeof parsed.redirectUri !== 'string' ||
+        typeof parsed.appRedirectUrl !== 'string' ||
         typeof parsed.expiresAt !== 'number'
-      ) {
-        throw new InvalidGithubOAuthStateError();
-      }
-
-      if (
-        parsed.redirectUri !== undefined &&
-        typeof parsed.redirectUri !== 'string'
       ) {
         throw new InvalidGithubOAuthStateError();
       }
@@ -261,8 +324,9 @@ export class GithubTokenVerifierService {
       return {
         state: parsed.state,
         codeVerifier: parsed.codeVerifier,
+        redirectUri: parsed.redirectUri,
+        appRedirectUrl: parsed.appRedirectUrl,
         expiresAt: parsed.expiresAt,
-        ...(parsed.redirectUri ? { redirectUri: parsed.redirectUri } : {}),
       };
     } catch (error) {
       if (error instanceof InvalidGithubOAuthStateError) {
@@ -284,9 +348,7 @@ export class GithubTokenVerifierService {
       code_verifier: transaction.codeVerifier,
     });
 
-    if (transaction.redirectUri) {
-      body.set('redirect_uri', transaction.redirectUri);
-    }
+    body.set('redirect_uri', transaction.redirectUri);
 
     let response: Response;
     try {
@@ -431,6 +493,24 @@ export class GithubTokenVerifierService {
       this.configService.get<number>('GITHUB_OAUTH_STATE_TTL_SEC') ??
         DEFAULT_GITHUB_OAUTH_STATE_TTL_SEC,
     );
+  }
+
+  private normalizeUrl(url: string, key: string): string {
+    const normalized = url.trim();
+    if (!normalized) {
+      throw new InternalServerErrorException(`${key} is not configured`);
+    }
+
+    try {
+      return new URL(normalized).toString();
+    } catch {
+      throw new InternalServerErrorException(`${key} must be a valid URL`);
+    }
+  }
+
+  private getRequiredUrlConfig(key: 'GITHUB_OAUTH_CALLBACK_URL'): string {
+    const value = this.configService.get<string>(key) ?? '';
+    return this.normalizeUrl(value, key);
   }
 
   private getSigningSecret(): string {

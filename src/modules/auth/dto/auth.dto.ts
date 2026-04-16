@@ -79,10 +79,26 @@ export class SignInWithGithubDto {
   redirectUri?: string;
 }
 
-export class GithubOAuthAuthorizeQueryDto {
+export class GithubOAuthCallbackQueryDto {
   @IsOptional()
   @IsString()
-  redirectUri?: string;
+  code?: string;
+
+  @IsString()
+  @MinLength(8)
+  state!: string;
+
+  @IsOptional()
+  @IsString()
+  error?: string;
+
+  @IsOptional()
+  @IsString()
+  error_description?: string;
+
+  @IsOptional()
+  @IsString()
+  error_uri?: string;
 }
 
 export class GithubOAuthAuthorizeResponseDto {

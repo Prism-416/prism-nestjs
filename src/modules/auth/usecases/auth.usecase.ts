@@ -1,9 +1,15 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtTokenService } from '@/core/auth';
 import { UnitOfWork } from '@/core/database';
 import { PasswordService } from '@/core/security';
 import {
   AuthTokenPairResponseDto,
+  GithubOAuthCallbackQueryDto,
   OAuthSignInResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
@@ -36,6 +42,7 @@ export class AuthUseCase {
   constructor(
     private readonly repo: AuthRepository,
     private readonly uow: UnitOfWork,
+    private readonly configService: ConfigService,
     private readonly jwtService: JwtTokenService,
     private readonly pwdService: PasswordService,
     private readonly emailVerification: EmailVerificationService,
@@ -80,10 +87,24 @@ export class AuthUseCase {
     return await this.signInWithOAuth('google', googleProfile.subject);
   }
 
-  createGithubAuthorizationRequest(
-    redirectUri?: string,
-  ): GithubAuthorizationRequestResult {
-    return this.github.createAuthorizationRequest(redirectUri);
+  createGithubSignInAuthorizationRequest(): GithubAuthorizationRequestResult {
+    return this.github.createAuthorizationRequest(
+      this.getRequiredPageUrl('GITHUB_OAUTH_SIGNIN_PAGE_URL'),
+    );
+  }
+
+  resolveGithubCallbackRedirect(
+    query: GithubOAuthCallbackQueryDto,
+    cookieHeader?: string,
+  ): string {
+    return this.github.resolveCallbackRedirect({
+      code: query.code,
+      state: query.state,
+      error: query.error,
+      errorDescription: query.error_description,
+      errorUri: query.error_uri,
+      cookieHeader,
+    });
   }
 
   async signInWithGithub(
@@ -219,5 +240,14 @@ export class AuthUseCase {
 
       return { newUser: true };
     });
+  }
+
+  private getRequiredPageUrl(key: 'GITHUB_OAUTH_SIGNIN_PAGE_URL'): string {
+    const value = this.configService.get<string>(key)?.trim();
+    if (!value) {
+      throw new InternalServerErrorException(`${key} is not configured`);
+    }
+
+    return value;
   }
 }
