@@ -6,6 +6,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { UnitOfWork } from '@/core/database';
 import {
+  AuthTokenPairResponseDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
   SignUpWithGithubDto,
@@ -22,6 +23,7 @@ import {
 import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
 import {
   AuthRegistrationService,
+  AuthSessionService,
   EmailVerificationService,
   GithubAuthorizationRequestResult,
   GithubTokenVerifierService,
@@ -35,6 +37,7 @@ export class OnboardingUseCase {
     private readonly uow: UnitOfWork,
     private readonly configService: ConfigService,
     private readonly authRegistration: AuthRegistrationService,
+    private readonly authSession: AuthSessionService,
     private readonly emailVerification: EmailVerificationService,
     private readonly google: GoogleTokenVerifierService,
     private readonly github: GithubTokenVerifierService,
@@ -64,10 +67,10 @@ export class OnboardingUseCase {
 
   async signUpWithGoogle(
     dto: SignUpWithGoogleDto,
-  ): Promise<SignUpWithEmailResponseDto> {
+  ): Promise<AuthTokenPairResponseDto> {
     const googleProfile = await this.verifyGoogleProfile(dto.idToken);
 
-    return this.signUpWithOAuth({
+    return await this.signUpWithOAuth({
       provider: 'google',
       providerUserId: googleProfile.subject,
       email: googleProfile.email,
@@ -108,7 +111,7 @@ export class OnboardingUseCase {
     email: string;
     fullName: string;
     username: string;
-  }): Promise<SignUpWithEmailResponseDto> {
+  }): Promise<AuthTokenPairResponseDto> {
     return this.uow.run(async (manager) => {
       const user = await this.authRegistration.registerOAuthUser(
         params,
@@ -123,7 +126,11 @@ export class OnboardingUseCase {
         manager,
       );
 
-      return user;
+      return await this.authSession.issueTokenPair(
+        user.userId,
+        user.email,
+        manager,
+      );
     });
   }
 

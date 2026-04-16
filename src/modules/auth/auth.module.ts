@@ -4,6 +4,7 @@ import { GitHubOAuthCookieInterceptor } from '@/modules/auth/interceptors';
 import { AuthRepository } from '@/modules/auth/repository';
 import {
   AuthRegistrationService,
+  AuthSessionService,
   EmailVerificationService,
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
@@ -16,6 +17,7 @@ import { AuthUseCase } from '@/modules/auth/usecases';
     AuthRepository,
     AuthUseCase,
     AuthRegistrationService,
+    AuthSessionService,
     EmailVerificationService,
     GoogleTokenVerifierService,
     GithubTokenVerifierService,
@@ -24,6 +26,7 @@ import { AuthUseCase } from '@/modules/auth/usecases';
   exports: [
     AuthRepository,
     AuthRegistrationService,
+    AuthSessionService,
     EmailVerificationService,
     GoogleTokenVerifierService,
     GithubTokenVerifierService,

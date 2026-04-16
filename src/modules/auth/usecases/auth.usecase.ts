@@ -29,12 +29,12 @@ import {
 } from '@/modules/auth/errors';
 import { AuthRepository } from '@/modules/auth/repository';
 import {
+  AuthSessionService,
   EmailVerificationService,
   GithubAuthorizationRequestResult,
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
-import { EntityManager } from 'typeorm';
 import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
 
 @Injectable()
@@ -45,6 +45,7 @@ export class AuthUseCase {
     private readonly configService: ConfigService,
     private readonly jwtService: JwtTokenService,
     private readonly pwdService: PasswordService,
+    private readonly authSession: AuthSessionService,
     private readonly emailVerification: EmailVerificationService,
     private readonly google: GoogleTokenVerifierService,
     private readonly github: GithubTokenVerifierService,
@@ -62,7 +63,11 @@ export class AuthUseCase {
     }
 
     return this.uow.run(async (manager) => {
-      return this.issueTokenPair(user.userId, user.email, manager);
+      return await this.authSession.issueTokenPair(
+        user.userId,
+        user.email,
+        manager,
+      );
     });
   }
 
@@ -168,7 +173,11 @@ export class AuthUseCase {
         manager,
       );
 
-      return this.issueTokenPair(user.userId, user.email, manager);
+      return await this.authSession.issueTokenPair(
+        user.userId,
+        user.email,
+        manager,
+      );
     });
   }
 
@@ -196,30 +205,6 @@ export class AuthUseCase {
     return { requested: true };
   }
 
-  private async issueTokenPair(
-    userId: string,
-    email: string,
-    manager: EntityManager,
-  ): Promise<AuthTokenPairResponseDto> {
-    const accessToken = this.jwtService.createAccessToken(userId, { email });
-    const refreshToken = this.jwtService.createRefreshToken(userId, { email });
-    const refreshTokenHash = await this.pwdService.hash(refreshToken);
-    const refreshPayload = this.jwtService.verifyRefreshToken(refreshToken);
-
-    await this.repo.invalidateRefreshTokensByUserId(userId, manager);
-    await this.repo.createRefreshToken(
-      userId,
-      refreshTokenHash,
-      new Date(refreshPayload.exp * 1000),
-      manager,
-    );
-
-    return {
-      accessToken,
-      refreshToken,
-    };
-  }
-
   private async signInWithOAuth(
     provider: 'google' | 'github',
     providerUserId: string,
@@ -231,7 +216,7 @@ export class AuthUseCase {
         manager,
       );
       if (linkedUser) {
-        return this.issueTokenPair(
+        return await this.authSession.issueTokenPair(
           linkedUser.userId,
           linkedUser.email,
           manager,
