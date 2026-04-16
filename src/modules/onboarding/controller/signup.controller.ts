@@ -7,12 +7,15 @@ import {
   Param,
   Post,
   Query,
+  Res,
   UseInterceptors,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
 import { ApiDataResponse } from '@/core/response';
 import { OnboardingUseCase } from '@/modules/onboarding/usecases';
 import {
+  GithubOAuthAuthorizeResponseDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
   SignUpWithGithubDto,
@@ -49,6 +52,27 @@ export class SignUpController {
     @Body() dto: SignUpWithGoogleDto,
   ): Promise<SignUpWithEmailResponseDto> {
     return await this.usecase.signUpWithGoogle(dto);
+  }
+
+  @Get('oauth/github/signup/authorize')
+  @ApiOperation({ summary: 'Create GitHub Signup Authorization URL' })
+  @ApiDataResponse(GithubOAuthAuthorizeResponseDto, { status: HttpStatus.OK })
+  createGithubSignUpAuthorizationUrl(
+    @Res({ passthrough: true }) res: Response,
+  ): GithubOAuthAuthorizeResponseDto {
+    const authorization = this.usecase.createGithubSignUpAuthorizationRequest();
+
+    res.cookie(
+      authorization.transactionCookie.name,
+      authorization.transactionCookie.value,
+      authorization.transactionCookie.options,
+    );
+
+    return {
+      authorizationUrl: authorization.authorizationUrl,
+      state: authorization.state,
+      expiresAt: authorization.expiresAt,
+    };
   }
 
   @Post('oauth/github/signup')

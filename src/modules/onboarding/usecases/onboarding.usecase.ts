@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { UnitOfWork } from '@/core/database';
 import {
   SignUpWithEmailDto,
@@ -18,6 +23,7 @@ import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
 import {
   AuthRegistrationService,
   EmailVerificationService,
+  GithubAuthorizationRequestResult,
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
@@ -27,6 +33,7 @@ import { WorkspaceProvisioningService } from '@/modules/workspace/services';
 export class OnboardingUseCase {
   constructor(
     private readonly uow: UnitOfWork,
+    private readonly configService: ConfigService,
     private readonly authRegistration: AuthRegistrationService,
     private readonly emailVerification: EmailVerificationService,
     private readonly google: GoogleTokenVerifierService,
@@ -87,6 +94,12 @@ export class OnboardingUseCase {
       fullName: dto.fullName,
       username: dto.username,
     });
+  }
+
+  createGithubSignUpAuthorizationRequest(): GithubAuthorizationRequestResult {
+    return this.github.createAuthorizationRequest(
+      this.getRequiredPageUrl('GITHUB_OAUTH_SIGNUP_PAGE_URL'),
+    );
   }
 
   private async signUpWithOAuth(params: {
@@ -189,5 +202,14 @@ export class OnboardingUseCase {
 
   private buildDefaultWorkspaceName(username: string): string {
     return `${username}'s workspace`;
+  }
+
+  private getRequiredPageUrl(key: 'GITHUB_OAUTH_SIGNUP_PAGE_URL'): string {
+    const value = this.configService.get<string>(key)?.trim();
+    if (!value) {
+      throw new InternalServerErrorException(`${key} is not configured`);
+    }
+
+    return value;
   }
 }
