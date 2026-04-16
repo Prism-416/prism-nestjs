@@ -1,18 +1,6 @@
-import { IsString, MaxLength, MinLength } from 'class-validator';
+import { IsString } from 'class-validator';
 
-class OAuthSignUpProfileDto {
-  @IsString()
-  @MinLength(1)
-  @MaxLength(100)
-  fullName!: string;
-
-  @IsString()
-  @MinLength(2)
-  @MaxLength(30)
-  username!: string;
-}
-
-export class SignUpWithGoogleDto extends OAuthSignUpProfileDto {
+export class SignUpWithGoogleDto {
   @IsString()
   idToken!: string;
 }

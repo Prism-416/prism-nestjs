@@ -12,6 +12,7 @@ import {
 } from 'node:crypto';
 import type { CookieOptions } from 'express';
 import { Octokit, RequestError } from 'octokit';
+import { GITHUB_OAUTH_TRANSACTION_COOKIE } from '@/modules/auth/constants';
 import { InvalidGithubOAuthStateError } from '@/modules/auth/errors';
 import { GithubProfile } from '@/modules/auth/types';
 import { pickDisplayName } from '@/modules/auth/utils';
@@ -20,8 +21,6 @@ const GITHUB_AUTHORIZATION_URL = 'https://github.com/login/oauth/authorize';
 const GITHUB_ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const DEFAULT_GITHUB_OAUTH_STATE_TTL_SEC = 600;
 const GITHUB_REQUIRED_SCOPE = 'user';
-
-export const GITHUB_OAUTH_TRANSACTION_COOKIE = 'githubAppOauthTransaction';
 
 type GithubOAuthFlow = 'signin' | 'signup';
 
