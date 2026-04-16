@@ -15,6 +15,7 @@ import {
   EmailNotVerifiedError,
   InvalidCredentialsError,
   InvalidGithubAuthorizationCodeError,
+  InvalidGithubOAuthStateError,
   InvalidGoogleIdTokenError,
   InvalidRefreshTokenError,
   UnverifiedGithubEmailError,
@@ -23,6 +24,7 @@ import {
 import { AuthRepository } from '@/modules/auth/repository';
 import {
   EmailVerificationService,
+  GithubAuthorizationRequestResult,
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
@@ -78,13 +80,29 @@ export class AuthUseCase {
     return await this.signInWithOAuth('google', googleProfile.subject);
   }
 
+  createGithubAuthorizationRequest(
+    redirectUri?: string,
+  ): GithubAuthorizationRequestResult {
+    return this.github.createAuthorizationRequest(redirectUri);
+  }
+
   async signInWithGithub(
     dto: SignInWithGithubDto,
+    cookieHeader?: string,
   ): Promise<OAuthSignInResponseDto> {
     let githubProfile: GithubProfile;
     try {
-      githubProfile = await this.github.verify(dto.code, dto.redirectUri);
+      githubProfile = await this.github.verify({
+        code: dto.code,
+        state: dto.state,
+        redirectUri: dto.redirectUri,
+        cookieHeader,
+      });
     } catch (error) {
+      if (error instanceof InvalidGithubOAuthStateError) {
+        throw error;
+      }
+
       if (!(error instanceof UnauthorizedException)) {
         throw error;
       }

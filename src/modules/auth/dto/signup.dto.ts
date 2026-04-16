@@ -21,6 +21,10 @@ export class SignUpWithGithubDto extends OAuthSignUpProfileDto {
   @IsString()
   code!: string;
 
+  @IsString()
+  @MinLength(8)
+  state!: string;
+
   @IsOptional()
   @IsString()
   redirectUri?: string;

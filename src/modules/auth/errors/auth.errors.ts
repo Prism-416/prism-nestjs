@@ -55,6 +55,15 @@ export class InvalidGithubAuthorizationCodeError extends UnauthorizedDomainError
   }
 }
 
+export class InvalidGithubOAuthStateError extends UnauthorizedDomainError {
+  constructor() {
+    super(
+      'Invalid or expired GitHub OAuth state.',
+      'INVALID_GITHUB_OAUTH_STATE',
+    );
+  }
+}
+
 export class UnverifiedGithubEmailError extends UnauthorizedDomainError {
   constructor() {
     super('GitHub account email is not verified.', 'UNVERIFIED_GITHUB_EMAIL');

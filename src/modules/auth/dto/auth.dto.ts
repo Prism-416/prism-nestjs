@@ -70,9 +70,30 @@ export class SignInWithGithubDto {
   @IsString()
   code!: string;
 
+  @IsString()
+  @MinLength(8)
+  state!: string;
+
   @IsOptional()
   @IsString()
   redirectUri?: string;
+}
+
+export class GithubOAuthAuthorizeQueryDto {
+  @IsOptional()
+  @IsString()
+  redirectUri?: string;
+}
+
+export class GithubOAuthAuthorizeResponseDto {
+  @ApiProperty()
+  authorizationUrl: string;
+
+  @ApiProperty()
+  state: string;
+
+  @ApiProperty()
+  expiresAt: Date;
 }
 
 export class AuthTokenResponseDto {

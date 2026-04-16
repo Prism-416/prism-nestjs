@@ -9,6 +9,7 @@ import {
 } from '@/modules/auth/dto';
 import {
   InvalidGithubAuthorizationCodeError,
+  InvalidGithubOAuthStateError,
   InvalidGoogleIdTokenError,
   UnverifiedGithubEmailError,
   UnverifiedGoogleEmailError,
@@ -70,10 +71,13 @@ export class OnboardingUseCase {
 
   async signUpWithGithub(
     dto: SignUpWithGithubDto,
+    cookieHeader?: string,
   ): Promise<SignUpWithEmailResponseDto> {
     const githubProfile = await this.verifyGithubProfile(
       dto.code,
+      dto.state,
       dto.redirectUri,
+      cookieHeader,
     );
 
     return this.signUpWithOAuth({
@@ -151,13 +155,24 @@ export class OnboardingUseCase {
 
   private async verifyGithubProfile(
     code: string,
+    state: string,
     redirectUri?: string,
+    cookieHeader?: string,
   ): Promise<GithubProfile> {
     let profile: GithubProfile;
 
     try {
-      profile = await this.github.verify(code, redirectUri);
+      profile = await this.github.verify({
+        code,
+        state,
+        redirectUri,
+        cookieHeader,
+      });
     } catch (error) {
+      if (error instanceof InvalidGithubOAuthStateError) {
+        throw error;
+      }
+
       if (!(error instanceof UnauthorizedException)) {
         throw error;
       }

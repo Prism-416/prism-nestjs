@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Headers,
   HttpStatus,
   Param,
   Post,
@@ -53,8 +54,9 @@ export class SignUpController {
   @ApiDataResponse(SignUpWithEmailResponseDto, { status: HttpStatus.CREATED })
   async signUpWithGithub(
     @Body() dto: SignUpWithGithubDto,
+    @Headers('cookie') cookieHeader: string | undefined,
   ): Promise<SignUpWithEmailResponseDto> {
-    return await this.usecase.signUpWithGithub(dto);
+    return await this.usecase.signUpWithGithub(dto, cookieHeader);
   }
 
   @Post('verify')
