@@ -7,6 +7,7 @@ import {
   Param,
   Post,
   Query,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiDataResponse } from '@/core/response';
@@ -18,6 +19,7 @@ import {
   SignUpWithGoogleDto,
   VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
+import { GitHubOAuthCookieInterceptor } from '@/modules/auth/interceptors';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -52,6 +54,7 @@ export class SignUpController {
   @Post('oauth/github/signup')
   @ApiOperation({ summary: 'Signup with GitHub' })
   @ApiDataResponse(SignUpWithEmailResponseDto, { status: HttpStatus.CREATED })
+  @UseInterceptors(GitHubOAuthCookieInterceptor)
   async signUpWithGithub(
     @Body() dto: SignUpWithGithubDto,
     @Headers('cookie') cookieHeader: string | undefined,

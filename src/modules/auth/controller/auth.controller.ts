@@ -19,6 +19,7 @@ import {
 } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import { AuthUseCase } from '@/modules/auth/usecases';
+import { GitHubOAuthCookieInterceptor } from '@/modules/auth/interceptors';
 import {
   AuthTokenResponseDto,
   GithubOAuthAuthorizeQueryDto,
@@ -90,7 +91,10 @@ export class AuthController {
   @Post('oauth/github')
   @ApiOperation({ summary: 'Authorize User with GitHub Authorization Code' })
   @ApiDataResponse(OAuthSignInResponseDto, { status: HttpStatus.CREATED })
-  @UseInterceptors(AuthTokenCookieInterceptor)
+  @UseInterceptors(
+    AuthTokenCookieInterceptor,
+    GitHubOAuthCookieInterceptor,
+  )
   async signInWithGithub(
     @Body() dto: SignInWithGithubDto,
     @Headers('cookie') cookieHeader: string | undefined,
