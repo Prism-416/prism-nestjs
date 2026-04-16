@@ -25,6 +25,7 @@ import {
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
+import { buildUsernameSeeds, normalizeUsername } from '@/modules/auth/utils';
 import { WorkspaceProvisioningService } from '@/modules/workspace/services';
 
 @Injectable()
@@ -70,8 +71,8 @@ export class OnboardingUseCase {
       provider: 'google',
       providerUserId: googleProfile.subject,
       email: googleProfile.email,
-      fullName: dto.fullName,
-      username: dto.username,
+      fullName: googleProfile.fullName,
+      usernameSeeds: this.buildGoogleUsernameSeeds(googleProfile),
     });
   }
 
@@ -87,11 +88,21 @@ export class OnboardingUseCase {
     providerUserId: string;
     email: string;
     fullName: string;
-    username: string;
+    usernameSeeds: string[];
   }): Promise<AuthTokenPairResponseDto> {
     return this.uow.run(async (manager) => {
+      const username = await this.authRegistration.resolveAvailableUsername(
+        params.usernameSeeds,
+        manager,
+      );
       const user = await this.authRegistration.registerOAuthUser(
-        params,
+        {
+          provider: params.provider,
+          providerUserId: params.providerUserId,
+          email: params.email,
+          fullName: params.fullName,
+          username,
+        },
         manager,
       );
 
@@ -152,6 +163,13 @@ export class OnboardingUseCase {
 
   private buildDefaultWorkspaceName(username: string): string {
     return `${username}'s workspace`;
+  }
+
+  private buildGoogleUsernameSeeds(profile: GoogleProfile): string[] {
+    return [
+      ...buildUsernameSeeds(profile.fullName, profile.email),
+      normalizeUsername(`google_${profile.subject}`),
+    ].filter(Boolean);
   }
 
   private getRequiredPageUrl(key: 'GITHUB_OAUTH_SIGNUP_PAGE_URL'): string {
