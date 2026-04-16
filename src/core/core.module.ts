@@ -1,6 +1,10 @@
 import { Global, Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
-import { JwtAuthenticationGuard, JwtTokenService } from '@/core/auth';
+import {
+  AuthTokenCookieInterceptor,
+  JwtAuthenticationGuard,
+  JwtTokenService,
+} from '@/core/auth';
 import { UnitOfWork } from '@/core/database';
 import { OciEmailModule } from '@/core/email';
 import { PasswordService } from '@/core/security';
@@ -11,6 +15,7 @@ import { PasswordService } from '@/core/security';
   providers: [
     JwtTokenService,
     JwtAuthenticationGuard,
+    AuthTokenCookieInterceptor,
     PasswordService,
     UnitOfWork,
   ],
@@ -18,6 +23,7 @@ import { PasswordService } from '@/core/security';
     OciEmailModule,
     JwtTokenService,
     JwtAuthenticationGuard,
+    AuthTokenCookieInterceptor,
     PasswordService,
     UnitOfWork,
   ],
