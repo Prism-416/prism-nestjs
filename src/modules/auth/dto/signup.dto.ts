@@ -1,4 +1,4 @@
-import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
+import { IsString, MaxLength, MinLength } from 'class-validator';
 
 class OAuthSignUpProfileDto {
   @IsString()
@@ -15,17 +15,4 @@ class OAuthSignUpProfileDto {
 export class SignUpWithGoogleDto extends OAuthSignUpProfileDto {
   @IsString()
   idToken!: string;
-}
-
-export class SignUpWithGithubDto extends OAuthSignUpProfileDto {
-  @IsString()
-  code!: string;
-
-  @IsString()
-  @MinLength(8)
-  state!: string;
-
-  @IsOptional()
-  @IsString()
-  redirectUri?: string;
 }

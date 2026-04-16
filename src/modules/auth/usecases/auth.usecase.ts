@@ -9,7 +9,6 @@ import { UnitOfWork } from '@/core/database';
 import { PasswordService } from '@/core/security';
 import {
   AuthTokenPairResponseDto,
-  GithubOAuthCallbackQueryDto,
   OAuthSignInResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
@@ -93,22 +92,9 @@ export class AuthUseCase {
   }
 
   createGithubSignInAuthorizationRequest(): GithubAuthorizationRequestResult {
-    return this.github.createAuthorizationRequest(
-      this.getRequiredPageUrl('GITHUB_OAUTH_SIGNIN_PAGE_URL'),
-    );
-  }
-
-  resolveGithubCallbackRedirect(
-    query: GithubOAuthCallbackQueryDto,
-    cookieHeader?: string,
-  ): string {
-    return this.github.resolveCallbackRedirect({
-      code: query.code,
-      state: query.state,
-      error: query.error,
-      errorDescription: query.error_description,
-      errorUri: query.error_uri,
-      cookieHeader,
+    return this.github.createAuthorizationRequest({
+      appRedirectUrl: this.getRequiredPageUrl('GITHUB_OAUTH_SIGNIN_PAGE_URL'),
+      flow: 'signin',
     });
   }
 
@@ -121,7 +107,6 @@ export class AuthUseCase {
       githubProfile = await this.github.verify({
         code: dto.code,
         state: dto.state,
-        redirectUri: dto.redirectUri,
         cookieHeader,
       });
     } catch (error) {

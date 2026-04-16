@@ -9,18 +9,14 @@ import {
   AuthTokenPairResponseDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
-  SignUpWithGithubDto,
   SignUpWithGoogleDto,
   VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
 import {
-  InvalidGithubAuthorizationCodeError,
-  InvalidGithubOAuthStateError,
   InvalidGoogleIdTokenError,
-  UnverifiedGithubEmailError,
   UnverifiedGoogleEmailError,
 } from '@/modules/auth/errors';
-import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
+import { GoogleProfile } from '@/modules/auth/types';
 import {
   AuthRegistrationService,
   AuthSessionService,
@@ -79,30 +75,11 @@ export class OnboardingUseCase {
     });
   }
 
-  async signUpWithGithub(
-    dto: SignUpWithGithubDto,
-    cookieHeader?: string,
-  ): Promise<SignUpWithEmailResponseDto> {
-    const githubProfile = await this.verifyGithubProfile(
-      dto.code,
-      dto.state,
-      dto.redirectUri,
-      cookieHeader,
-    );
-
-    return this.signUpWithOAuth({
-      provider: 'github',
-      providerUserId: githubProfile.subject,
-      email: githubProfile.email,
-      fullName: dto.fullName,
-      username: dto.username,
-    });
-  }
-
   createGithubSignUpAuthorizationRequest(): GithubAuthorizationRequestResult {
-    return this.github.createAuthorizationRequest(
-      this.getRequiredPageUrl('GITHUB_OAUTH_SIGNUP_PAGE_URL'),
-    );
+    return this.github.createAuthorizationRequest({
+      appRedirectUrl: this.getRequiredPageUrl('GITHUB_OAUTH_SIGNUP_PAGE_URL'),
+      flow: 'signup',
+    });
   }
 
   private async signUpWithOAuth(params: {
@@ -168,40 +145,6 @@ export class OnboardingUseCase {
 
     if (!profile.emailVerified) {
       throw new UnverifiedGoogleEmailError();
-    }
-
-    return profile;
-  }
-
-  private async verifyGithubProfile(
-    code: string,
-    state: string,
-    redirectUri?: string,
-    cookieHeader?: string,
-  ): Promise<GithubProfile> {
-    let profile: GithubProfile;
-
-    try {
-      profile = await this.github.verify({
-        code,
-        state,
-        redirectUri,
-        cookieHeader,
-      });
-    } catch (error) {
-      if (error instanceof InvalidGithubOAuthStateError) {
-        throw error;
-      }
-
-      if (!(error instanceof UnauthorizedException)) {
-        throw error;
-      }
-
-      throw new InvalidGithubAuthorizationCodeError();
-    }
-
-    if (!profile.emailVerified) {
-      throw new UnverifiedGithubEmailError();
     }
 
     return profile;

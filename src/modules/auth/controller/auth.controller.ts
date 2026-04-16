@@ -18,8 +18,14 @@ import {
   RefreshToken,
 } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
-import { AuthUseCase } from '@/modules/auth/usecases';
-import { GitHubOAuthCookieInterceptor } from '@/modules/auth/interceptors';
+import {
+  AuthUseCase,
+  GithubOAuthCallbackUseCase,
+} from '@/modules/auth/usecases';
+import {
+  GitHubOAuthCallbackInterceptor,
+  GitHubOAuthCookieInterceptor,
+} from '@/modules/auth/interceptors';
 import {
   AuthTokenResponseDto,
   GithubOAuthCallbackQueryDto,
@@ -35,7 +41,10 @@ import {
 @ApiTags('Authentication')
 @Controller()
 export class AuthController {
-  constructor(private readonly usecase: AuthUseCase) {}
+  constructor(
+    private readonly usecase: AuthUseCase,
+    private readonly githubCallbackUseCase: GithubOAuthCallbackUseCase,
+  ) {}
 
   @Post('signin')
   @ApiOperation({ summary: 'Sign In with Email' })
@@ -77,17 +86,12 @@ export class AuthController {
 
   @Get('oauth/github/callback')
   @ApiOperation({ summary: 'Handle GitHub OAuth Callback' })
-  redirectGithubCallback(
+  @UseInterceptors(GitHubOAuthCallbackInterceptor)
+  async redirectGithubCallback(
     @Query() query: GithubOAuthCallbackQueryDto,
     @Headers('cookie') cookieHeader: string | undefined,
-    @Res() res: Response,
   ) {
-    const redirectUrl = this.usecase.resolveGithubCallbackRedirect(
-      query,
-      cookieHeader,
-    );
-
-    return res.redirect(HttpStatus.FOUND, redirectUrl);
+    return await this.githubCallbackUseCase.handle(query, cookieHeader);
   }
 
   @Post('oauth/google')

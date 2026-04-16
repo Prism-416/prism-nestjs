@@ -7,6 +7,7 @@ import {
 } from '@/modules/auth/errors';
 import { AuthProvider, CreatedUserRow } from '@/modules/auth/types';
 import { AuthRepository } from '@/modules/auth/repository';
+import { normalizeUsername } from '@/modules/auth/utils';
 
 @Injectable()
 export class AuthRegistrationService {
@@ -23,6 +24,42 @@ export class AuthRegistrationService {
     if (user) {
       throw new UsernameAlreadyExistsError();
     }
+  }
+
+  async resolveAvailableUsername(
+    seeds: string[],
+    manager: EntityManager,
+  ): Promise<string> {
+    const normalizedSeeds = Array.from(
+      new Set(
+        seeds
+          .map((seed) => normalizeUsername(seed))
+          .filter((seed) => seed.length >= 2),
+      ),
+    );
+    const candidates =
+      normalizedSeeds.length > 0 ? normalizedSeeds : ['github_user'];
+
+    for (const candidate of candidates) {
+      const user = await this.repo.findUserByUsername(candidate, manager);
+      if (!user) {
+        return candidate;
+      }
+    }
+
+    for (const candidate of candidates) {
+      for (let suffix = 1; suffix <= 999; suffix += 1) {
+        const suffixToken = `_${suffix}`;
+        const nextCandidate = `${candidate.slice(0, 30 - suffixToken.length)}${suffixToken}`;
+        const user = await this.repo.findUserByUsername(nextCandidate, manager);
+
+        if (!user) {
+          return nextCandidate;
+        }
+      }
+    }
+
+    throw new UsernameAlreadyExistsError();
   }
 
   async registerEmailUser(

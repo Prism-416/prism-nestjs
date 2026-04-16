@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthController } from '@/modules/auth/controller';
-import { GitHubOAuthCookieInterceptor } from '@/modules/auth/interceptors';
+import {
+  GitHubOAuthCallbackInterceptor,
+  GitHubOAuthCookieInterceptor,
+} from '@/modules/auth/interceptors';
 import { AuthRepository } from '@/modules/auth/repository';
 import {
   AuthRegistrationService,
@@ -9,19 +12,26 @@ import {
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
-import { AuthUseCase } from '@/modules/auth/usecases';
+import {
+  AuthUseCase,
+  GithubOAuthCallbackUseCase,
+} from '@/modules/auth/usecases';
+import { WorkspaceModule } from '@/modules/workspace/workspace.module';
 
 @Module({
+  imports: [WorkspaceModule],
   controllers: [AuthController],
   providers: [
     AuthRepository,
     AuthUseCase,
+    GithubOAuthCallbackUseCase,
     AuthRegistrationService,
     AuthSessionService,
     EmailVerificationService,
     GoogleTokenVerifierService,
     GithubTokenVerifierService,
     GitHubOAuthCookieInterceptor,
+    GitHubOAuthCallbackInterceptor,
   ],
   exports: [
     AuthRepository,
@@ -31,6 +41,7 @@ import { AuthUseCase } from '@/modules/auth/usecases';
     GoogleTokenVerifierService,
     GithubTokenVerifierService,
     GitHubOAuthCookieInterceptor,
+    GitHubOAuthCallbackInterceptor,
   ],
 })
 export class AuthModule {}

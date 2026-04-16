@@ -73,10 +73,6 @@ export class SignInWithGithubDto {
   @IsString()
   @MinLength(8)
   state!: string;
-
-  @IsOptional()
-  @IsString()
-  redirectUri?: string;
 }
 
 export class GithubOAuthCallbackQueryDto {

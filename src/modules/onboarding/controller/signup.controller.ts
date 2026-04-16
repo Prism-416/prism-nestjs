@@ -2,7 +2,6 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   HttpStatus,
   Param,
   Post,
@@ -20,11 +19,9 @@ import {
   GithubOAuthAuthorizeResponseDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
-  SignUpWithGithubDto,
   SignUpWithGoogleDto,
   VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
-import { GitHubOAuthCookieInterceptor } from '@/modules/auth/interceptors';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -76,17 +73,6 @@ export class SignUpController {
       state: authorization.state,
       expiresAt: authorization.expiresAt,
     };
-  }
-
-  @Post('oauth/github/signup')
-  @ApiOperation({ summary: 'Signup with GitHub' })
-  @ApiDataResponse(SignUpWithEmailResponseDto, { status: HttpStatus.CREATED })
-  @UseInterceptors(GitHubOAuthCookieInterceptor)
-  async signUpWithGithub(
-    @Body() dto: SignUpWithGithubDto,
-    @Headers('cookie') cookieHeader: string | undefined,
-  ): Promise<SignUpWithEmailResponseDto> {
-    return await this.usecase.signUpWithGithub(dto, cookieHeader);
   }
 
   @Post('verify')
