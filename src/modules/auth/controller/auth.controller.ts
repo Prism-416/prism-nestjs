@@ -91,10 +91,7 @@ export class AuthController {
   @Post('oauth/github')
   @ApiOperation({ summary: 'Authorize User with GitHub Authorization Code' })
   @ApiDataResponse(OAuthSignInResponseDto, { status: HttpStatus.CREATED })
-  @UseInterceptors(
-    AuthTokenCookieInterceptor,
-    GitHubOAuthCookieInterceptor,
-  )
+  @UseInterceptors(AuthTokenCookieInterceptor, GitHubOAuthCookieInterceptor)
   async signInWithGithub(
     @Body() dto: SignInWithGithubDto,
     @Headers('cookie') cookieHeader: string | undefined,
