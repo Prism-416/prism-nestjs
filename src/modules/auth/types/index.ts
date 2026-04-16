@@ -47,4 +47,6 @@ export type GithubProfile = {
   email: string;
   emailVerified: boolean;
   fullName: string;
+  login: string | null;
+  avatarUrl: string | null;
 };

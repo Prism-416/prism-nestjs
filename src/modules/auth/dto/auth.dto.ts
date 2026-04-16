@@ -70,9 +70,42 @@ export class SignInWithGithubDto {
   @IsString()
   code!: string;
 
+  @IsString()
+  @MinLength(8)
+  state!: string;
+}
+
+export class GithubOAuthCallbackQueryDto {
   @IsOptional()
   @IsString()
-  redirectUri?: string;
+  code?: string;
+
+  @IsString()
+  @MinLength(8)
+  state!: string;
+
+  @IsOptional()
+  @IsString()
+  error?: string;
+
+  @IsOptional()
+  @IsString()
+  error_description?: string;
+
+  @IsOptional()
+  @IsString()
+  error_uri?: string;
+}
+
+export class GithubOAuthAuthorizeResponseDto {
+  @ApiProperty()
+  authorizationUrl: string;
+
+  @ApiProperty()
+  state: string;
+
+  @ApiProperty()
+  expiresAt: Date;
 }
 
 export class AuthTokenResponseDto {

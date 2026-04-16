@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtTokenService } from '@/core/auth';
 import { UnitOfWork } from '@/core/database';
 import { PasswordService } from '@/core/security';
@@ -15,6 +20,7 @@ import {
   EmailNotVerifiedError,
   InvalidCredentialsError,
   InvalidGithubAuthorizationCodeError,
+  InvalidGithubOAuthStateError,
   InvalidGoogleIdTokenError,
   InvalidRefreshTokenError,
   UnverifiedGithubEmailError,
@@ -22,11 +28,12 @@ import {
 } from '@/modules/auth/errors';
 import { AuthRepository } from '@/modules/auth/repository';
 import {
+  AuthSessionService,
   EmailVerificationService,
+  GithubAuthorizationRequestResult,
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
-import { EntityManager } from 'typeorm';
 import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
 
 @Injectable()
@@ -34,8 +41,10 @@ export class AuthUseCase {
   constructor(
     private readonly repo: AuthRepository,
     private readonly uow: UnitOfWork,
+    private readonly configService: ConfigService,
     private readonly jwtService: JwtTokenService,
     private readonly pwdService: PasswordService,
+    private readonly authSession: AuthSessionService,
     private readonly emailVerification: EmailVerificationService,
     private readonly google: GoogleTokenVerifierService,
     private readonly github: GithubTokenVerifierService,
@@ -53,7 +62,11 @@ export class AuthUseCase {
     }
 
     return this.uow.run(async (manager) => {
-      return this.issueTokenPair(user.userId, user.email, manager);
+      return await this.authSession.issueTokenPair(
+        user.userId,
+        user.email,
+        manager,
+      );
     });
   }
 
@@ -78,13 +91,29 @@ export class AuthUseCase {
     return await this.signInWithOAuth('google', googleProfile.subject);
   }
 
+  createGithubSignInAuthorizationRequest(): GithubAuthorizationRequestResult {
+    return this.github.createAuthorizationRequest({
+      appRedirectUrl: this.getRequiredPageUrl('GITHUB_OAUTH_SIGNIN_PAGE_URL'),
+      flow: 'signin',
+    });
+  }
+
   async signInWithGithub(
     dto: SignInWithGithubDto,
+    cookieHeader?: string,
   ): Promise<OAuthSignInResponseDto> {
     let githubProfile: GithubProfile;
     try {
-      githubProfile = await this.github.verify(dto.code, dto.redirectUri);
+      githubProfile = await this.github.verify({
+        code: dto.code,
+        state: dto.state,
+        cookieHeader,
+      });
     } catch (error) {
+      if (error instanceof InvalidGithubOAuthStateError) {
+        throw error;
+      }
+
       if (!(error instanceof UnauthorizedException)) {
         throw error;
       }
@@ -129,7 +158,11 @@ export class AuthUseCase {
         manager,
       );
 
-      return this.issueTokenPair(user.userId, user.email, manager);
+      return await this.authSession.issueTokenPair(
+        user.userId,
+        user.email,
+        manager,
+      );
     });
   }
 
@@ -157,30 +190,6 @@ export class AuthUseCase {
     return { requested: true };
   }
 
-  private async issueTokenPair(
-    userId: string,
-    email: string,
-    manager: EntityManager,
-  ): Promise<AuthTokenPairResponseDto> {
-    const accessToken = this.jwtService.createAccessToken(userId, { email });
-    const refreshToken = this.jwtService.createRefreshToken(userId, { email });
-    const refreshTokenHash = await this.pwdService.hash(refreshToken);
-    const refreshPayload = this.jwtService.verifyRefreshToken(refreshToken);
-
-    await this.repo.invalidateRefreshTokensByUserId(userId, manager);
-    await this.repo.createRefreshToken(
-      userId,
-      refreshTokenHash,
-      new Date(refreshPayload.exp * 1000),
-      manager,
-    );
-
-    return {
-      accessToken,
-      refreshToken,
-    };
-  }
-
   private async signInWithOAuth(
     provider: 'google' | 'github',
     providerUserId: string,
@@ -192,7 +201,7 @@ export class AuthUseCase {
         manager,
       );
       if (linkedUser) {
-        return this.issueTokenPair(
+        return await this.authSession.issueTokenPair(
           linkedUser.userId,
           linkedUser.email,
           manager,
@@ -201,5 +210,14 @@ export class AuthUseCase {
 
       return { newUser: true };
     });
+  }
+
+  private getRequiredPageUrl(key: 'GITHUB_OAUTH_SIGNIN_PAGE_URL'): string {
+    const value = this.configService.get<string>(key)?.trim();
+    if (!value) {
+      throw new InternalServerErrorException(`${key} is not configured`);
+    }
+
+    return value;
   }
 }

@@ -1,22 +1,27 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { UnitOfWork } from '@/core/database';
 import {
+  AuthTokenPairResponseDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
-  SignUpWithGithubDto,
   SignUpWithGoogleDto,
   VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
 import {
-  InvalidGithubAuthorizationCodeError,
   InvalidGoogleIdTokenError,
-  UnverifiedGithubEmailError,
   UnverifiedGoogleEmailError,
 } from '@/modules/auth/errors';
-import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
+import { GoogleProfile } from '@/modules/auth/types';
 import {
   AuthRegistrationService,
+  AuthSessionService,
   EmailVerificationService,
+  GithubAuthorizationRequestResult,
   GithubTokenVerifierService,
   GoogleTokenVerifierService,
 } from '@/modules/auth/services';
@@ -26,7 +31,9 @@ import { WorkspaceProvisioningService } from '@/modules/workspace/services';
 export class OnboardingUseCase {
   constructor(
     private readonly uow: UnitOfWork,
+    private readonly configService: ConfigService,
     private readonly authRegistration: AuthRegistrationService,
+    private readonly authSession: AuthSessionService,
     private readonly emailVerification: EmailVerificationService,
     private readonly google: GoogleTokenVerifierService,
     private readonly github: GithubTokenVerifierService,
@@ -56,10 +63,10 @@ export class OnboardingUseCase {
 
   async signUpWithGoogle(
     dto: SignUpWithGoogleDto,
-  ): Promise<SignUpWithEmailResponseDto> {
+  ): Promise<AuthTokenPairResponseDto> {
     const googleProfile = await this.verifyGoogleProfile(dto.idToken);
 
-    return this.signUpWithOAuth({
+    return await this.signUpWithOAuth({
       provider: 'google',
       providerUserId: googleProfile.subject,
       email: googleProfile.email,
@@ -68,20 +75,10 @@ export class OnboardingUseCase {
     });
   }
 
-  async signUpWithGithub(
-    dto: SignUpWithGithubDto,
-  ): Promise<SignUpWithEmailResponseDto> {
-    const githubProfile = await this.verifyGithubProfile(
-      dto.code,
-      dto.redirectUri,
-    );
-
-    return this.signUpWithOAuth({
-      provider: 'github',
-      providerUserId: githubProfile.subject,
-      email: githubProfile.email,
-      fullName: dto.fullName,
-      username: dto.username,
+  createGithubSignUpAuthorizationRequest(): GithubAuthorizationRequestResult {
+    return this.github.createAuthorizationRequest({
+      appRedirectUrl: this.getRequiredPageUrl('GITHUB_OAUTH_SIGNUP_PAGE_URL'),
+      flow: 'signup',
     });
   }
 
@@ -91,7 +88,7 @@ export class OnboardingUseCase {
     email: string;
     fullName: string;
     username: string;
-  }): Promise<SignUpWithEmailResponseDto> {
+  }): Promise<AuthTokenPairResponseDto> {
     return this.uow.run(async (manager) => {
       const user = await this.authRegistration.registerOAuthUser(
         params,
@@ -106,7 +103,11 @@ export class OnboardingUseCase {
         manager,
       );
 
-      return user;
+      return await this.authSession.issueTokenPair(
+        user.userId,
+        user.email,
+        manager,
+      );
     });
   }
 
@@ -149,30 +150,16 @@ export class OnboardingUseCase {
     return profile;
   }
 
-  private async verifyGithubProfile(
-    code: string,
-    redirectUri?: string,
-  ): Promise<GithubProfile> {
-    let profile: GithubProfile;
-
-    try {
-      profile = await this.github.verify(code, redirectUri);
-    } catch (error) {
-      if (!(error instanceof UnauthorizedException)) {
-        throw error;
-      }
-
-      throw new InvalidGithubAuthorizationCodeError();
-    }
-
-    if (!profile.emailVerified) {
-      throw new UnverifiedGithubEmailError();
-    }
-
-    return profile;
-  }
-
   private buildDefaultWorkspaceName(username: string): string {
     return `${username}'s workspace`;
+  }
+
+  private getRequiredPageUrl(key: 'GITHUB_OAUTH_SIGNUP_PAGE_URL'): string {
+    const value = this.configService.get<string>(key)?.trim();
+    if (!value) {
+      throw new InternalServerErrorException(`${key} is not configured`);
+    }
+
+    return value;
   }
 }

@@ -6,14 +6,19 @@ import {
   Param,
   Post,
   Query,
+  Res,
+  UseInterceptors,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Response } from 'express';
+import { AuthTokenCookieInterceptor } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import { OnboardingUseCase } from '@/modules/onboarding/usecases';
 import {
+  AuthTokenResponseDto,
+  GithubOAuthAuthorizeResponseDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
-  SignUpWithGithubDto,
   SignUpWithGoogleDto,
   VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
@@ -41,20 +46,33 @@ export class SignUpController {
 
   @Post('oauth/google/signup')
   @ApiOperation({ summary: 'Signup with Google' })
-  @ApiDataResponse(SignUpWithEmailResponseDto, { status: HttpStatus.CREATED })
+  @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
+  @UseInterceptors(AuthTokenCookieInterceptor)
   async signUpWithGoogle(
     @Body() dto: SignUpWithGoogleDto,
-  ): Promise<SignUpWithEmailResponseDto> {
+  ): Promise<AuthTokenResponseDto> {
     return await this.usecase.signUpWithGoogle(dto);
   }
 
-  @Post('oauth/github/signup')
-  @ApiOperation({ summary: 'Signup with GitHub' })
-  @ApiDataResponse(SignUpWithEmailResponseDto, { status: HttpStatus.CREATED })
-  async signUpWithGithub(
-    @Body() dto: SignUpWithGithubDto,
-  ): Promise<SignUpWithEmailResponseDto> {
-    return await this.usecase.signUpWithGithub(dto);
+  @Get('oauth/github/signup/authorize')
+  @ApiOperation({ summary: 'Create GitHub Signup Authorization URL' })
+  @ApiDataResponse(GithubOAuthAuthorizeResponseDto, { status: HttpStatus.OK })
+  createGithubSignUpAuthorizationUrl(
+    @Res({ passthrough: true }) res: Response,
+  ): GithubOAuthAuthorizeResponseDto {
+    const authorization = this.usecase.createGithubSignUpAuthorizationRequest();
+
+    res.cookie(
+      authorization.transactionCookie.name,
+      authorization.transactionCookie.value,
+      authorization.transactionCookie.options,
+    );
+
+    return {
+      authorizationUrl: authorization.authorizationUrl,
+      state: authorization.state,
+      expiresAt: authorization.expiresAt,
+    };
   }
 
   @Post('verify')
