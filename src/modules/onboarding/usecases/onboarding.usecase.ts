@@ -19,6 +19,7 @@ import {
 } from '@/modules/auth/services';
 import { buildUsernameSeeds, normalizeUsername } from '@/modules/auth/utils';
 import { WorkspaceProvisioningService } from '@/modules/workspace/services';
+import { buildDefaultWorkspaceName } from '@/modules/workspace/utils';
 
 @Injectable()
 export class OnboardingUseCase {
@@ -87,7 +88,7 @@ export class OnboardingUseCase {
       await this.workspaceProvisioning.ensureOwnedWorkspace(
         {
           ownerId: user.userId,
-          name: this.buildDefaultWorkspaceName(user.username),
+          name: buildDefaultWorkspaceName(user.username),
         },
         manager,
       );
@@ -96,9 +97,6 @@ export class OnboardingUseCase {
     });
   }
 
-  private buildDefaultWorkspaceName(username: string): string {
-    return `${username}'s workspace`;
-  }
 
   private buildGoogleUsernameSeeds(profile: GoogleProfile): string[] {
     return [
