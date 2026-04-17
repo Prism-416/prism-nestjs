@@ -1,20 +1,26 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
-import { CreateProjectDto, ProjectResponseDto } from '@/modules/project/dto';
+import {
+  CreateProjectDto,
+  ProjectMemberResponseDto,
+  ProjectResponseDto,
+  UpsertProjectMembersDto,
+} from '@/modules/project/dto';
 import {
   isProjectSlugUniqueViolation,
+  ProjectMemberWorkspaceMemberNotFoundError,
+  ProjectNotFoundError,
+  ProjectRoleNotFoundError,
   ProjectSlugAlreadyExistsError,
 } from '@/modules/project/errors';
 import { ProjectRepository } from '@/modules/project/repository';
 import { generateProjectSlug } from '@/modules/project/utils';
 import { WorkspaceNotFoundError } from '@/modules/workspace/errors';
-import { WorkspaceRepository } from '@/modules/workspace/repository';
 
 @Injectable()
 export class ProjectUseCase {
   constructor(
-    private readonly workspaceRepo: WorkspaceRepository,
-    private readonly projectRepo: ProjectRepository,
+    private readonly repo: ProjectRepository,
     private readonly uow: UnitOfWork,
   ) {}
 
@@ -23,36 +29,19 @@ export class ProjectUseCase {
     dto: CreateProjectDto,
   ): Promise<ProjectResponseDto> {
     return this.uow.run(async (manager) => {
-      const workspace =
-        await this.workspaceRepo.findWorkspaceByIdAndAdminUserId(
-          dto.workspaceId,
-          userId,
-        );
-      if (!workspace) {
-        throw new WorkspaceNotFoundError();
-      }
+      let project: ProjectResponseDto | null;
 
       try {
-        const project = await this.projectRepo.createProject(
+        project = await this.repo.createProject(
           {
-            workspaceId: workspace.workspaceId,
+            workspaceId: dto.workspaceId,
+            adminUserId: userId,
             name: dto.name,
             slug: generateProjectSlug(dto.name),
             description: dto.description,
           },
           manager,
         );
-
-        await this.projectRepo.createProjectMember(
-          {
-            workspaceId: project.workspaceId,
-            projectId: project.projectId,
-            userId,
-          },
-          manager,
-        );
-
-        return project;
       } catch (error) {
         if (isProjectSlugUniqueViolation(error)) {
           throw new ProjectSlugAlreadyExistsError();
@@ -60,6 +49,95 @@ export class ProjectUseCase {
 
         throw error;
       }
+
+      if (!project) {
+        throw new WorkspaceNotFoundError();
+      }
+
+      await this.repo.createProjectMember(
+        {
+          workspaceId: project.workspaceId,
+          projectId: project.projectId,
+          userId,
+        },
+        manager,
+      );
+
+      return project;
+    });
+  }
+
+  async upsertProjectMembers(
+    userId: string,
+    projectId: string,
+    dto: UpsertProjectMembersDto,
+  ): Promise<ProjectMemberResponseDto[]> {
+    return this.uow.run(async (manager) => {
+      const project = await this.repo.findProjectByIdAndAdminUserId(
+        projectId,
+        userId,
+        manager,
+      );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      const requestedUserIds = dto.members.map((member) => member.userId);
+      const workspaceMembers = await this.repo.findWorkspaceMembersByUserIds(
+        project.workspaceId,
+        requestedUserIds,
+        manager,
+      );
+      if (workspaceMembers.length !== requestedUserIds.length) {
+        throw new ProjectMemberWorkspaceMemberNotFoundError();
+      }
+
+      const requestedRoleIds = [
+        ...new Set(dto.members.flatMap((member) => member.roleIds)),
+      ];
+      const projectRoles = await this.repo.findProjectRolesByIds(
+        project.workspaceId,
+        requestedRoleIds,
+        manager,
+      );
+      if (projectRoles.length !== requestedRoleIds.length) {
+        throw new ProjectRoleNotFoundError();
+      }
+
+      const projectMembers = await this.repo.upsertProjectMembers(
+        {
+          workspaceId: project.workspaceId,
+          projectId: project.projectId,
+          userIds: requestedUserIds,
+        },
+        manager,
+      );
+      const memberByUserId = new Map(
+        projectMembers.map((member) => [member.userId, member]),
+      );
+
+      await this.repo.replaceProjectMemberRoles(
+        {
+          workspaceId: project.workspaceId,
+          members: dto.members.map((member) => ({
+            memberId: memberByUserId.get(member.userId)!.memberId,
+            roleIds: member.roleIds,
+          })),
+        },
+        manager,
+      );
+
+      return dto.members.map((member) => {
+        const projectMember = memberByUserId.get(member.userId)!;
+        return {
+          memberId: projectMember.memberId,
+          workspaceId: projectMember.workspaceId,
+          projectId: projectMember.projectId,
+          userId: projectMember.userId,
+          roleIds: member.roleIds,
+          assignedAt: projectMember.assignedAt,
+        };
+      });
     });
   }
 }

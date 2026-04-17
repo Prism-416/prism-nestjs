@@ -1,9 +1,21 @@
-import { Body, Controller, HttpStatus, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
-import { CreateProjectDto, ProjectResponseDto } from '@/modules/project/dto';
+import {
+  CreateProjectDto,
+  ProjectMemberResponseDto,
+  ProjectResponseDto,
+  UpsertProjectMembersDto,
+} from '@/modules/project/dto';
 import { ProjectUseCase } from '@/modules/project/usecases';
 
 @ApiTags('Project')
@@ -20,5 +32,17 @@ export class ProjectController {
     @Body() dto: CreateProjectDto,
   ): Promise<ProjectResponseDto> {
     return this.usecase.createProject(String(user.sub), dto);
+  }
+
+  @Patch(':projectId/members')
+  @Authenticated()
+  @ApiOperation({ summary: 'Upsert project members in batch' })
+  @ApiDataResponse(ProjectMemberResponseDto, { isArray: true })
+  async upsertProjectMembers(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: UpsertProjectMembersDto,
+  ): Promise<ProjectMemberResponseDto[]> {
+    return this.usecase.upsertProjectMembers(String(user.sub), projectId, dto);
   }
 }

@@ -1,12 +1,16 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import {
   normalizeOptionalTrimmedString,
@@ -58,4 +62,46 @@ export class ProjectResponseDto {
 
   @ApiProperty()
   createdAt!: Date;
+}
+
+export class UpsertProjectMemberDto {
+  @ApiProperty()
+  @IsUUID()
+  userId!: string;
+
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  roleIds!: string[];
+}
+
+export class UpsertProjectMembersDto {
+  @ApiProperty({ type: [UpsertProjectMemberDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique((member: UpsertProjectMemberDto) => member.userId)
+  @ValidateNested({ each: true })
+  @Type(() => UpsertProjectMemberDto)
+  members!: UpsertProjectMemberDto[];
+}
+
+export class ProjectMemberResponseDto {
+  @ApiProperty()
+  memberId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  userId!: string;
+
+  @ApiProperty({ type: [String] })
+  roleIds!: string[];
+
+  @ApiProperty()
+  assignedAt!: Date;
 }

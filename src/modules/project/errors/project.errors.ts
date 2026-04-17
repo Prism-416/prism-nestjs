@@ -1,4 +1,4 @@
-import { DuplicateError } from '@/core/errors';
+import { DuplicateError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
 const PROJECT_SLUG_UNIQUE_CONSTRAINT = 'uq_projects_workspace_slug';
@@ -6,6 +6,27 @@ const PROJECT_SLUG_UNIQUE_CONSTRAINT = 'uq_projects_workspace_slug';
 export class ProjectSlugAlreadyExistsError extends DuplicateError {
   constructor() {
     super('Project slug already exists.', 'PROJECT_SLUG_ALREADY_EXISTS');
+  }
+}
+
+export class ProjectNotFoundError extends NotExistsError {
+  constructor() {
+    super('Project not found.', 'PROJECT_NOT_FOUND');
+  }
+}
+
+export class ProjectMemberWorkspaceMemberNotFoundError extends NotExistsError {
+  constructor() {
+    super(
+      'Workspace member not found.',
+      'PROJECT_MEMBER_WORKSPACE_MEMBER_NOT_FOUND',
+    );
+  }
+}
+
+export class ProjectRoleNotFoundError extends NotExistsError {
+  constructor() {
+    super('Project role not found.', 'PROJECT_ROLE_NOT_FOUND');
   }
 }
 
