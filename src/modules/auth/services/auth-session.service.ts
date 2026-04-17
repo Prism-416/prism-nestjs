@@ -1,7 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { JwtTokenService } from '@/core/auth';
 import { PasswordService } from '@/core/security';
-import { AuthTokenPairResponseDto } from '@/modules/auth/dto';
+import {
+  AuthTokenPairResponseDto,
+  RefreshTokenResponseDto,
+} from '@/modules/auth/dto';
 import { AuthRepository } from '@/modules/auth/repository';
 import { EntityManager } from 'typeorm';
 
@@ -19,6 +22,29 @@ export class AuthSessionService {
     manager: EntityManager,
   ): Promise<AuthTokenPairResponseDto> {
     const accessToken = this.jwtService.createAccessToken(userId, { email });
+    const refreshToken = await this.persistRefreshToken(userId, email, manager);
+
+    return {
+      accessToken,
+      refreshToken,
+    };
+  }
+
+  async issueRefreshToken(
+    userId: string,
+    email: string,
+    manager: EntityManager,
+  ): Promise<RefreshTokenResponseDto> {
+    const refreshToken = await this.persistRefreshToken(userId, email, manager);
+
+    return { refreshToken };
+  }
+
+  private async persistRefreshToken(
+    userId: string,
+    email: string,
+    manager: EntityManager,
+  ): Promise<string> {
     const refreshToken = this.jwtService.createRefreshToken(userId, { email });
     const refreshTokenHash = await this.passwordService.hash(refreshToken);
     const refreshPayload = this.jwtService.verifyRefreshToken(refreshToken);
@@ -31,9 +57,6 @@ export class AuthSessionService {
       manager,
     );
 
-    return {
-      accessToken,
-      refreshToken,
-    };
+    return refreshToken;
   }
 }

@@ -4,6 +4,7 @@ import {
   AuthTokenCookieInterceptor,
   JwtAuthenticationGuard,
   JwtTokenService,
+  RefreshTokenCookieInterceptor,
 } from '@/core/auth';
 import { UnitOfWork } from '@/core/database';
 import { OciEmailModule } from '@/core/email';
@@ -16,6 +17,7 @@ import { PasswordService } from '@/core/security';
     JwtTokenService,
     JwtAuthenticationGuard,
     AuthTokenCookieInterceptor,
+    RefreshTokenCookieInterceptor,
     PasswordService,
     UnitOfWork,
   ],
@@ -24,6 +26,7 @@ import { PasswordService } from '@/core/security';
     JwtTokenService,
     JwtAuthenticationGuard,
     AuthTokenCookieInterceptor,
+    RefreshTokenCookieInterceptor,
     PasswordService,
     UnitOfWork,
   ],

@@ -113,6 +113,11 @@ export class AuthTokenResponseDto {
   accessToken: string;
 }
 
+export class RefreshTokenResponseDto {
+  @ApiProperty()
+  refreshToken: string;
+}
+
 export class OAuthSignInResponseDto {
   @ApiProperty({ required: false })
   accessToken?: string;
@@ -132,3 +137,5 @@ export class AuthTokenPairResponseDto {
   @ApiProperty()
   refreshToken: string;
 }
+
+export class OAuthSignUpResponseDto {}

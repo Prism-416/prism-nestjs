@@ -9,7 +9,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { finalize, map, Observable, tap } from 'rxjs';
-import { REFRESH_TOKEN_COOKIE } from '@/core/auth';
+import { setRefreshTokenCookie } from '@/core/auth';
 import { GITHUB_OAUTH_TRANSACTION_COOKIE } from '@/modules/auth/constants';
 import type { GithubOAuthCallbackResult } from '@/modules/auth/usecases/github.usecase';
 
@@ -59,17 +59,11 @@ export class GitHubOAuthCallbackInterceptor implements NestInterceptor<
           shouldClearTransactionCookie = result.clearTransactionCookie;
 
           if (result.refreshToken) {
-            response.cookie(REFRESH_TOKEN_COOKIE, result.refreshToken, {
-              httpOnly: true,
-              secure: this.configService.get('NODE_ENV') === 'production',
-              sameSite: 'lax',
-              path: '/',
-              maxAge:
-                this.configService.get<number>(
-                  'JWT_REFRESH_EXPIRES_IN_SEC',
-                  1209600,
-                ) * 1000,
-            });
+            setRefreshTokenCookie(
+              response,
+              this.configService,
+              result.refreshToken,
+            );
           }
 
           response.redirect(HttpStatus.FOUND, result.redirectUrl);
