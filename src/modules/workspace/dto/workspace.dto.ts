@@ -16,13 +16,14 @@ import {
   normalizeOptionalTrimmedString,
   normalizeTrimmedString,
 } from '@/modules/workspace/utils';
+import { MAX_WORKSPACE_NAME_LENGTH } from '@/modules/workspace/constants';
 
 export class CreateWorkspaceDto {
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
-  @MaxLength(20)
+  @MaxLength(MAX_WORKSPACE_NAME_LENGTH)
   name!: string;
 
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
@@ -65,7 +66,7 @@ export class UpdateWorkspaceDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
-  @MaxLength(20)
+  @MaxLength(MAX_WORKSPACE_NAME_LENGTH)
   name?: string;
 
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))

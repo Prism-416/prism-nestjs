@@ -9,6 +9,7 @@ import { AuthRegistrationService } from '@/modules/auth/services/auth-registrati
 import { AuthSessionService } from '@/modules/auth/services/auth-session.service';
 import { AuthProvider } from '@/modules/auth/types';
 import { WorkspaceProvisioningService } from '@/modules/workspace/services';
+import { buildDefaultWorkspaceName } from '@/modules/workspace/utils';
 import { EntityManager } from 'typeorm';
 
 @Injectable()
@@ -99,15 +100,11 @@ export class OAuthRegistrationService {
     await this.workspaceProvisioning.createOwnedWorkspace(
       {
         ownerId: user.userId,
-        name: this.buildDefaultWorkspaceName(user.username),
+        name: buildDefaultWorkspaceName(user.username),
       },
       manager,
     );
 
     return user;
-  }
-
-  private buildDefaultWorkspaceName(username: string): string {
-    return `${username}'s workspace`;
   }
 }
