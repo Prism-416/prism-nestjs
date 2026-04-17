@@ -1,0 +1,2 @@
+export const MAX_PROJECT_SLUG_BASE_LENGTH = 20;
+export const PROJECT_SLUG_RANDOM_DIGITS = 9;
