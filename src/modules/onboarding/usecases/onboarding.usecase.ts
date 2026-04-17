@@ -1,23 +1,14 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
 import {
-  RefreshTokenResponseDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
-  SignUpWithGoogleDto,
   VerifyEmailResponseDto,
 } from '@/modules/auth/dto';
-import { GoogleProfile } from '@/modules/auth/types';
 import {
   AuthRegistrationService,
   EmailVerificationService,
-  GithubAuthorizationRequestResult,
-  GithubTokenVerifierService,
-  OAuthIdentityService,
-  OAuthRegistrationService,
 } from '@/modules/auth/services';
-import { buildUsernameSeeds, normalizeUsername } from '@/modules/auth/utils';
 import { WorkspaceProvisioningService } from '@/modules/workspace/services';
 import { buildDefaultWorkspaceName } from '@/modules/workspace/utils';
 
@@ -25,12 +16,8 @@ import { buildDefaultWorkspaceName } from '@/modules/workspace/utils';
 export class OnboardingUseCase {
   constructor(
     private readonly uow: UnitOfWork,
-    private readonly configService: ConfigService,
     private readonly authRegistration: AuthRegistrationService,
     private readonly emailVerification: EmailVerificationService,
-    private readonly github: GithubTokenVerifierService,
-    private readonly oauthIdentity: OAuthIdentityService,
-    private readonly oauthRegistration: OAuthRegistrationService,
     private readonly workspaceProvisioning: WorkspaceProvisioningService,
   ) {}
 
@@ -55,29 +42,6 @@ export class OnboardingUseCase {
     });
   }
 
-  async signUpWithGoogle(
-    dto: SignUpWithGoogleDto,
-  ): Promise<RefreshTokenResponseDto> {
-    const googleProfile = await this.oauthIdentity.verifyGoogleIdentity(
-      dto.idToken,
-    );
-
-    return await this.oauthRegistration.registerAndIssueRefreshToken({
-      provider: 'google',
-      providerUserId: googleProfile.subject,
-      email: googleProfile.email,
-      fullName: googleProfile.fullName,
-      usernameSeeds: this.buildGoogleUsernameSeeds(googleProfile),
-    });
-  }
-
-  createGithubSignUpAuthorizationRequest(): GithubAuthorizationRequestResult {
-    return this.github.createAuthorizationRequest({
-      appRedirectUrl: this.getRequiredPageUrl('GITHUB_OAUTH_SIGNUP_PAGE_URL'),
-      flow: 'signup',
-    });
-  }
-
   async verifyEmail(tokenPayload: string): Promise<VerifyEmailResponseDto> {
     return this.uow.run(async (manager) => {
       const user = await this.emailVerification.verifyToken(
@@ -95,22 +59,5 @@ export class OnboardingUseCase {
 
       return { verified: true };
     });
-  }
-
-
-  private buildGoogleUsernameSeeds(profile: GoogleProfile): string[] {
-    return [
-      ...buildUsernameSeeds(profile.fullName, profile.email),
-      normalizeUsername(`google_${profile.subject}`),
-    ].filter(Boolean);
-  }
-
-  private getRequiredPageUrl(key: 'GITHUB_OAUTH_SIGNUP_PAGE_URL'): string {
-    const value = this.configService.get<string>(key)?.trim();
-    if (!value) {
-      throw new InternalServerErrorException(`${key} is not configured`);
-    }
-
-    return value;
   }
 }
