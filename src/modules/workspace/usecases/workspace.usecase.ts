@@ -8,6 +8,7 @@ import {
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   ProjectRoleResponseDto,
+  UpdateProjectRolesDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
@@ -16,6 +17,7 @@ import {
 import {
   isProjectRoleNameUniqueViolation,
   ProjectRoleAlreadyExistsError,
+  ProjectRoleNotFoundError,
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberUserNotFoundError,
   WorkspaceInvitationExpiredError,
@@ -111,6 +113,61 @@ export class WorkspaceUseCase {
 
         throw error;
       }
+    });
+  }
+
+  async updateProjectRoles(
+    userId: string,
+    workspaceId: string,
+    dto: UpdateProjectRolesDto,
+  ): Promise<ProjectRoleResponseDto[]> {
+    const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.uow.run(async (manager) => {
+      const requestedRoleIds = dto.roles.map((role) => role.roleId);
+      const projectRoles = await this.repo.findProjectRolesByIds(
+        workspace.workspaceId,
+        requestedRoleIds,
+        manager,
+      );
+      if (projectRoles.length !== requestedRoleIds.length) {
+        throw new ProjectRoleNotFoundError();
+      }
+
+      let updatedRoles: ProjectRoleResponseDto[];
+
+      try {
+        updatedRoles = await this.repo.updateProjectRoles(
+          {
+            workspaceId: workspace.workspaceId,
+            roles: dto.roles.map((role) => ({
+              roleId: role.roleId,
+              name: role.name,
+              description: role.description,
+            })),
+          },
+          manager,
+        );
+      } catch (error) {
+        if (isProjectRoleNameUniqueViolation(error)) {
+          throw new ProjectRoleAlreadyExistsError();
+        }
+
+        throw error;
+      }
+
+      if (updatedRoles.length !== requestedRoleIds.length) {
+        throw new ProjectRoleNotFoundError();
+      }
+
+      const roleById = new Map(updatedRoles.map((role) => [role.roleId, role]));
+      return dto.roles.map((role) => roleById.get(role.roleId)!);
     });
   }
 

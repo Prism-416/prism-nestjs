@@ -17,6 +17,7 @@ import {
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   ProjectRoleResponseDto,
+  UpdateProjectRolesDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
@@ -76,6 +77,18 @@ export class WorkspaceController {
     @Body() dto: CreateProjectRolesDto,
   ): Promise<ProjectRoleResponseDto[]> {
     return this.usecase.createProjectRoles(String(user.sub), workspaceId, dto);
+  }
+
+  @Patch(':workspaceId/roles')
+  @Authenticated()
+  @ApiOperation({ summary: 'Update project roles in a workspace in batch' })
+  @ApiDataResponse(ProjectRoleResponseDto, { isArray: true })
+  async updateProjectRoles(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: UpdateProjectRolesDto,
+  ): Promise<ProjectRoleResponseDto[]> {
+    return this.usecase.updateProjectRoles(String(user.sub), workspaceId, dto);
   }
 
   @Post(':workspaceId/invitations')
