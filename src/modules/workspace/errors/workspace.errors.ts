@@ -2,6 +2,7 @@ import { DomainError, DuplicateError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
 const WORKSPACE_SLUG_UNIQUE_CONSTRAINT = 'uq_workspaces_slug';
+const PROJECT_ROLE_NAME_UNIQUE_CONSTRAINT = 'uq_project_roles_workspace_name';
 
 export class WorkspaceSlugAlreadyExistsError extends DuplicateError {
   constructor() {
@@ -46,6 +47,12 @@ export class WorkspaceInvitationExpiredError extends DomainError {
   }
 }
 
+export class ProjectRoleAlreadyExistsError extends DuplicateError {
+  constructor() {
+    super('Project role already exists.', 'PROJECT_ROLE_ALREADY_EXISTS');
+  }
+}
+
 export function isWorkspaceSlugUniqueViolation(error: unknown): boolean {
   if (!(error instanceof QueryFailedError)) {
     return false;
@@ -58,5 +65,20 @@ export function isWorkspaceSlugUniqueViolation(error: unknown): boolean {
   return (
     driverError?.code === '23505' &&
     driverError.constraint === WORKSPACE_SLUG_UNIQUE_CONSTRAINT
+  );
+}
+
+export function isProjectRoleNameUniqueViolation(error: unknown): boolean {
+  if (!(error instanceof QueryFailedError)) {
+    return false;
+  }
+
+  const driverError = error.driverError as
+    | { code?: string; constraint?: string }
+    | undefined;
+
+  return (
+    driverError?.code === '23505' &&
+    driverError.constraint === PROJECT_ROLE_NAME_UNIQUE_CONSTRAINT
   );
 }
