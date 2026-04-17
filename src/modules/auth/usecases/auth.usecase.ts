@@ -82,7 +82,6 @@ export class AuthUseCase {
   createGithubSignInAuthorizationRequest(): GithubAuthorizationRequestResult {
     return this.github.createAuthorizationRequest({
       appRedirectUrl: this.getRequiredPageUrl('GITHUB_OAUTH_SIGNIN_PAGE_URL'),
-      flow: 'signin',
     });
   }
 

@@ -6,10 +6,8 @@ import {
   Injectable,
   NestInterceptor,
 } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import { finalize, map, Observable, tap } from 'rxjs';
-import { setRefreshTokenCookie } from '@/core/auth';
 import { GITHUB_OAUTH_TRANSACTION_COOKIE } from '@/modules/auth/constants';
 import type { GithubOAuthCallbackResult } from '@/modules/auth/usecases/github.usecase';
 
@@ -44,8 +42,6 @@ export class GitHubOAuthCallbackInterceptor implements NestInterceptor<
   GithubOAuthCallbackResult,
   void
 > {
-  constructor(private readonly configService: ConfigService) {}
-
   intercept(
     context: ExecutionContext,
     next: CallHandler<GithubOAuthCallbackResult>,
@@ -57,14 +53,6 @@ export class GitHubOAuthCallbackInterceptor implements NestInterceptor<
       tap({
         next: (result) => {
           shouldClearTransactionCookie = result.clearTransactionCookie;
-
-          if (result.refreshToken) {
-            setRefreshTokenCookie(
-              response,
-              this.configService,
-              result.refreshToken,
-            );
-          }
 
           response.redirect(HttpStatus.FOUND, result.redirectUrl);
         },

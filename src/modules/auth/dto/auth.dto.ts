@@ -125,5 +125,3 @@ export class AuthTokenPairResponseDto {
   @ApiProperty()
   refreshToken: string;
 }
-
-export class OAuthSignUpResponseDto {}

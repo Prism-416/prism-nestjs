@@ -22,8 +22,6 @@ const GITHUB_ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 const DEFAULT_GITHUB_OAUTH_STATE_TTL_SEC = 600;
 const GITHUB_REQUIRED_SCOPE = 'user';
 
-type GithubOAuthFlow = 'signin' | 'signup';
-
 type GithubUser = {
   id: number;
   login?: string;
@@ -42,7 +40,6 @@ type GithubOAuthTransactionPayload = {
   codeVerifier: string;
   redirectUri: string;
   appRedirectUrl: string;
-  flow: GithubOAuthFlow;
   expiresAt: number;
 };
 
@@ -76,7 +73,6 @@ export type GithubAuthorizationRequestResult = {
 };
 
 export type GithubOAuthCallbackContext = {
-  flow: GithubOAuthFlow;
   appRedirectUrl: string;
 };
 
@@ -86,7 +82,6 @@ export class GithubTokenVerifierService {
 
   createAuthorizationRequest(params: {
     appRedirectUrl: string;
-    flow?: GithubOAuthFlow;
   }): GithubAuthorizationRequestResult {
     const transaction = this.createOAuthTransaction(params);
     const maxAgeMs = Math.max(transaction.expiresAt - Date.now(), 1000);
@@ -110,7 +105,6 @@ export class GithubTokenVerifierService {
     const transaction = this.validateOAuthTransaction(params);
 
     return {
-      flow: transaction.flow,
       appRedirectUrl: transaction.appRedirectUrl,
     };
   }
@@ -198,7 +192,6 @@ export class GithubTokenVerifierService {
 
   private createOAuthTransaction(params: {
     appRedirectUrl: string;
-    flow?: GithubOAuthFlow;
   }): GithubOAuthTransactionPayload {
     const expiresAt = Date.now() + this.getStateTtlSec() * 1000;
 
@@ -210,7 +203,6 @@ export class GithubTokenVerifierService {
         params.appRedirectUrl,
         'appRedirectUrl',
       ),
-      flow: params.flow ?? 'signin',
       expiresAt,
     };
   }
@@ -263,7 +255,6 @@ export class GithubTokenVerifierService {
       typeof parsed.codeVerifier !== 'string' ||
       typeof parsed.redirectUri !== 'string' ||
       typeof parsed.appRedirectUrl !== 'string' ||
-      (parsed.flow !== 'signin' && parsed.flow !== 'signup') ||
       typeof parsed.expiresAt !== 'number'
     ) {
       throw new InvalidGithubOAuthStateError();
@@ -274,7 +265,6 @@ export class GithubTokenVerifierService {
       codeVerifier: parsed.codeVerifier,
       redirectUri: parsed.redirectUri,
       appRedirectUrl: parsed.appRedirectUrl,
-      flow: parsed.flow,
       expiresAt: parsed.expiresAt,
     };
   }

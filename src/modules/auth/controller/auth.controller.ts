@@ -86,11 +86,11 @@ export class AuthController {
   @Get('oauth/github/callback')
   @ApiOperation({ summary: 'Handle GitHub OAuth Callback' })
   @UseInterceptors(GitHubOAuthCallbackInterceptor)
-  async redirectGithubCallback(
+  redirectGithubCallback(
     @Query() query: GithubOAuthCallbackQueryDto,
     @Headers('cookie') cookieHeader: string | undefined,
   ) {
-    return await this.githubCallbackUseCase.handle(query, cookieHeader);
+    return this.githubCallbackUseCase.handle(query, cookieHeader);
   }
 
   @Post('oauth/google')

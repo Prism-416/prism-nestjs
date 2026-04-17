@@ -34,7 +34,6 @@ export const envValidationSchema = Joi.object({
   GITHUB_OAUTH_STATE_SECRET: Joi.string().allow('').default(''),
   GITHUB_OAUTH_STATE_TTL_SEC: Joi.number().integer().min(60).default(600),
   GITHUB_OAUTH_SIGNIN_PAGE_URL: Joi.string().allow('').default(''),
-  GITHUB_OAUTH_SIGNUP_PAGE_URL: Joi.string().allow('').default(''),
   EMAIL_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   EMAIL_SENDER_EMAIL: Joi.string().allow('').default(''),
   EMAIL_SENDER_NAME: Joi.string().allow('').default(''),
