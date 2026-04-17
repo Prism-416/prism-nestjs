@@ -31,9 +31,6 @@ CREATE TABLE IF NOT EXISTS prism_user_auths_l
         )
 );
 
-CREATE INDEX IF NOT EXISTS idx_user_auths_user_id
-    ON prism_user_auths_l (user_id);
-
 CREATE INDEX IF NOT EXISTS idx_user_auths_email
     ON prism_user_auths_l (email);
 
@@ -96,9 +93,6 @@ CREATE TABLE IF NOT EXISTS prism_workspace_members_l
     CHECK (role IN ('admin', 'member', 'viewer'))
 );
 
-CREATE INDEX IF NOT EXISTS idx_workspace_members_workspace_id
-    ON prism_workspace_members_l (workspace_id);
-
 CREATE INDEX IF NOT EXISTS idx_workspace_members_user_id
     ON prism_workspace_members_l (user_id);
 
@@ -107,20 +101,17 @@ CREATE INDEX IF NOT EXISTS idx_workspace_members_role
 
 CREATE TABLE IF NOT EXISTS prism_workspace_invitations_l
 (
-    invitation_id         UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
-    workspace_id          UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
-    sender_id             UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
-    receiver_id           UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
-    role                  VARCHAR(20) NOT NULL,
-    invitation_token      UUID        NOT NULL,
-    expires_at            TIMESTAMPTZ NOT NULL,
-    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    invitation_id    UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    workspace_id     UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
+    sender_id        UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    receiver_id      UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    role             VARCHAR(20) NOT NULL,
+    invitation_token UUID        NOT NULL,
+    expires_at       TIMESTAMPTZ NOT NULL,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (invitation_token),
     CHECK (role IN ('admin', 'member', 'viewer'))
 );
-
-CREATE INDEX IF NOT EXISTS idx_workspace_invitations_workspace_id
-    ON prism_workspace_invitations_l (workspace_id);
 
 CREATE INDEX IF NOT EXISTS idx_workspace_invitations_receiver_user_id
     ON prism_workspace_invitations_l (receiver_id);
@@ -132,7 +123,7 @@ CREATE TABLE IF NOT EXISTS prism_workspace_invitation_events_l
 (
     event_id      UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
     invitation_id UUID        NOT NULL REFERENCES prism_workspace_invitations_l (invitation_id) ON DELETE CASCADE,
-    actor_id      UUID REFERENCES prism_users_l (user_id) ON DELETE SET NULL,
+    actor_id      UUID        REFERENCES prism_users_l (user_id) ON DELETE SET NULL,
     event_type    VARCHAR(30) NOT NULL,
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CHECK (event_type IN ('sent', 'accepted', 'denied'))
@@ -140,3 +131,63 @@ CREATE TABLE IF NOT EXISTS prism_workspace_invitation_events_l
 
 CREATE INDEX IF NOT EXISTS idx_workspace_invitation_events_invitation_id
     ON prism_workspace_invitation_events_l (invitation_id);
+
+CREATE TABLE IF NOT EXISTS prism_projects_l
+(
+    project_id   UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    workspace_id UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
+    name         VARCHAR(20) NOT NULL,
+    slug         VARCHAR(30) NOT NULL,
+    description  VARCHAR(1000),
+    timezone     VARCHAR(50) NOT NULL DEFAULT 'UTC',
+    locale       VARCHAR(20) NOT NULL DEFAULT 'en-US',
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_projects_workspace_slug UNIQUE (workspace_id, slug),
+    CONSTRAINT uq_projects_workspace_project UNIQUE (workspace_id, project_id)
+);
+
+CREATE TABLE IF NOT EXISTS prism_project_members_l
+(
+    member_id    UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    workspace_id UUID        NOT NULL,
+    project_id   UUID        NOT NULL,
+    user_id      UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    assigned_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_project_members_project_user UNIQUE (project_id, user_id),
+    CONSTRAINT uq_project_members_workspace_member UNIQUE (workspace_id, member_id),
+    CONSTRAINT fk_project_members_project_workspace
+        FOREIGN KEY (workspace_id, project_id)
+            REFERENCES prism_projects_l (workspace_id, project_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_members_user_id
+    ON prism_project_members_l (user_id);
+
+CREATE TABLE IF NOT EXISTS prism_project_roles_l
+(
+    workspace_id UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
+    role_id      UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    name         VARCHAR(20) NOT NULL,
+    description  TEXT        NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_project_roles_workspace_name UNIQUE (workspace_id, name),
+    CONSTRAINT uq_project_roles_workspace_role UNIQUE (workspace_id, role_id)
+);
+
+CREATE TABLE IF NOT EXISTS prism_project_member_role_map
+(
+    workspace_id UUID        NOT NULL,
+    role_id      UUID        NOT NULL,
+    member_id    UUID        NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (role_id, member_id),
+    CONSTRAINT fk_project_member_role_map_role
+        FOREIGN KEY (workspace_id, role_id)
+            REFERENCES prism_project_roles_l (workspace_id, role_id) ON DELETE CASCADE,
+    CONSTRAINT fk_project_member_role_map_member
+        FOREIGN KEY (workspace_id, member_id)
+            REFERENCES prism_project_members_l (workspace_id, member_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_member_role_map_member_id
+    ON prism_project_member_role_map (member_id);
