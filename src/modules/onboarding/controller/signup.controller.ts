@@ -11,12 +11,13 @@ import {
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
-import { AuthTokenCookieInterceptor } from '@/core/auth';
+import { RefreshTokenCookieInterceptor } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import { OnboardingUseCase } from '@/modules/onboarding/usecases';
 import {
-  AuthTokenResponseDto,
   GithubOAuthAuthorizeResponseDto,
+  OAuthSignUpResponseDto,
+  RefreshTokenResponseDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
   SignUpWithGoogleDto,
@@ -46,11 +47,11 @@ export class SignUpController {
 
   @Post('oauth/google/signup')
   @ApiOperation({ summary: 'Signup with Google' })
-  @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
-  @UseInterceptors(AuthTokenCookieInterceptor)
+  @ApiDataResponse(OAuthSignUpResponseDto, { status: HttpStatus.CREATED })
+  @UseInterceptors(RefreshTokenCookieInterceptor)
   async signUpWithGoogle(
     @Body() dto: SignUpWithGoogleDto,
-  ): Promise<AuthTokenResponseDto> {
+  ): Promise<RefreshTokenResponseDto> {
     return await this.usecase.signUpWithGoogle(dto);
   }
 

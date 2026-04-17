@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UnitOfWork } from '@/core/database';
 import {
-  AuthTokenPairResponseDto,
+  RefreshTokenResponseDto,
   SignUpWithEmailDto,
   SignUpWithEmailResponseDto,
   SignUpWithGoogleDto,
@@ -56,12 +56,12 @@ export class OnboardingUseCase {
 
   async signUpWithGoogle(
     dto: SignUpWithGoogleDto,
-  ): Promise<AuthTokenPairResponseDto> {
+  ): Promise<RefreshTokenResponseDto> {
     const googleProfile = await this.oauthIdentity.verifyGoogleIdentity(
       dto.idToken,
     );
 
-    return await this.oauthRegistration.registerAndIssueSession({
+    return await this.oauthRegistration.registerAndIssueRefreshToken({
       provider: 'google',
       providerUserId: googleProfile.subject,
       email: googleProfile.email,

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
-import { AuthTokenPairResponseDto } from '@/modules/auth/dto';
+import { RefreshTokenResponseDto } from '@/modules/auth/dto';
 import { AuthRegistrationService } from '@/modules/auth/services/auth-registration.service';
 import { AuthSessionService } from '@/modules/auth/services/auth-session.service';
 import { AuthProvider } from '@/modules/auth/types';
@@ -15,13 +15,13 @@ export class OAuthRegistrationService {
     private readonly workspaceProvisioning: WorkspaceProvisioningService,
   ) {}
 
-  async registerAndIssueSession(params: {
+  async registerAndIssueRefreshToken(params: {
     provider: Exclude<AuthProvider, 'email'>;
     providerUserId: string;
     email: string;
     fullName: string;
     usernameSeeds: string[];
-  }): Promise<AuthTokenPairResponseDto> {
+  }): Promise<RefreshTokenResponseDto> {
     return await this.uow.run(async (manager) => {
       const username = await this.authRegistration.resolveAvailableUsername(
         params.usernameSeeds,
@@ -46,7 +46,7 @@ export class OAuthRegistrationService {
         manager,
       );
 
-      return await this.authSession.issueTokenPair(
+      return await this.authSession.issueRefreshToken(
         user.userId,
         user.email,
         manager,

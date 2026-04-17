@@ -6,8 +6,8 @@ import {
 } from '@nestjs/common';
 import { DomainError } from '@/core/errors/domain-error';
 import {
-  AuthTokenPairResponseDto,
   GithubOAuthCallbackQueryDto,
+  RefreshTokenResponseDto,
 } from '@/modules/auth/dto';
 import {
   GithubTokenVerifierService,
@@ -86,7 +86,6 @@ export class GithubOAuthCallbackUseCase {
         redirectUrl: this.buildRedirectUrl(callbackContext.appRedirectUrl, {
           status: 'success',
           provider: 'github',
-          accessToken: tokens.accessToken,
         }),
         refreshToken: tokens.refreshToken,
         clearTransactionCookie: true,
@@ -132,14 +131,14 @@ export class GithubOAuthCallbackUseCase {
     code: string,
     state: string,
     cookieHeader?: string,
-  ): Promise<AuthTokenPairResponseDto> {
+  ): Promise<RefreshTokenResponseDto> {
     const githubProfile = await this.oauthIdentity.verifyGithubIdentity({
       code,
       state,
       cookieHeader,
     });
 
-    return await this.oauthRegistration.registerAndIssueSession({
+    return await this.oauthRegistration.registerAndIssueRefreshToken({
       provider: 'github',
       providerUserId: githubProfile.subject,
       email: githubProfile.email,
