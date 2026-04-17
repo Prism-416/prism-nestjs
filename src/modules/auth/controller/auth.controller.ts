@@ -95,7 +95,7 @@ export class AuthController {
   }
 
   @Post('oauth/google')
-  @ApiOperation({ summary: 'Authorize User with Google ID Token' })
+  @ApiOperation({ summary: 'Sign In or Sign Up with Google ID Token' })
   @ApiDataResponse(OAuthSignInResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)
   async signInWithGoogle(

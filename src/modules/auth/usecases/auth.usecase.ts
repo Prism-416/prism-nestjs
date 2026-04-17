@@ -24,7 +24,10 @@ import {
   GithubAuthorizationRequestResult,
   GithubTokenVerifierService,
   OAuthIdentityService,
+  OAuthRegistrationService,
 } from '@/modules/auth/services';
+import { GoogleProfile } from '@/modules/auth/types';
+import { buildUsernameSeeds, normalizeUsername } from '@/modules/auth/utils';
 
 @Injectable()
 export class AuthUseCase {
@@ -38,6 +41,7 @@ export class AuthUseCase {
     private readonly emailVerification: EmailVerificationService,
     private readonly github: GithubTokenVerifierService,
     private readonly oauthIdentity: OAuthIdentityService,
+    private readonly oauthRegistration: OAuthRegistrationService,
   ) {}
 
   async signInWithEmail(
@@ -67,7 +71,13 @@ export class AuthUseCase {
       dto.idToken,
     );
 
-    return await this.signInWithOAuth('google', googleProfile.subject);
+    return await this.oauthRegistration.signInOrRegisterAndIssueTokenPair({
+      provider: 'google',
+      providerUserId: googleProfile.subject,
+      email: googleProfile.email,
+      fullName: googleProfile.fullName,
+      usernameSeeds: this.buildGoogleUsernameSeeds(googleProfile),
+    });
   }
 
   createGithubSignInAuthorizationRequest(): GithubAuthorizationRequestResult {
@@ -181,5 +191,12 @@ export class AuthUseCase {
     }
 
     return value;
+  }
+
+  private buildGoogleUsernameSeeds(profile: GoogleProfile): string[] {
+    return [
+      ...buildUsernameSeeds(profile.fullName, profile.email),
+      normalizeUsername(`google_${profile.subject}`),
+    ].filter(Boolean);
   }
 }
