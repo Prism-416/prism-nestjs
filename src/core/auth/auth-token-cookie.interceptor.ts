@@ -10,14 +10,12 @@ import { map, type Observable } from 'rxjs';
 import { REFRESH_TOKEN_COOKIE } from './refresh-token.decorator';
 
 type AuthTokenPair = {
-  accessToken?: string;
+  accessToken: string;
   refreshToken?: string;
-  newUser?: boolean;
 };
 
 type AuthTokenResponse = {
-  accessToken?: string;
-  newUser?: boolean;
+  accessToken: string;
 };
 
 type RefreshTokenResult = {
@@ -63,8 +61,7 @@ export class AuthTokenCookieInterceptor implements NestInterceptor<
         }
 
         return {
-          ...(tokens.accessToken ? { accessToken: tokens.accessToken } : {}),
-          ...(tokens.newUser !== undefined ? { newUser: tokens.newUser } : {}),
+          accessToken: tokens.accessToken,
         };
       }),
     );

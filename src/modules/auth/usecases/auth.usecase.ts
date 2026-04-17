@@ -5,7 +5,6 @@ import { UnitOfWork } from '@/core/database';
 import { PasswordService } from '@/core/security';
 import {
   AuthTokenPairResponseDto,
-  OAuthSignInResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
   SignInWithEmailDto,
@@ -26,7 +25,7 @@ import {
   OAuthIdentityService,
   OAuthRegistrationService,
 } from '@/modules/auth/services';
-import { GoogleProfile } from '@/modules/auth/types';
+import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
 import { buildUsernameSeeds, normalizeUsername } from '@/modules/auth/utils';
 
 @Injectable()
@@ -66,7 +65,7 @@ export class AuthUseCase {
 
   async signInWithGoogle(
     dto: SignInWithGoogleDto,
-  ): Promise<OAuthSignInResponseDto> {
+  ): Promise<AuthTokenPairResponseDto> {
     const googleProfile = await this.oauthIdentity.verifyGoogleIdentity(
       dto.idToken,
     );
@@ -90,14 +89,20 @@ export class AuthUseCase {
   async signInWithGithub(
     dto: SignInWithGithubDto,
     cookieHeader?: string,
-  ): Promise<OAuthSignInResponseDto> {
+  ): Promise<AuthTokenPairResponseDto> {
     const githubProfile = await this.oauthIdentity.verifyGithubIdentity({
       code: dto.code,
       state: dto.state,
       cookieHeader,
     });
 
-    return await this.signInWithOAuth('github', githubProfile.subject);
+    return await this.oauthRegistration.signInOrRegisterAndIssueTokenPair({
+      provider: 'github',
+      providerUserId: githubProfile.subject,
+      email: githubProfile.email,
+      fullName: githubProfile.fullName,
+      usernameSeeds: this.buildGithubUsernameSeeds(githubProfile),
+    });
   }
 
   async refresh(refreshToken: string): Promise<AuthTokenPairResponseDto> {
@@ -162,28 +167,6 @@ export class AuthUseCase {
     return { requested: true };
   }
 
-  private async signInWithOAuth(
-    provider: 'google' | 'github',
-    providerUserId: string,
-  ): Promise<OAuthSignInResponseDto> {
-    return this.uow.run(async (manager) => {
-      const linkedUser = await this.repo.findUserByProvider(
-        provider,
-        providerUserId,
-        manager,
-      );
-      if (linkedUser) {
-        return await this.authSession.issueTokenPair(
-          linkedUser.userId,
-          linkedUser.email,
-          manager,
-        );
-      }
-
-      return { newUser: true };
-    });
-  }
-
   private getRequiredPageUrl(key: 'GITHUB_OAUTH_SIGNIN_PAGE_URL'): string {
     const value = this.configService.get<string>(key)?.trim();
     if (!value) {
@@ -197,6 +180,14 @@ export class AuthUseCase {
     return [
       ...buildUsernameSeeds(profile.fullName, profile.email),
       normalizeUsername(`google_${profile.subject}`),
+    ].filter(Boolean);
+  }
+
+  private buildGithubUsernameSeeds(profile: GithubProfile): string[] {
+    return [
+      normalizeUsername(profile.login ?? ''),
+      ...buildUsernameSeeds(profile.fullName, profile.email),
+      normalizeUsername(`github_${profile.subject}`),
     ].filter(Boolean);
   }
 }

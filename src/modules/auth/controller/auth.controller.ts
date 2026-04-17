@@ -30,7 +30,6 @@ import {
   AuthTokenResponseDto,
   GithubOAuthCallbackQueryDto,
   GithubOAuthAuthorizeResponseDto,
-  OAuthSignInResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
   SignInWithEmailDto,
@@ -96,22 +95,24 @@ export class AuthController {
 
   @Post('oauth/google')
   @ApiOperation({ summary: 'Sign In or Sign Up with Google ID Token' })
-  @ApiDataResponse(OAuthSignInResponseDto, { status: HttpStatus.CREATED })
+  @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor)
   async signInWithGoogle(
     @Body() dto: SignInWithGoogleDto,
-  ): Promise<OAuthSignInResponseDto> {
+  ): Promise<AuthTokenResponseDto> {
     return await this.usecase.signInWithGoogle(dto);
   }
 
   @Post('oauth/github')
-  @ApiOperation({ summary: 'Authorize User with GitHub Authorization Code' })
-  @ApiDataResponse(OAuthSignInResponseDto, { status: HttpStatus.CREATED })
+  @ApiOperation({
+    summary: 'Sign In or Sign Up with GitHub Authorization Code',
+  })
+  @ApiDataResponse(AuthTokenResponseDto, { status: HttpStatus.CREATED })
   @UseInterceptors(AuthTokenCookieInterceptor, GitHubOAuthCookieInterceptor)
   async signInWithGithub(
     @Body() dto: SignInWithGithubDto,
     @Headers('cookie') cookieHeader: string | undefined,
-  ): Promise<OAuthSignInResponseDto> {
+  ): Promise<AuthTokenResponseDto> {
     return await this.usecase.signInWithGithub(dto, cookieHeader);
   }
 
