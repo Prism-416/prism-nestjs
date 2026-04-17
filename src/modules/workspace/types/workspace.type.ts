@@ -51,3 +51,7 @@ export type WorkspaceProjectRoleRow = {
   description: string;
   createdAt: Date;
 };
+
+export type WorkspaceProjectRoleIdRow = {
+  roleId: string;
+};

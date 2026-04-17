@@ -6,6 +6,7 @@ import {
   WorkspaceInvitationEventType,
   WorkspaceInvitationRow,
   WorkspaceMemberRow,
+  WorkspaceProjectRoleIdRow,
   WorkspaceProjectRoleRow,
   WorkspaceRow,
   WorkspaceUserRow,
@@ -377,27 +378,25 @@ export class WorkspaceRepository {
     },
     manager?: EntityManager,
   ): Promise<WorkspaceProjectRoleRow[]> {
-    const values = params.roles.flatMap((role) => [
-      params.workspaceId,
-      role.name,
-      role.description,
-    ]);
-    const placeholders = params.roles
-      .map((_, index) => {
-        const offset = index * 3;
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3})`;
-      })
-      .join(', ');
-    const roles = await this.getManager(manager).query<
-      WorkspaceProjectRoleRow[]
-    >(
+    if (params.roles.length === 0) {
+      return [];
+    }
+
+    const roleNames = params.roles.map((role) => role.name);
+    const roleDescriptions = params.roles.map((role) => role.description);
+
+    return await this.getManager(manager).query<WorkspaceProjectRoleRow[]>(
       `
         INSERT INTO prism_project_roles_l (
           workspace_id,
           name,
           description
         )
-        VALUES ${placeholders}
+        SELECT
+          $1,
+          input.name,
+          input.description
+        FROM unnest($2::text[], $3::text[]) AS input(name, description)
         RETURNING
           role_id AS "roleId",
           workspace_id AS "workspaceId",
@@ -405,11 +404,74 @@ export class WorkspaceRepository {
           description,
           created_at AS "createdAt"
       `,
-      values,
+      [params.workspaceId, roleNames, roleDescriptions],
     );
-
-    return roles;
   }
+
+  async findProjectRolesByIds(
+    workspaceId: string,
+    roleIds: string[],
+    manager?: EntityManager,
+  ): Promise<WorkspaceProjectRoleIdRow[]> {
+    if (roleIds.length === 0) {
+      return [];
+    }
+
+    return this.getManager(manager).query<WorkspaceProjectRoleIdRow[]>(
+      `
+        SELECT
+          role_id AS "roleId"
+        FROM prism_project_roles_l
+        WHERE workspace_id = $1
+          AND role_id = ANY($2::uuid[])
+      `,
+      [workspaceId, roleIds],
+    );
+  }
+
+  async updateProjectRoles(
+    params: {
+      workspaceId: string;
+      roles: Array<{
+        roleId: string;
+        name: string;
+        description: string;
+      }>;
+    },
+    manager?: EntityManager,
+  ): Promise<WorkspaceProjectRoleRow[]> {
+    if (params.roles.length === 0) {
+      return [];
+    }
+
+    const roleIds = params.roles.map((role) => role.roleId);
+    const roleNames = params.roles.map((role) => role.name);
+    const roleDescriptions = params.roles.map((role) => role.description);
+
+    return this.getManager(manager).query<WorkspaceProjectRoleRow[]>(
+      `
+        UPDATE prism_project_roles_l pr
+        SET
+          name = input.name,
+          description = input.description
+        FROM unnest(
+          $2::uuid[],
+          $3::text[],
+          $4::text[]
+        ) AS input(role_id, name, description)
+        WHERE pr.workspace_id = $1
+          AND pr.role_id = input.role_id
+        RETURNING
+          pr.role_id AS "roleId",
+          pr.workspace_id AS "workspaceId",
+          pr.name,
+          pr.description,
+          pr.created_at AS "createdAt"
+      `,
+      [params.workspaceId, roleIds, roleNames, roleDescriptions],
+    );
+  }
+
   async createWorkspaceInvitationEvent(
     params: {
       invitationId: string;

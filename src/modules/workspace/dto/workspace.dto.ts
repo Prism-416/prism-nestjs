@@ -2,6 +2,7 @@ import { Transform, Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import {
   ArrayMinSize,
+  ArrayUnique,
   IsIn,
   IsArray,
   IsOptional,
@@ -58,6 +59,38 @@ export class CreateProjectRolesDto {
   @ValidateNested({ each: true })
   @Type(() => CreateProjectRoleDto)
   roles!: CreateProjectRoleDto[];
+}
+
+export class UpdateProjectRoleDto {
+  @ApiProperty()
+  @IsUUID()
+  roleId!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(20)
+  name!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(1000)
+  description!: string;
+}
+
+export class UpdateProjectRolesDto {
+  @ApiProperty({ type: [UpdateProjectRoleDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique((role: UpdateProjectRoleDto) => role.roleId)
+  @ValidateNested({ each: true })
+  @Type(() => UpdateProjectRoleDto)
+  roles!: UpdateProjectRoleDto[];
 }
 
 export class UpdateWorkspaceDto {

@@ -53,6 +53,12 @@ export class ProjectRoleAlreadyExistsError extends DuplicateError {
   }
 }
 
+export class ProjectRoleNotFoundError extends NotExistsError {
+  constructor() {
+    super('Project role not found.', 'PROJECT_ROLE_NOT_FOUND');
+  }
+}
+
 export function isWorkspaceSlugUniqueViolation(error: unknown): boolean {
   if (!(error instanceof QueryFailedError)) {
     return false;
