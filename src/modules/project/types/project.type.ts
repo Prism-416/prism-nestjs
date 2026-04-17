@@ -8,3 +8,19 @@ export type ProjectRow = {
   locale: string;
   createdAt: Date;
 };
+
+export type ProjectWorkspaceMemberUserRow = {
+  userId: string;
+};
+
+export type ProjectRoleIdRow = {
+  roleId: string;
+};
+
+export type ProjectMemberRow = {
+  memberId: string;
+  workspaceId: string;
+  projectId: string;
+  userId: string;
+  assignedAt: Date;
+};

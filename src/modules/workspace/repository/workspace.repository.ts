@@ -410,7 +410,6 @@ export class WorkspaceRepository {
 
     return roles;
   }
-
   async createWorkspaceInvitationEvent(
     params: {
       invitationId: string;
