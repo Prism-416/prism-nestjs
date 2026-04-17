@@ -43,3 +43,11 @@ export type WorkspaceUserRow = {
   fullName: string;
   username: string;
 };
+
+export type WorkspaceProjectRoleRow = {
+  roleId: string;
+  workspaceId: string;
+  name: string;
+  description: string;
+  createdAt: Date;
+};

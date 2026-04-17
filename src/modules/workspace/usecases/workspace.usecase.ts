@@ -4,14 +4,18 @@ import { randomUUID } from 'crypto';
 import { UnitOfWork } from '@/core/database';
 import {
   AcceptWorkspaceInvitationDto,
+  CreateProjectRolesDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
+  ProjectRoleResponseDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
 import {
+  isProjectRoleNameUniqueViolation,
+  ProjectRoleAlreadyExistsError,
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberUserNotFoundError,
   WorkspaceInvitationExpiredError,
@@ -73,6 +77,41 @@ export class WorkspaceUseCase {
     }
 
     return this.repo.findWorkspaceMembersByWorkspaceId(workspaceId);
+  }
+
+  async createProjectRoles(
+    userId: string,
+    workspaceId: string,
+    dto: CreateProjectRolesDto,
+  ): Promise<ProjectRoleResponseDto[]> {
+    const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.uow.run(async (manager) => {
+      try {
+        return await this.repo.createProjectRoles(
+          {
+            workspaceId: workspace.workspaceId,
+            roles: dto.roles.map((role) => ({
+              name: role.name,
+              description: role.description,
+            })),
+          },
+          manager,
+        );
+      } catch (error) {
+        if (isProjectRoleNameUniqueViolation(error)) {
+          throw new ProjectRoleAlreadyExistsError();
+        }
+
+        throw error;
+      }
+    });
   }
 
   async createWorkspaceInvitation(
@@ -253,6 +292,7 @@ export class WorkspaceUseCase {
       description: dto.description ?? workspace.description,
     });
   }
+
   private buildInvitationLink(token: string): string {
     if (!this.invitationPageUrl) {
       return token;

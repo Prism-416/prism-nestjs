@@ -13,8 +13,10 @@ import { ApiDataResponse } from '@/core/response';
 import type { JwtPayload } from '@/core/auth/jwt-token.service';
 import {
   AcceptWorkspaceInvitationDto,
+  CreateProjectRolesDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
+  ProjectRoleResponseDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
@@ -59,6 +61,21 @@ export class WorkspaceController {
     @Param('workspaceId') workspaceId: string,
   ): Promise<WorkspaceMemberResponseDto[]> {
     return this.usecase.getWorkspaceMembers(String(user.sub), workspaceId);
+  }
+
+  @Post(':workspaceId/roles')
+  @Authenticated()
+  @ApiOperation({ summary: 'Create project roles in a workspace' })
+  @ApiDataResponse(ProjectRoleResponseDto, {
+    status: HttpStatus.CREATED,
+    isArray: true,
+  })
+  async createProjectRoles(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: CreateProjectRolesDto,
+  ): Promise<ProjectRoleResponseDto[]> {
+    return this.usecase.createProjectRoles(String(user.sub), workspaceId, dto);
   }
 
   @Post(':workspaceId/invitations')

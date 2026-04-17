@@ -1,13 +1,16 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
 import {
+  ArrayMinSize,
   IsIn,
+  IsArray,
   IsOptional,
   IsNotEmpty,
   IsString,
   IsUUID,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
 import {
   normalizeOptionalTrimmedString,
@@ -27,6 +30,33 @@ export class CreateWorkspaceDto {
   @IsString()
   @MaxLength(1000)
   description?: string;
+}
+
+export class CreateProjectRoleDto {
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(20)
+  name!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(1000)
+  description!: string;
+}
+
+export class CreateProjectRolesDto {
+  @ApiProperty({ type: [CreateProjectRoleDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => CreateProjectRoleDto)
+  roles!: CreateProjectRoleDto[];
 }
 
 export class UpdateWorkspaceDto {
@@ -83,6 +113,23 @@ export class WorkspaceMemberResponseDto {
 
   @ApiProperty({ nullable: true })
   invitedAt!: Date | null;
+}
+
+export class ProjectRoleResponseDto {
+  @ApiProperty()
+  roleId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  description!: string;
+
+  @ApiProperty()
+  createdAt!: Date;
 }
 
 export class CreateWorkspaceInvitationDto {

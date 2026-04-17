@@ -6,6 +6,7 @@ import {
   WorkspaceInvitationEventType,
   WorkspaceInvitationRow,
   WorkspaceMemberRow,
+  WorkspaceProjectRoleRow,
   WorkspaceRow,
   WorkspaceUserRow,
 } from '@/modules/workspace/types';
@@ -364,6 +365,50 @@ export class WorkspaceRepository {
       `,
       [params.workspaceId, params.userId, params.role, params.invitedAt],
     );
+  }
+
+  async createProjectRoles(
+    params: {
+      workspaceId: string;
+      roles: Array<{
+        name: string;
+        description: string;
+      }>;
+    },
+    manager?: EntityManager,
+  ): Promise<WorkspaceProjectRoleRow[]> {
+    const values = params.roles.flatMap((role) => [
+      params.workspaceId,
+      role.name,
+      role.description,
+    ]);
+    const placeholders = params.roles
+      .map((_, index) => {
+        const offset = index * 3;
+        return `($${offset + 1}, $${offset + 2}, $${offset + 3})`;
+      })
+      .join(', ');
+    const roles = await this.getManager(manager).query<
+      WorkspaceProjectRoleRow[]
+    >(
+      `
+        INSERT INTO prism_project_roles_l (
+          workspace_id,
+          name,
+          description
+        )
+        VALUES ${placeholders}
+        RETURNING
+          role_id AS "roleId",
+          workspace_id AS "workspaceId",
+          name,
+          description,
+          created_at AS "createdAt"
+      `,
+      values,
+    );
+
+    return roles;
   }
 
   async createWorkspaceInvitationEvent(
