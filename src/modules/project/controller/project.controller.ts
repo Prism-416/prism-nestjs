@@ -14,6 +14,7 @@ import {
   CreateProjectDto,
   ProjectMemberResponseDto,
   ProjectResponseDto,
+  UpdateProjectDto,
   UpsertProjectMembersDto,
 } from '@/modules/project/dto';
 import { ProjectUseCase } from '@/modules/project/usecases';
@@ -32,6 +33,18 @@ export class ProjectController {
     @Body() dto: CreateProjectDto,
   ): Promise<ProjectResponseDto> {
     return this.usecase.createProject(String(user.sub), dto);
+  }
+
+  @Patch(':projectId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Update project metadata' })
+  @ApiDataResponse(ProjectResponseDto)
+  async updateProject(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: UpdateProjectDto,
+  ): Promise<ProjectResponseDto> {
+    return this.usecase.updateProject(String(user.sub), projectId, dto);
   }
 
   @Patch(':projectId/members')

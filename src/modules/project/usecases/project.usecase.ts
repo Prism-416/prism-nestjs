@@ -4,6 +4,7 @@ import {
   CreateProjectDto,
   ProjectMemberResponseDto,
   ProjectResponseDto,
+  UpdateProjectDto,
   UpsertProjectMembersDto,
 } from '@/modules/project/dto';
 import {
@@ -64,6 +65,28 @@ export class ProjectUseCase {
       );
 
       return project;
+    });
+  }
+
+  async updateProject(
+    userId: string,
+    projectId: string,
+    dto: UpdateProjectDto,
+  ): Promise<ProjectResponseDto> {
+    const project = await this.repo.findProjectByIdAndAdminUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    return this.repo.updateProject({
+      projectId,
+      name: dto.name ?? project.name,
+      description: dto.description ?? project.description,
+      timezone: dto.timezone ?? project.timezone,
+      locale: dto.locale ?? project.locale,
     });
   }
 
