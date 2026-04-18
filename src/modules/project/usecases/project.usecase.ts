@@ -11,6 +11,7 @@ import {
   UpsertProjectMembersDto,
 } from '@/modules/project/dto';
 import {
+  ProjectMemberNotFoundError,
   isProjectSlugUniqueViolation,
   ProjectMemberWorkspaceMemberNotFoundError,
   ProjectNotFoundError,
@@ -146,6 +147,29 @@ export class ProjectUseCase {
     );
     if (!deleted) {
       throw new ProjectNotFoundError();
+    }
+  }
+
+  async removeProjectMember(
+    userId: string,
+    projectId: string,
+    memberId: string,
+  ): Promise<void> {
+    const project = await this.repo.findProjectByIdAndAdminUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const deleted = await this.repo.deleteProjectMemberById(
+      project.workspaceId,
+      project.projectId,
+      memberId,
+    );
+    if (!deleted) {
+      throw new ProjectMemberNotFoundError();
     }
   }
 
