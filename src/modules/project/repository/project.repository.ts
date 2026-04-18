@@ -143,6 +143,32 @@ export class ProjectRepository {
     return projects[0];
   }
 
+  async deleteProjectByIdAndAdminUserId(
+    projectId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const deletedProjects = await this.getManager(manager).query<
+      Array<{ projectId: string }>
+    >(
+      `
+        DELETE FROM prism_projects_l p
+        USING prism_workspaces_l w, prism_workspace_members_l wm
+        WHERE p.project_id = $1
+          AND w.workspace_id = p.workspace_id
+          AND wm.workspace_id = p.workspace_id
+          AND wm.user_id = $2
+          AND wm.role = 'admin'
+          AND w.archived_at IS NULL
+          AND w.status = 'active'
+        RETURNING p.project_id AS "projectId"
+      `,
+      [projectId, userId],
+    );
+
+    return deletedProjects.length > 0;
+  }
+
   async findWorkspaceMembersByUserIds(
     workspaceId: string,
     userIds: string[],
@@ -218,18 +244,6 @@ export class ProjectRepository {
       return [];
     }
 
-    const values = params.userIds.flatMap((userId) => [
-      params.workspaceId,
-      params.projectId,
-      userId,
-    ]);
-    const placeholders = params.userIds
-      .map((_, index) => {
-        const offset = index * 3;
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3})`;
-      })
-      .join(', ');
-
     return this.getManager(manager).query<ProjectMemberRow[]>(
       `
         INSERT INTO prism_project_members_l (
@@ -237,7 +251,11 @@ export class ProjectRepository {
           project_id,
           user_id
         )
-        VALUES ${placeholders}
+        SELECT
+          $1,
+          $2,
+          input.user_id
+        FROM unnest($3::uuid[]) AS input(user_id)
         ON CONFLICT (project_id, user_id)
         DO UPDATE SET
           workspace_id = EXCLUDED.workspace_id
@@ -248,7 +266,7 @@ export class ProjectRepository {
           user_id AS "userId",
           assigned_at AS "assignedAt"
       `,
-      values,
+      [params.workspaceId, params.projectId, params.userIds],
     );
   }
 
@@ -286,17 +304,8 @@ export class ProjectRepository {
       return;
     }
 
-    const values = roleMappings.flatMap((mapping) => [
-      params.workspaceId,
-      mapping.roleId,
-      mapping.memberId,
-    ]);
-    const placeholders = roleMappings
-      .map((_, index) => {
-        const offset = index * 3;
-        return `($${offset + 1}, $${offset + 2}, $${offset + 3})`;
-      })
-      .join(', ');
+    const roleIds = roleMappings.map((mapping) => mapping.roleId);
+    const mappedMemberIds = roleMappings.map((mapping) => mapping.memberId);
 
     await this.getManager(manager).query(
       `
@@ -305,9 +314,16 @@ export class ProjectRepository {
           role_id,
           member_id
         )
-        VALUES ${placeholders}
+        SELECT
+          $1,
+          input.role_id,
+          input.member_id
+        FROM unnest(
+          $2::uuid[],
+          $3::uuid[]
+        ) AS input(role_id, member_id)
       `,
-      values,
+      [params.workspaceId, roleIds, mappedMemberIds],
     );
   }
 
