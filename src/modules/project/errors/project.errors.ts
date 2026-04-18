@@ -24,6 +24,12 @@ export class ProjectMemberWorkspaceMemberNotFoundError extends NotExistsError {
   }
 }
 
+export class ProjectMemberNotFoundError extends NotExistsError {
+  constructor() {
+    super('Project member not found.', 'PROJECT_MEMBER_NOT_FOUND');
+  }
+}
+
 export class ProjectRoleNotFoundError extends NotExistsError {
   constructor() {
     super('Project role not found.', 'PROJECT_ROLE_NOT_FOUND');

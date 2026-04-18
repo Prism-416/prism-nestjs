@@ -365,6 +365,28 @@ export class ProjectRepository {
     );
   }
 
+  async deleteProjectMemberById(
+    workspaceId: string,
+    projectId: string,
+    memberId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const deletedMembers = await this.getManager(manager).query<
+      Array<{ memberId: string }>
+    >(
+      `
+        DELETE FROM prism_project_members_l
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND member_id = $3
+        RETURNING member_id AS "memberId"
+      `,
+      [workspaceId, projectId, memberId],
+    );
+
+    return deletedMembers.length > 0;
+  }
+
   async upsertProjectMembers(
     params: {
       workspaceId: string;

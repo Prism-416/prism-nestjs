@@ -101,6 +101,25 @@ export class ProjectController {
     await this.usecase.deleteProject(String(user.sub), projectId);
   }
 
+  @Delete(':projectId/members/:memberId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a project member' })
+  @ApiNoContentResponse({
+    description: 'Successfully removed the project member',
+  })
+  async removeProjectMember(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('memberId') memberId: string,
+  ): Promise<void> {
+    await this.usecase.removeProjectMember(
+      String(user.sub),
+      projectId,
+      memberId,
+    );
+  }
+
   @Patch(':projectId/members')
   @Authenticated()
   @ApiOperation({ summary: 'Upsert project members in batch' })
