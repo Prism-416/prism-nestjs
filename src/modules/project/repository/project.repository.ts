@@ -103,6 +103,46 @@ export class ProjectRepository {
     return projects[0] ?? null;
   }
 
+  async updateProject(
+    params: {
+      projectId: string;
+      name: string;
+      description: string | null;
+      timezone: string;
+      locale: string;
+    },
+    manager?: EntityManager,
+  ): Promise<ProjectRow> {
+    const projects = await this.getManager(manager).query<ProjectRow[]>(
+      `
+        UPDATE prism_projects_l
+        SET name = $2,
+            description = $3,
+            timezone = $4,
+            locale = $5
+        WHERE project_id = $1
+        RETURNING
+          project_id AS "projectId",
+          workspace_id AS "workspaceId",
+          name,
+          slug,
+          description,
+          timezone,
+          locale,
+          created_at AS "createdAt"
+      `,
+      [
+        params.projectId,
+        params.name,
+        params.description,
+        params.timezone,
+        params.locale,
+      ],
+    );
+
+    return projects[0];
+  }
+
   async findWorkspaceMembersByUserIds(
     workspaceId: string,
     userIds: string[],

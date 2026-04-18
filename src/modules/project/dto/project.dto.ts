@@ -64,6 +64,40 @@ export class ProjectResponseDto {
   createdAt!: Date;
 }
 
+export class UpdateProjectDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(20)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  timezone?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20)
+  locale?: string;
+}
+
 export class UpsertProjectMemberDto {
   @ApiProperty()
   @IsUUID()
