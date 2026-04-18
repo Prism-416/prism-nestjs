@@ -165,3 +165,29 @@ export class ProjectMemberResponseDto {
   @ApiProperty()
   assignedAt!: Date;
 }
+
+export class ProjectMemberListResponseDto {
+  @ApiProperty()
+  memberId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  userId!: string;
+
+  @ApiProperty()
+  fullName!: string;
+
+  @ApiProperty()
+  username!: string;
+
+  @ApiProperty({ type: [String] })
+  roleNames!: string[];
+
+  @ApiProperty()
+  assignedAt!: Date;
+}

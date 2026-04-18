@@ -16,6 +16,7 @@ import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
   CreateProjectDto,
+  ProjectMemberListResponseDto,
   GetProjectsQueryDto,
   ProjectMemberResponseDto,
   ProjectResponseDto,
@@ -52,6 +53,17 @@ export class ProjectController {
     @Param('projectId') projectId: string,
   ): Promise<ProjectResponseDto> {
     return this.usecase.getProject(String(user.sub), projectId);
+  }
+
+  @Get(':projectId/members')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve project members' })
+  @ApiDataResponse(ProjectMemberListResponseDto, { isArray: true })
+  async getProjectMembers(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+  ): Promise<ProjectMemberListResponseDto[]> {
+    return this.usecase.getProjectMembers(String(user.sub), projectId);
   }
 
   @Post()
