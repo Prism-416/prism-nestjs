@@ -1,12 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
+  HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
@@ -45,6 +47,18 @@ export class ProjectController {
     @Body() dto: UpdateProjectDto,
   ): Promise<ProjectResponseDto> {
     return this.usecase.updateProject(String(user.sub), projectId, dto);
+  }
+
+  @Delete(':projectId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete project' })
+  @ApiNoContentResponse({ description: 'Successfully deleted project' })
+  async deleteProject(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+  ): Promise<void> {
+    await this.usecase.deleteProject(String(user.sub), projectId);
   }
 
   @Patch(':projectId/members')

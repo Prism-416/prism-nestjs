@@ -90,6 +90,16 @@ export class ProjectUseCase {
     });
   }
 
+  async deleteProject(userId: string, projectId: string): Promise<void> {
+    const deleted = await this.repo.deleteProjectByIdAndAdminUserId(
+      projectId,
+      userId,
+    );
+    if (!deleted) {
+      throw new ProjectNotFoundError();
+    }
+  }
+
   async upsertProjectMembers(
     userId: string,
     projectId: string,
