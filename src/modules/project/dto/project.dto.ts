@@ -38,6 +38,12 @@ export class CreateProjectDto {
   description?: string;
 }
 
+export class GetProjectsQueryDto {
+  @ApiProperty()
+  @IsUUID()
+  workspaceId!: string;
+}
+
 export class ProjectResponseDto {
   @ApiProperty()
   projectId!: string;
@@ -59,6 +65,26 @@ export class ProjectResponseDto {
 
   @ApiProperty()
   locale!: string;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
+export class ProjectSummaryResponseDto {
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  name!: string;
+
+  @ApiProperty()
+  slug!: string;
+
+  @ApiProperty({ nullable: true })
+  description!: string | null;
 
   @ApiProperty()
   createdAt!: Date;

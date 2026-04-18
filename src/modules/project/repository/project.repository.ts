@@ -5,12 +5,68 @@ import {
   ProjectMemberRow,
   ProjectRoleIdRow,
   ProjectRow,
+  ProjectSummaryRow,
   ProjectWorkspaceMemberUserRow,
 } from '@/modules/project/types';
 
 @Injectable()
 export class ProjectRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
+
+  async existsWorkspaceByIdAndMemberUserId(
+    workspaceId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const workspaces = await this.getManager(manager).query<
+      Array<{ workspaceId: string }>
+    >(
+      `
+        SELECT
+          w.workspace_id AS "workspaceId"
+        FROM prism_workspaces_l w
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = w.workspace_id
+        WHERE w.workspace_id = $1
+          AND wm.user_id = $2
+          AND w.archived_at IS NULL
+          AND w.status = 'active'
+        LIMIT 1
+      `,
+      [workspaceId, userId],
+    );
+
+    return workspaces.length > 0;
+  }
+
+  async findProjectsByMemberUserId(
+    userId: string,
+    workspaceId: string,
+    manager?: EntityManager,
+  ): Promise<ProjectSummaryRow[]> {
+    return this.getManager(manager).query<ProjectSummaryRow[]>(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId",
+          p.name,
+          p.slug,
+          p.description,
+          p.created_at AS "createdAt"
+        FROM prism_projects_l p
+               INNER JOIN prism_workspaces_l w
+                          ON w.workspace_id = p.workspace_id
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = p.workspace_id
+        WHERE wm.user_id = $1
+          AND w.archived_at IS NULL
+          AND w.status = 'active'
+          AND p.workspace_id = $2
+        ORDER BY p.created_at DESC
+      `,
+      [userId, workspaceId],
+    );
+  }
 
   async findProjectByIdAndAdminUserId(
     projectId: string,
