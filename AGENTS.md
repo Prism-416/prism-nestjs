@@ -11,7 +11,7 @@
 
 - Keep the existing module-local layout: `controller`, `dto`, `usecases`, `services`, `repository`, `errors`, `utils`, `constants`, `types`.
 - Keep controllers thin. They should mostly handle routing, auth decorators, Swagger decorators, and DTO binding.
-- Put orchestration and transaction boundaries in use cases. Multi-step writes should go through `UnitOfWork`.
+- Put orchestration and transaction boundaries in use cases. Multistep writes should go through `UnitOfWork`.
 - Keep persistence in repositories. The codebase uses `DataSource` or `EntityManager` with raw SQL more than TypeORM entities.
 - Keep side effects in services, not repositories.
 - Reuse DTO validation and transform decorators. Reuse domain errors instead of throwing generic HTTP exceptions when the failure is business-level.
