@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
 import {
   CreateProjectDto,
+  GetProjectsQueryDto,
   ProjectMemberResponseDto,
   ProjectResponseDto,
+  ProjectSummaryResponseDto,
   UpdateProjectDto,
   UpsertProjectMembersDto,
 } from '@/modules/project/dto';
@@ -24,6 +26,37 @@ export class ProjectUseCase {
     private readonly repo: ProjectRepository,
     private readonly uow: UnitOfWork,
   ) {}
+
+  async getProjects(
+    userId: string,
+    query: GetProjectsQueryDto,
+  ): Promise<ProjectSummaryResponseDto[]> {
+    const hasWorkspaceAccess =
+      await this.repo.existsWorkspaceByIdAndMemberUserId(
+        query.workspaceId,
+        userId,
+      );
+    if (!hasWorkspaceAccess) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.repo.findProjectsByMemberUserId(userId, query.workspaceId);
+  }
+
+  async getProject(
+    userId: string,
+    projectId: string,
+  ): Promise<ProjectResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    return project;
+  }
 
   async createProject(
     userId: string,

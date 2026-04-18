@@ -9,6 +9,11 @@ export type ProjectRow = {
   createdAt: Date;
 };
 
+export type ProjectSummaryRow = Pick<
+  ProjectRow,
+  'projectId' | 'workspaceId' | 'name' | 'slug' | 'description' | 'createdAt'
+>;
+
 export type ProjectWorkspaceMemberUserRow = {
   userId: string;
 };

@@ -2,11 +2,13 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
@@ -14,8 +16,10 @@ import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
   CreateProjectDto,
+  GetProjectsQueryDto,
   ProjectMemberResponseDto,
   ProjectResponseDto,
+  ProjectSummaryResponseDto,
   UpdateProjectDto,
   UpsertProjectMembersDto,
 } from '@/modules/project/dto';
@@ -25,6 +29,30 @@ import { ProjectUseCase } from '@/modules/project/usecases';
 @Controller()
 export class ProjectController {
   constructor(private readonly usecase: ProjectUseCase) {}
+
+  @Get()
+  @Authenticated()
+  @ApiOperation({
+    summary: 'Retrieve projects in a workspace the user belongs to',
+  })
+  @ApiDataResponse(ProjectSummaryResponseDto, { isArray: true })
+  async getProjects(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: GetProjectsQueryDto,
+  ): Promise<ProjectSummaryResponseDto[]> {
+    return this.usecase.getProjects(String(user.sub), query);
+  }
+
+  @Get(':projectId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve project metadata' })
+  @ApiDataResponse(ProjectResponseDto)
+  async getProject(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+  ): Promise<ProjectResponseDto> {
+    return this.usecase.getProject(String(user.sub), projectId);
+  }
 
   @Post()
   @Authenticated()
