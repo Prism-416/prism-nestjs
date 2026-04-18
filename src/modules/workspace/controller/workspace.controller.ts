@@ -64,6 +64,19 @@ export class WorkspaceController {
     return this.usecase.getWorkspaceMembers(String(user.sub), workspaceId);
   }
 
+  @Get(':workspaceId/roles')
+  @Authenticated()
+  @ApiOperation({
+    summary: 'Retrieve project roles in a workspace the user belongs to',
+  })
+  @ApiDataResponse(ProjectRoleResponseDto, { isArray: true })
+  async getProjectRoles(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+  ): Promise<ProjectRoleResponseDto[]> {
+    return this.usecase.getProjectRoles(String(user.sub), workspaceId);
+  }
+
   @Post(':workspaceId/roles')
   @Authenticated()
   @ApiOperation({ summary: 'Create project roles in a workspace' })

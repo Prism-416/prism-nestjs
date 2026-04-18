@@ -81,6 +81,21 @@ export class WorkspaceUseCase {
     return this.repo.findWorkspaceMembersByWorkspaceId(workspaceId);
   }
 
+  async getProjectRoles(
+    userId: string,
+    workspaceId: string,
+  ): Promise<ProjectRoleResponseDto[]> {
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.repo.findProjectRolesByWorkspaceId(workspaceId);
+  }
+
   async createProjectRoles(
     userId: string,
     workspaceId: string,

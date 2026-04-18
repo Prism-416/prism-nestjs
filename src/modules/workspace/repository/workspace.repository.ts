@@ -429,6 +429,26 @@ export class WorkspaceRepository {
     );
   }
 
+  async findProjectRolesByWorkspaceId(
+    workspaceId: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceProjectRoleRow[]> {
+    return this.getManager(manager).query<WorkspaceProjectRoleRow[]>(
+      `
+        SELECT
+          role_id AS "roleId",
+          workspace_id AS "workspaceId",
+          name,
+          description,
+          created_at AS "createdAt"
+        FROM prism_project_roles_l
+        WHERE workspace_id = $1
+        ORDER BY name ASC
+      `,
+      [workspaceId],
+    );
+  }
+
   async updateProjectRoles(
     params: {
       workspaceId: string;
