@@ -29,3 +29,9 @@ export type ProjectMemberRow = {
   userId: string;
   assignedAt: Date;
 };
+
+export type ProjectMemberListRow = ProjectMemberRow & {
+  fullName: string;
+  username: string;
+  roleNames: string[];
+};

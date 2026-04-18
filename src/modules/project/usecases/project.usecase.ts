@@ -3,6 +3,7 @@ import { UnitOfWork } from '@/core/database';
 import {
   CreateProjectDto,
   GetProjectsQueryDto,
+  ProjectMemberListResponseDto,
   ProjectMemberResponseDto,
   ProjectResponseDto,
   ProjectSummaryResponseDto,
@@ -56,6 +57,21 @@ export class ProjectUseCase {
     }
 
     return project;
+  }
+
+  async getProjectMembers(
+    userId: string,
+    projectId: string,
+  ): Promise<ProjectMemberListResponseDto[]> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    return this.repo.findProjectMembersByProjectId(projectId);
   }
 
   async createProject(

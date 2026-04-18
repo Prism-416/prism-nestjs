@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   ProjectMemberRow,
+  ProjectMemberListRow,
   ProjectRoleIdRow,
   ProjectRow,
   ProjectSummaryRow,
@@ -318,6 +319,49 @@ export class ProjectRepository {
         VALUES ($1, $2, $3)
       `,
       [params.workspaceId, params.projectId, params.userId],
+    );
+  }
+
+  async findProjectMembersByProjectId(
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<ProjectMemberListRow[]> {
+    return this.getManager(manager).query<ProjectMemberListRow[]>(
+      `
+        SELECT
+          pm.member_id AS "memberId",
+          pm.workspace_id AS "workspaceId",
+          pm.project_id AS "projectId",
+          pm.user_id AS "userId",
+          u.full_name AS "fullName",
+          u.username,
+          COALESCE(
+            array_agg(pr.name ORDER BY pr.name)
+            FILTER (WHERE pr.name IS NOT NULL),
+            ARRAY[]::text[]
+          ) AS "roleNames",
+          pm.assigned_at AS "assignedAt"
+        FROM prism_project_members_l pm
+               INNER JOIN prism_users_l u
+                          ON u.user_id = pm.user_id
+               LEFT JOIN prism_project_member_role_map pmrm
+                         ON pmrm.workspace_id = pm.workspace_id
+                        AND pmrm.member_id = pm.member_id
+               LEFT JOIN prism_project_roles_l pr
+                         ON pr.workspace_id = pmrm.workspace_id
+                        AND pr.role_id = pmrm.role_id
+        WHERE pm.project_id = $1
+        GROUP BY
+          pm.member_id,
+          pm.workspace_id,
+          pm.project_id,
+          pm.user_id,
+          u.full_name,
+          u.username,
+          pm.assigned_at
+        ORDER BY u.username ASC
+      `,
+      [projectId],
     );
   }
 
