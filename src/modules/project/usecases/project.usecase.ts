@@ -43,6 +43,21 @@ export class ProjectUseCase {
     return this.repo.findProjectsByMemberUserId(userId, query.workspaceId);
   }
 
+  async getProject(
+    userId: string,
+    projectId: string,
+  ): Promise<ProjectResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    return project;
+  }
+
   async createProject(
     userId: string,
     dto: CreateProjectDto,

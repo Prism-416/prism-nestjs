@@ -43,6 +43,17 @@ export class ProjectController {
     return this.usecase.getProjects(String(user.sub), query);
   }
 
+  @Get(':projectId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve project metadata' })
+  @ApiDataResponse(ProjectResponseDto)
+  async getProject(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+  ): Promise<ProjectResponseDto> {
+    return this.usecase.getProject(String(user.sub), projectId);
+  }
+
   @Post()
   @Authenticated()
   @ApiOperation({ summary: 'Create Project' })
