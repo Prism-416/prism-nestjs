@@ -271,6 +271,30 @@ export class WorkspaceRepository {
     return members[0];
   }
 
+  async updateWorkspaceOwner(
+    workspaceId: string,
+    ownerId: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceRow> {
+    const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
+      `
+        UPDATE prism_workspaces_l
+        SET owner_id = $2
+        WHERE workspace_id = $1
+        RETURNING
+          workspace_id AS "workspaceId",
+          name,
+          slug,
+          description,
+          owner_id AS "ownerId",
+          created_at AS "createdAt"
+      `,
+      [workspaceId, ownerId],
+    );
+
+    return workspaces[0];
+  }
+
   async findUserById(
     userId: string,
     manager?: EntityManager,

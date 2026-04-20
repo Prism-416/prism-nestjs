@@ -20,6 +20,7 @@ import {
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   ProjectJobResponseDto,
+  TransferWorkspaceOwnerDto,
   UpdateWorkspaceMemberRoleDto,
   UpdateProjectJobsDto,
   UpdateWorkspaceDto,
@@ -101,6 +102,22 @@ export class WorkspaceController {
       String(user.sub),
       workspaceId,
       targetUserId,
+      dto,
+    );
+  }
+
+  @Put(':workspaceId/owner')
+  @Authenticated()
+  @ApiOperation({ summary: 'Transfer workspace ownership' })
+  @ApiDataResponse(WorkspaceResponseDto)
+  async transferWorkspaceOwner(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: TransferWorkspaceOwnerDto,
+  ): Promise<WorkspaceResponseDto> {
+    return this.usecase.transferWorkspaceOwner(
+      String(user.sub),
+      workspaceId,
       dto,
     );
   }

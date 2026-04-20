@@ -8,6 +8,7 @@ import {
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   ProjectJobResponseDto,
+  TransferWorkspaceOwnerDto,
   UpdateWorkspaceMemberRoleDto,
   UpdateProjectJobsDto,
   UpdateWorkspaceDto,
@@ -163,6 +164,43 @@ export class WorkspaceUseCase {
         workspace.workspaceId,
         member.userId,
         dto.role,
+        manager,
+      );
+    });
+  }
+
+  async transferWorkspaceOwner(
+    userId: string,
+    workspaceId: string,
+    dto: TransferWorkspaceOwnerDto,
+  ): Promise<WorkspaceResponseDto> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceById(workspaceId, manager);
+      if (!workspace || workspace.ownerId !== userId) {
+        throw new WorkspaceNotFoundError();
+      }
+
+      const member = await this.repo.findWorkspaceMember(
+        workspace.workspaceId,
+        dto.ownerId,
+        manager,
+      );
+      if (!member) {
+        throw new WorkspaceMemberNotFoundError();
+      }
+
+      if (member.role !== 'admin') {
+        await this.repo.updateWorkspaceMemberRole(
+          workspace.workspaceId,
+          member.userId,
+          'admin',
+          manager,
+        );
+      }
+
+      return this.repo.updateWorkspaceOwner(
+        workspace.workspaceId,
+        member.userId,
         manager,
       );
     });
