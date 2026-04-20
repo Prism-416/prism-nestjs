@@ -116,6 +116,12 @@ export class UpdateWorkspaceMemberRoleDto {
   role!: 'admin' | 'member' | 'viewer';
 }
 
+export class TransferWorkspaceOwnerDto {
+  @ApiProperty()
+  @IsUUID()
+  ownerId!: string;
+}
+
 export class WorkspaceResponseDto {
   @ApiProperty()
   workspaceId!: string;

@@ -53,6 +53,16 @@ export class WorkspaceOwnerRoleUpdateError extends DomainError {
   }
 }
 
+export class WorkspaceOwnerRequiredError extends DomainError {
+  constructor() {
+    super(
+      'Workspace owner permission is required.',
+      'WORKSPACE_OWNER_REQUIRED',
+      403,
+    );
+  }
+}
+
 export class WorkspaceInvitationNotFoundError extends NotExistsError {
   constructor() {
     super('Workspace invitation not found.', 'WORKSPACE_INVITATION_NOT_FOUND');
