@@ -578,6 +578,37 @@ export class WorkspaceRepository {
     return Boolean(deletedWorkspace);
   }
 
+  async restoreWorkspaceByIdAndAdminUserId(
+    workspaceId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceRow | null> {
+    const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
+      `
+        UPDATE prism_workspaces_l w
+        SET status = 'active',
+            deleted_at = NULL
+        FROM prism_workspace_members_l wm
+        WHERE w.workspace_id = $1
+          AND wm.workspace_id = w.workspace_id
+          AND wm.user_id = $2
+          AND wm.role = 'admin'
+          AND w.deleted_at IS NOT NULL
+          AND w.status = 'deleted'
+        RETURNING
+          w.workspace_id AS "workspaceId",
+          w.name,
+          w.slug,
+          w.description,
+          w.owner_id AS "ownerId",
+          w.created_at AS "createdAt"
+      `,
+      [workspaceId, userId],
+    );
+
+    return workspaces[0] ?? null;
+  }
+
   private getManager(manager?: EntityManager): DataSource | EntityManager {
     return manager ?? this.dataSource;
   }
