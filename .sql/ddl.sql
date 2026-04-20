@@ -155,6 +155,7 @@ CREATE TABLE IF NOT EXISTS prism_project_members_l
     user_id      UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
     assigned_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_project_members_project_user UNIQUE (project_id, user_id),
+    CONSTRAINT uq_project_members_project_member UNIQUE (project_id, member_id),
     CONSTRAINT uq_project_members_workspace_member UNIQUE (workspace_id, member_id),
     CONSTRAINT fk_project_members_project_workspace
         FOREIGN KEY (workspace_id, project_id)
@@ -167,7 +168,7 @@ CREATE INDEX IF NOT EXISTS idx_project_members_user_id
 CREATE TABLE IF NOT EXISTS prism_project_jobs_l
 (
     workspace_id UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
-    job_id      UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    job_id       UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
     name         VARCHAR(20) NOT NULL,
     description  TEXT        NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -177,9 +178,9 @@ CREATE TABLE IF NOT EXISTS prism_project_jobs_l
 
 CREATE TABLE IF NOT EXISTS prism_project_member_job_map
 (
-    job_id      UUID        NOT NULL,
-    member_id    UUID        NOT NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    job_id     UUID        NOT NULL,
+    member_id  UUID        NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (job_id, member_id),
     CONSTRAINT fk_project_member_job_map_job
         FOREIGN KEY (job_id)
@@ -191,3 +192,78 @@ CREATE TABLE IF NOT EXISTS prism_project_member_job_map
 
 CREATE INDEX IF NOT EXISTS idx_project_member_job_map_member_id
     ON prism_project_member_job_map (member_id);
+
+CREATE TABLE IF NOT EXISTS prism_work_items_l
+(
+    item_id            UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    project_id         UUID        NOT NULL REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    parent_id          UUID,
+    title              VARCHAR(50) NOT NULL,
+    description        TEXT        NOT NULL,
+    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    type               VARCHAR(5)  NOT NULL,
+    priority           VARCHAR(10) NOT NULL,
+    status             VARCHAR(20) NOT NULL,
+    status_changed_at TIMESTAMPTZ,
+    CONSTRAINT uq_work_items_project_item UNIQUE (project_id, item_id),
+    CONSTRAINT fk_work_items_parent
+        FOREIGN KEY (project_id, parent_id)
+            REFERENCES prism_work_items_l (project_id, item_id) ON DELETE CASCADE,
+    CONSTRAINT ck_work_items_parent_self
+        CHECK (parent_id IS NULL OR parent_id <> item_id),
+    CHECK (type IN ('epic', 'story', 'task')),
+    CHECK (status IN ('todo', 'in_progress', 'in_review', 'done')),
+    CHECK (priority IN ('low', 'medium', 'high', 'urgent'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_items_project_parent_id
+    ON prism_work_items_l (project_id, parent_id);
+
+CREATE INDEX IF NOT EXISTS idx_work_items_project_status
+    ON prism_work_items_l (project_id, status);
+
+CREATE TABLE IF NOT EXISTS prism_work_item_member_map
+(
+    project_id   UUID        NOT NULL,
+    item_id      UUID        NOT NULL,
+    member_id    UUID        NOT NULL,
+    assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (item_id, member_id),
+    CONSTRAINT fk_work_item_member_map_item
+        FOREIGN KEY (project_id, item_id)
+            REFERENCES prism_work_items_l (project_id, item_id) ON DELETE CASCADE,
+    CONSTRAINT fk_work_item_member_map_member
+        FOREIGN KEY (project_id, member_id)
+            REFERENCES prism_project_members_l (project_id, member_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_item_member_map_member_id
+    ON prism_work_item_member_map (member_id);
+
+CREATE TABLE IF NOT EXISTS prism_work_item_labels_l
+(
+    label_id    UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    project_id  UUID        NOT NULL REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    label       VARCHAR(20) NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_work_item_labels_project_label UNIQUE (project_id, label),
+    CONSTRAINT uq_work_item_labels_project_label_id UNIQUE (project_id, label_id)
+);
+
+CREATE TABLE IF NOT EXISTS prism_work_item_label_map
+(
+    project_id UUID        NOT NULL,
+    item_id    UUID        NOT NULL,
+    label_id   UUID        NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (item_id, label_id),
+    CONSTRAINT fk_work_item_label_map_item
+        FOREIGN KEY (project_id, item_id)
+            REFERENCES prism_work_items_l (project_id, item_id) ON DELETE CASCADE,
+    CONSTRAINT fk_work_item_label_map_label
+        FOREIGN KEY (project_id, label_id)
+            REFERENCES prism_work_item_labels_l (project_id, label_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_item_label_map_project_label_id
+    ON prism_work_item_label_map (project_id, label_id);
