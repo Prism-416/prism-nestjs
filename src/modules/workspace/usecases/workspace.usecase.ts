@@ -375,6 +375,21 @@ export class WorkspaceUseCase {
     }
   }
 
+  async restoreWorkspace(
+    userId: string,
+    workspaceId: string,
+  ): Promise<WorkspaceResponseDto> {
+    const workspace = await this.repo.restoreWorkspaceByIdAndAdminUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return workspace;
+  }
+
   private buildInvitationLink(token: string): string {
     if (!this.invitationPageUrl) {
       return token;

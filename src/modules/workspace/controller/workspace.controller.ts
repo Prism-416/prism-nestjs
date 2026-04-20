@@ -149,6 +149,17 @@ export class WorkspaceController {
     return this.usecase.updateWorkspace(String(user.sub), workspaceId, dto);
   }
 
+  @Post(':workspaceId/restore')
+  @Authenticated()
+  @ApiOperation({ summary: 'Restore a deleted workspace the user administers' })
+  @ApiDataResponse(WorkspaceResponseDto)
+  async restoreWorkspace(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+  ): Promise<WorkspaceResponseDto> {
+    return this.usecase.restoreWorkspace(String(user.sub), workspaceId);
+  }
+
   @Delete(':workspaceId')
   @Authenticated()
   @HttpCode(HttpStatus.NO_CONTENT)
