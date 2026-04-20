@@ -27,6 +27,7 @@ import {
   WorkspaceInvitationNotFoundError,
   WorkspaceNotFoundError,
   WorkspaceOwnerRemovalError,
+  WorkspaceOwnerRequiredError,
   WorkspaceOwnerRoleUpdateError,
 } from '@/modules/workspace/errors';
 import { WorkspaceRepository } from '@/modules/workspace/repository';
@@ -176,8 +177,12 @@ export class WorkspaceUseCase {
   ): Promise<WorkspaceResponseDto> {
     return this.uow.run(async (manager) => {
       const workspace = await this.repo.findWorkspaceById(workspaceId, manager);
-      if (!workspace || workspace.ownerId !== userId) {
+      if (!workspace) {
         throw new WorkspaceNotFoundError();
+      }
+
+      if (workspace.ownerId !== userId) {
+        throw new WorkspaceOwnerRequiredError();
       }
 
       const member = await this.repo.findWorkspaceMember(
