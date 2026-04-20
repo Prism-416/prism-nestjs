@@ -1,13 +1,15 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import type { JwtPayload } from '@/core/auth/jwt-token.service';
@@ -145,6 +147,18 @@ export class WorkspaceController {
     @Body() dto: UpdateWorkspaceDto,
   ): Promise<WorkspaceResponseDto> {
     return this.usecase.updateWorkspace(String(user.sub), workspaceId, dto);
+  }
+
+  @Delete(':workspaceId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a workspace the user administers' })
+  @ApiNoContentResponse({ description: 'Successfully deleted workspace' })
+  async deleteWorkspace(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+  ): Promise<void> {
+    await this.usecase.deleteWorkspace(String(user.sub), workspaceId);
   }
 
   @Post()

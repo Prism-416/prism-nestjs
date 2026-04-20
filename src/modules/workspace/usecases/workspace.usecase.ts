@@ -365,6 +365,16 @@ export class WorkspaceUseCase {
     });
   }
 
+  async deleteWorkspace(userId: string, workspaceId: string): Promise<void> {
+    const deleted = await this.repo.markWorkspaceDeletedByIdAndAdminUserId(
+      workspaceId,
+      userId,
+    );
+    if (!deleted) {
+      throw new WorkspaceNotFoundError();
+    }
+  }
+
   private buildInvitationLink(token: string): string {
     if (!this.invitationPageUrl) {
       return token;

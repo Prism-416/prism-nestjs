@@ -35,7 +35,7 @@ export class WorkspaceRepository {
         WHERE w.workspace_id = $1
           AND wm.user_id = $2
           AND wm.role = 'admin'
-          AND w.archived_at IS NULL
+          AND w.deleted_at IS NULL
           AND w.status = 'active'
         LIMIT 1
       `,
@@ -63,7 +63,7 @@ export class WorkspaceRepository {
                           ON wm.workspace_id = w.workspace_id
         WHERE w.workspace_id = $1
           AND wm.user_id = $2
-          AND w.archived_at IS NULL
+          AND w.deleted_at IS NULL
           AND w.status = 'active'
         LIMIT 1
       `,
@@ -88,7 +88,7 @@ export class WorkspaceRepository {
           created_at AS "createdAt"
         FROM prism_workspaces_l
         WHERE workspace_id = $1
-          AND archived_at IS NULL
+          AND deleted_at IS NULL
           AND status = 'active'
         LIMIT 1
       `,
@@ -115,7 +115,7 @@ export class WorkspaceRepository {
         FROM prism_workspaces_l
         WHERE owner_id = $1
           AND name = $2
-          AND archived_at IS NULL
+          AND deleted_at IS NULL
           AND status = 'active'
         LIMIT 1
       `,
@@ -139,7 +139,7 @@ export class WorkspaceRepository {
                INNER JOIN prism_workspace_members_l wm
                           ON wm.workspace_id = w.workspace_id
         WHERE wm.user_id = $1
-          AND w.archived_at IS NULL
+          AND w.deleted_at IS NULL
           AND w.status = 'active'
         ORDER BY w.created_at DESC
       `,
@@ -549,6 +549,33 @@ export class WorkspaceRepository {
     );
 
     return workspaces[0];
+  }
+
+  async markWorkspaceDeletedByIdAndAdminUserId(
+    workspaceId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const [deletedWorkspace] = await this.getManager(manager).query<
+      Array<{ workspaceId: string }>
+    >(
+      `
+        UPDATE prism_workspaces_l w
+        SET status = 'deleted',
+            deleted_at = NOW()
+        FROM prism_workspace_members_l wm
+        WHERE w.workspace_id = $1
+          AND wm.workspace_id = w.workspace_id
+          AND wm.user_id = $2
+          AND wm.role = 'admin'
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+        RETURNING w.workspace_id AS "workspaceId"
+      `,
+      [workspaceId, userId],
+    );
+
+    return Boolean(deletedWorkspace);
   }
 
   private getManager(manager?: EntityManager): DataSource | EntityManager {
