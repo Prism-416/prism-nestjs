@@ -243,6 +243,34 @@ export class WorkspaceRepository {
     return Boolean(deletedMember);
   }
 
+  async updateWorkspaceMemberRole(
+    workspaceId: string,
+    userId: string,
+    role: WorkspaceMemberRow['role'],
+    manager?: EntityManager,
+  ): Promise<WorkspaceMemberRow> {
+    const members = await this.getManager(manager).query<WorkspaceMemberRow[]>(
+      `
+        UPDATE prism_workspace_members_l wm
+        SET role = $3
+        FROM prism_users_l u
+        WHERE wm.workspace_id = $1
+          AND wm.user_id = $2
+          AND u.user_id = wm.user_id
+        RETURNING
+          wm.user_id AS "userId",
+          u.full_name AS "fullName",
+          u.username,
+          wm.role,
+          wm.joined_at AS "joinedAt",
+          wm.invited_at AS "invitedAt"
+      `,
+      [workspaceId, userId, role],
+    );
+
+    return members[0];
+  }
+
   async findUserById(
     userId: string,
     manager?: EntityManager,
