@@ -44,14 +44,14 @@ export type WorkspaceUserRow = {
   username: string;
 };
 
-export type WorkspaceProjectRoleRow = {
-  roleId: string;
+export type WorkspaceProjectJobRow = {
+  jobId: string;
   workspaceId: string;
   name: string;
   description: string;
   createdAt: Date;
 };
 
-export type WorkspaceProjectRoleIdRow = {
-  roleId: string;
+export type WorkspaceProjectJobIdRow = {
+  jobId: string;
 };

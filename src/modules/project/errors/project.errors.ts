@@ -30,9 +30,9 @@ export class ProjectMemberNotFoundError extends NotExistsError {
   }
 }
 
-export class ProjectRoleNotFoundError extends NotExistsError {
+export class ProjectJobNotFoundError extends NotExistsError {
   constructor() {
-    super('Project role not found.', 'PROJECT_ROLE_NOT_FOUND');
+    super('Project job not found.', 'PROJECT_JOB_NOT_FOUND');
   }
 }
 

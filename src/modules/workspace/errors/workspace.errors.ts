@@ -2,7 +2,7 @@ import { DomainError, DuplicateError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
 const WORKSPACE_SLUG_UNIQUE_CONSTRAINT = 'uq_workspaces_slug';
-const PROJECT_ROLE_NAME_UNIQUE_CONSTRAINT = 'uq_project_roles_workspace_name';
+const PROJECT_JOB_NAME_UNIQUE_CONSTRAINT = 'uq_project_jobs_workspace_name';
 
 export class WorkspaceSlugAlreadyExistsError extends DuplicateError {
   constructor() {
@@ -59,15 +59,15 @@ export class WorkspaceInvitationExpiredError extends DomainError {
   }
 }
 
-export class ProjectRoleAlreadyExistsError extends DuplicateError {
+export class ProjectJobAlreadyExistsError extends DuplicateError {
   constructor() {
-    super('Project role already exists.', 'PROJECT_ROLE_ALREADY_EXISTS');
+    super('Project job already exists.', 'PROJECT_JOB_ALREADY_EXISTS');
   }
 }
 
-export class ProjectRoleNotFoundError extends NotExistsError {
+export class ProjectJobNotFoundError extends NotExistsError {
   constructor() {
-    super('Project role not found.', 'PROJECT_ROLE_NOT_FOUND');
+    super('Project job not found.', 'PROJECT_JOB_NOT_FOUND');
   }
 }
 
@@ -86,7 +86,7 @@ export function isWorkspaceSlugUniqueViolation(error: unknown): boolean {
   );
 }
 
-export function isProjectRoleNameUniqueViolation(error: unknown): boolean {
+export function isProjectJobNameUniqueViolation(error: unknown): boolean {
   if (!(error instanceof QueryFailedError)) {
     return false;
   }
@@ -97,6 +97,6 @@ export function isProjectRoleNameUniqueViolation(error: unknown): boolean {
 
   return (
     driverError?.code === '23505' &&
-    driverError.constraint === PROJECT_ROLE_NAME_UNIQUE_CONSTRAINT
+    driverError.constraint === PROJECT_JOB_NAME_UNIQUE_CONSTRAINT
   );
 }

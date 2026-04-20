@@ -18,8 +18,8 @@ export type ProjectWorkspaceMemberUserRow = {
   userId: string;
 };
 
-export type ProjectRoleIdRow = {
-  roleId: string;
+export type ProjectJobIdRow = {
+  jobId: string;
 };
 
 export type ProjectMemberRow = {
@@ -33,5 +33,5 @@ export type ProjectMemberRow = {
 export type ProjectMemberListRow = ProjectMemberRow & {
   fullName: string;
   username: string;
-  roleNames: string[];
+  jobNames: string[];
 };

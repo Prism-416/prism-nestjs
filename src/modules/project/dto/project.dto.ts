@@ -133,7 +133,7 @@ export class UpsertProjectMemberDto {
   @IsArray()
   @ArrayUnique()
   @IsUUID('4', { each: true })
-  roleIds!: string[];
+  jobIds!: string[];
 }
 
 export class UpsertProjectMembersDto {
@@ -160,7 +160,7 @@ export class ProjectMemberResponseDto {
   userId!: string;
 
   @ApiProperty({ type: [String] })
-  roleIds!: string[];
+  jobIds!: string[];
 
   @ApiProperty()
   assignedAt!: Date;
@@ -186,7 +186,7 @@ export class ProjectMemberListResponseDto {
   username!: string;
 
   @ApiProperty({ type: [String] })
-  roleNames!: string[];
+  jobNames!: string[];
 
   @ApiProperty()
   assignedAt!: Date;

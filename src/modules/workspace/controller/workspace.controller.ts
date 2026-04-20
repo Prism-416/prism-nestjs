@@ -15,11 +15,11 @@ import { ApiDataResponse } from '@/core/response';
 import type { JwtPayload } from '@/core/auth/jwt-token.service';
 import {
   AcceptWorkspaceInvitationDto,
-  CreateProjectRolesDto,
+  CreateProjectJobsDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
-  ProjectRoleResponseDto,
-  UpdateProjectRolesDto,
+  ProjectJobResponseDto,
+  UpdateProjectJobsDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
@@ -85,44 +85,44 @@ export class WorkspaceController {
     );
   }
 
-  @Get(':workspaceId/roles')
+  @Get(':workspaceId/jobs')
   @Authenticated()
   @ApiOperation({
-    summary: 'Retrieve project roles in a workspace the user belongs to',
+    summary: 'Retrieve project jobs in a workspace the user belongs to',
   })
-  @ApiDataResponse(ProjectRoleResponseDto, { isArray: true })
-  async getProjectRoles(
+  @ApiDataResponse(ProjectJobResponseDto, { isArray: true })
+  async getProjectJobs(
     @CurrentUser() user: JwtPayload,
     @Param('workspaceId') workspaceId: string,
-  ): Promise<ProjectRoleResponseDto[]> {
-    return this.usecase.getProjectRoles(String(user.sub), workspaceId);
+  ): Promise<ProjectJobResponseDto[]> {
+    return this.usecase.getProjectJobs(String(user.sub), workspaceId);
   }
 
-  @Post(':workspaceId/roles')
+  @Post(':workspaceId/jobs')
   @Authenticated()
-  @ApiOperation({ summary: 'Create project roles in a workspace' })
-  @ApiDataResponse(ProjectRoleResponseDto, {
+  @ApiOperation({ summary: 'Create project jobs in a workspace' })
+  @ApiDataResponse(ProjectJobResponseDto, {
     status: HttpStatus.CREATED,
     isArray: true,
   })
-  async createProjectRoles(
+  async createProjectJobs(
     @CurrentUser() user: JwtPayload,
     @Param('workspaceId') workspaceId: string,
-    @Body() dto: CreateProjectRolesDto,
-  ): Promise<ProjectRoleResponseDto[]> {
-    return this.usecase.createProjectRoles(String(user.sub), workspaceId, dto);
+    @Body() dto: CreateProjectJobsDto,
+  ): Promise<ProjectJobResponseDto[]> {
+    return this.usecase.createProjectJobs(String(user.sub), workspaceId, dto);
   }
 
-  @Patch(':workspaceId/roles')
+  @Patch(':workspaceId/jobs')
   @Authenticated()
-  @ApiOperation({ summary: 'Update project roles in a workspace in batch' })
-  @ApiDataResponse(ProjectRoleResponseDto, { isArray: true })
-  async updateProjectRoles(
+  @ApiOperation({ summary: 'Update project jobs in a workspace in batch' })
+  @ApiDataResponse(ProjectJobResponseDto, { isArray: true })
+  async updateProjectJobs(
     @CurrentUser() user: JwtPayload,
     @Param('workspaceId') workspaceId: string,
-    @Body() dto: UpdateProjectRolesDto,
-  ): Promise<ProjectRoleResponseDto[]> {
-    return this.usecase.updateProjectRoles(String(user.sub), workspaceId, dto);
+    @Body() dto: UpdateProjectJobsDto,
+  ): Promise<ProjectJobResponseDto[]> {
+    return this.usecase.updateProjectJobs(String(user.sub), workspaceId, dto);
   }
 
   @Post(':workspaceId/invitations')

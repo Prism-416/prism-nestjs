@@ -34,7 +34,7 @@ export class CreateWorkspaceDto {
   description?: string;
 }
 
-export class CreateProjectRoleDto {
+export class CreateProjectJobDto {
   @ApiProperty()
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
   @IsString()
@@ -52,19 +52,19 @@ export class CreateProjectRoleDto {
   description!: string;
 }
 
-export class CreateProjectRolesDto {
-  @ApiProperty({ type: [CreateProjectRoleDto] })
+export class CreateProjectJobsDto {
+  @ApiProperty({ type: [CreateProjectJobDto] })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => CreateProjectRoleDto)
-  roles!: CreateProjectRoleDto[];
+  @Type(() => CreateProjectJobDto)
+  jobs!: CreateProjectJobDto[];
 }
 
-export class UpdateProjectRoleDto {
+export class UpdateProjectJobDto {
   @ApiProperty()
   @IsUUID()
-  roleId!: string;
+  jobId!: string;
 
   @ApiProperty()
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
@@ -83,14 +83,14 @@ export class UpdateProjectRoleDto {
   description!: string;
 }
 
-export class UpdateProjectRolesDto {
-  @ApiProperty({ type: [UpdateProjectRoleDto] })
+export class UpdateProjectJobsDto {
+  @ApiProperty({ type: [UpdateProjectJobDto] })
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayUnique((role: UpdateProjectRoleDto) => role.roleId)
+  @ArrayUnique((job: UpdateProjectJobDto) => job.jobId)
   @ValidateNested({ each: true })
-  @Type(() => UpdateProjectRoleDto)
-  roles!: UpdateProjectRoleDto[];
+  @Type(() => UpdateProjectJobDto)
+  jobs!: UpdateProjectJobDto[];
 }
 
 export class UpdateWorkspaceDto {
@@ -149,9 +149,9 @@ export class WorkspaceMemberResponseDto {
   invitedAt!: Date | null;
 }
 
-export class ProjectRoleResponseDto {
+export class ProjectJobResponseDto {
   @ApiProperty()
-  roleId!: string;
+  jobId!: string;
 
   @ApiProperty()
   workspaceId!: string;

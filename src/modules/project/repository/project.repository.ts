@@ -2,9 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  ProjectJobIdRow,
   ProjectMemberRow,
   ProjectMemberListRow,
-  ProjectRoleIdRow,
   ProjectRow,
   ProjectSummaryRow,
   ProjectWorkspaceMemberUserRow,
@@ -280,24 +280,24 @@ export class ProjectRepository {
     );
   }
 
-  async findProjectRolesByIds(
+  async findProjectJobsByIds(
     workspaceId: string,
-    roleIds: string[],
+    jobIds: string[],
     manager?: EntityManager,
-  ): Promise<ProjectRoleIdRow[]> {
-    if (roleIds.length === 0) {
+  ): Promise<ProjectJobIdRow[]> {
+    if (jobIds.length === 0) {
       return [];
     }
 
-    return this.getManager(manager).query<ProjectRoleIdRow[]>(
+    return this.getManager(manager).query<ProjectJobIdRow[]>(
       `
         SELECT
-          role_id AS "roleId"
-        FROM prism_project_roles_l
+          job_id AS "jobId"
+        FROM prism_project_jobs_l
         WHERE workspace_id = $1
-          AND role_id = ANY($2::uuid[])
+          AND job_id = ANY($2::uuid[])
       `,
-      [workspaceId, roleIds],
+      [workspaceId, jobIds],
     );
   }
 
@@ -336,20 +336,19 @@ export class ProjectRepository {
           u.full_name AS "fullName",
           u.username,
           COALESCE(
-            array_agg(pr.name ORDER BY pr.name)
-            FILTER (WHERE pr.name IS NOT NULL),
+            array_agg(pj.name ORDER BY pj.name)
+            FILTER (WHERE pj.name IS NOT NULL),
             ARRAY[]::text[]
-          ) AS "roleNames",
+          ) AS "jobNames",
           pm.assigned_at AS "assignedAt"
         FROM prism_project_members_l pm
                INNER JOIN prism_users_l u
                           ON u.user_id = pm.user_id
-               LEFT JOIN prism_project_member_role_map pmrm
-                         ON pmrm.workspace_id = pm.workspace_id
-                        AND pmrm.member_id = pm.member_id
-               LEFT JOIN prism_project_roles_l pr
-                         ON pr.workspace_id = pmrm.workspace_id
-                        AND pr.role_id = pmrm.role_id
+               LEFT JOIN prism_project_member_job_map pmjm
+                         ON pmjm.member_id = pm.member_id
+               LEFT JOIN prism_project_jobs_l pj
+                         ON pj.job_id = pmjm.job_id
+                        AND pj.workspace_id = pm.workspace_id
         WHERE pm.project_id = $1
         GROUP BY
           pm.member_id,
@@ -425,12 +424,11 @@ export class ProjectRepository {
     );
   }
 
-  async replaceProjectMemberRoles(
+  async replaceProjectMemberJobs(
     params: {
-      workspaceId: string;
       members: Array<{
         memberId: string;
-        roleIds: string[];
+        jobIds: string[];
       }>;
     },
     manager?: EntityManager,
@@ -442,43 +440,40 @@ export class ProjectRepository {
     const memberIds = params.members.map((member) => member.memberId);
     await this.getManager(manager).query(
       `
-        DELETE FROM prism_project_member_role_map
-        WHERE workspace_id = $1
-          AND member_id = ANY($2::uuid[])
+        DELETE FROM prism_project_member_job_map
+        WHERE member_id = ANY($1::uuid[])
       `,
-      [params.workspaceId, memberIds],
+      [memberIds],
     );
 
-    const roleMappings = params.members.flatMap((member) =>
-      member.roleIds.map((roleId) => ({
+    const jobMappings = params.members.flatMap((member) =>
+      member.jobIds.map((jobId) => ({
         memberId: member.memberId,
-        roleId,
+        jobId,
       })),
     );
-    if (roleMappings.length === 0) {
+    if (jobMappings.length === 0) {
       return;
     }
 
-    const roleIds = roleMappings.map((mapping) => mapping.roleId);
-    const mappedMemberIds = roleMappings.map((mapping) => mapping.memberId);
+    const jobIds = jobMappings.map((mapping) => mapping.jobId);
+    const mappedMemberIds = jobMappings.map((mapping) => mapping.memberId);
 
     await this.getManager(manager).query(
       `
-        INSERT INTO prism_project_member_role_map (
-          workspace_id,
-          role_id,
+        INSERT INTO prism_project_member_job_map (
+          job_id,
           member_id
         )
         SELECT
-          $1,
-          input.role_id,
+          input.job_id,
           input.member_id
         FROM unnest(
-          $2::uuid[],
-          $3::uuid[]
-        ) AS input(role_id, member_id)
+          $1::uuid[],
+          $2::uuid[]
+        ) AS input(job_id, member_id)
       `,
-      [params.workspaceId, roleIds, mappedMemberIds],
+      [jobIds, mappedMemberIds],
     );
   }
 
