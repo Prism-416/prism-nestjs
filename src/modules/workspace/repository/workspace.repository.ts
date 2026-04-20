@@ -592,7 +592,7 @@ export class WorkspaceRepository {
     return workspaces[0];
   }
 
-  async markWorkspaceDeletedByIdAndAdminUserId(
+  async markWorkspaceDeletedByIdAndOwnerId(
     workspaceId: string,
     userId: string,
     manager?: EntityManager,
@@ -604,11 +604,8 @@ export class WorkspaceRepository {
         UPDATE prism_workspaces_l w
         SET status = 'deleted',
             deleted_at = NOW()
-        FROM prism_workspace_members_l wm
         WHERE w.workspace_id = $1
-          AND wm.workspace_id = w.workspace_id
-          AND wm.user_id = $2
-          AND wm.role = 'admin'
+          AND w.owner_id = $2
           AND w.deleted_at IS NULL
           AND w.status = 'active'
         RETURNING w.workspace_id AS "workspaceId"
@@ -619,7 +616,7 @@ export class WorkspaceRepository {
     return Boolean(deletedWorkspace);
   }
 
-  async restoreWorkspaceByIdAndAdminUserId(
+  async restoreWorkspaceByIdAndOwnerId(
     workspaceId: string,
     userId: string,
     manager?: EntityManager,
@@ -629,11 +626,8 @@ export class WorkspaceRepository {
         UPDATE prism_workspaces_l w
         SET status = 'active',
             deleted_at = NULL
-        FROM prism_workspace_members_l wm
         WHERE w.workspace_id = $1
-          AND wm.workspace_id = w.workspace_id
-          AND wm.user_id = $2
-          AND wm.role = 'admin'
+          AND w.owner_id = $2
           AND w.deleted_at IS NOT NULL
           AND w.status = 'deleted'
         RETURNING
