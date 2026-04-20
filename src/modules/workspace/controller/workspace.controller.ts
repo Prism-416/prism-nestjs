@@ -66,6 +66,25 @@ export class WorkspaceController {
     return this.usecase.getWorkspaceMembers(String(user.sub), workspaceId);
   }
 
+  @Delete(':workspaceId/members/:userId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove a workspace member' })
+  @ApiNoContentResponse({
+    description: 'Successfully removed the workspace member',
+  })
+  async removeWorkspaceMember(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Param('userId') targetUserId: string,
+  ): Promise<void> {
+    await this.usecase.removeWorkspaceMember(
+      String(user.sub),
+      workspaceId,
+      targetUserId,
+    );
+  }
+
   @Get(':workspaceId/roles')
   @Authenticated()
   @ApiOperation({

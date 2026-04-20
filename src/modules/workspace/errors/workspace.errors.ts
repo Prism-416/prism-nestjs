@@ -31,6 +31,18 @@ export class WorkspaceMemberAlreadyExistsError extends DuplicateError {
   }
 }
 
+export class WorkspaceMemberNotFoundError extends NotExistsError {
+  constructor() {
+    super('Workspace member not found.', 'WORKSPACE_MEMBER_NOT_FOUND');
+  }
+}
+
+export class WorkspaceOwnerRemovalError extends DomainError {
+  constructor() {
+    super('Workspace owner cannot be removed.', 'WORKSPACE_OWNER_REMOVAL', 400);
+  }
+}
+
 export class WorkspaceInvitationNotFoundError extends NotExistsError {
   constructor() {
     super('Workspace invitation not found.', 'WORKSPACE_INVITATION_NOT_FOUND');
