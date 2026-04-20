@@ -36,6 +36,10 @@ export const envValidationSchema = Joi.object({
   GITHUB_OAUTH_SIGNIN_PAGE_URL: Joi.string().allow('').default(''),
   EMAIL_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   QUEUE_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  OBJECT_STORAGE_ENABLED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
   EMAIL_SENDER_EMAIL: Joi.string().allow('').default(''),
   EMAIL_SENDER_NAME: Joi.string().allow('').default(''),
   EMAIL_VERIFICATION_PAGE_URL: Joi.string().allow('').default(''),
@@ -43,6 +47,8 @@ export const envValidationSchema = Joi.object({
     .valid('api_key', 'instance_principal', 'resource_principal')
     .default('api_key'),
   OCI_COMPARTMENT_ID: Joi.string().allow('').default(''),
+  OCI_OBJECT_STORAGE_BUCKET_NAME: Joi.string().allow('').default(''),
+  OCI_OBJECT_STORAGE_NAMESPACE: Joi.string().allow('').default(''),
   OCI_QUEUE_ID: Joi.string().allow('').default(''),
   OCI_QUEUE_MESSAGES_ENDPOINT: Joi.string().allow('').default(''),
   OCI_REGION: Joi.string().allow('').default(''),
@@ -85,8 +91,9 @@ export const envValidationSchema = Joi.object({
     const values = env as EnvValidationValues;
     const emailEnabled = values.EMAIL_ENABLED === true;
     const queueEnabled = values.QUEUE_ENABLED === true;
+    const objectStorageEnabled = values.OBJECT_STORAGE_ENABLED === true;
 
-    if (!emailEnabled && !queueEnabled) {
+    if (!emailEnabled && !queueEnabled && !objectStorageEnabled) {
       return values;
     }
 
@@ -109,6 +116,10 @@ export const envValidationSchema = Joi.object({
       ) {
         missingKeys.add('OCI_REGION or OCI_QUEUE_MESSAGES_ENDPOINT');
       }
+    }
+
+    if (objectStorageEnabled && !hasConfiguredValue(values.OCI_REGION)) {
+      missingKeys.add('OCI_REGION');
     }
 
     if (values.OCI_AUTH_MODE === 'api_key') {
