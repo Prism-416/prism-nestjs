@@ -30,7 +30,7 @@ export class ProjectRepository {
                           ON wm.workspace_id = w.workspace_id
         WHERE w.workspace_id = $1
           AND wm.user_id = $2
-          AND w.archived_at IS NULL
+          AND w.deleted_at IS NULL
           AND w.status = 'active'
         LIMIT 1
       `,
@@ -60,7 +60,7 @@ export class ProjectRepository {
                INNER JOIN prism_workspace_members_l wm
                           ON wm.workspace_id = p.workspace_id
         WHERE wm.user_id = $1
-          AND w.archived_at IS NULL
+          AND w.deleted_at IS NULL
           AND w.status = 'active'
           AND p.workspace_id = $2
         ORDER BY p.created_at DESC
@@ -92,7 +92,7 @@ export class ProjectRepository {
                           ON wm.workspace_id = p.workspace_id
         WHERE p.project_id = $1
           AND wm.user_id = $2
-          AND w.archived_at IS NULL
+          AND w.deleted_at IS NULL
           AND w.status = 'active'
         LIMIT 1
       `,
@@ -126,7 +126,7 @@ export class ProjectRepository {
         WHERE p.project_id = $1
           AND wm.user_id = $2
           AND wm.role = 'admin'
-          AND w.archived_at IS NULL
+          AND w.deleted_at IS NULL
           AND w.status = 'active'
         LIMIT 1
       `,
@@ -169,7 +169,7 @@ export class ProjectRepository {
         WHERE w.workspace_id = $1
           AND wm.user_id = $2
           AND wm.role = 'admin'
-          AND w.archived_at IS NULL
+          AND w.deleted_at IS NULL
           AND w.status = 'active'
         RETURNING
           project_id AS "projectId",
@@ -249,7 +249,7 @@ export class ProjectRepository {
           AND wm.workspace_id = p.workspace_id
           AND wm.user_id = $2
           AND wm.role = 'admin'
-          AND w.archived_at IS NULL
+          AND w.deleted_at IS NULL
           AND w.status = 'active'
         RETURNING p.project_id AS "projectId"
       `,

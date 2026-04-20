@@ -71,9 +71,9 @@ CREATE TABLE IF NOT EXISTS prism_workspaces_l
     locale       VARCHAR(20) NOT NULL DEFAULT 'en-US',
     status       VARCHAR(20) NOT NULL DEFAULT 'active',
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    archived_at  TIMESTAMPTZ,
+    deleted_at   TIMESTAMPTZ,
     CONSTRAINT uq_workspaces_slug UNIQUE (slug),
-    CHECK (status IN ('active', 'archived'))
+    CHECK (status IN ('active', 'deleted'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_workspaces_owner_user_id
