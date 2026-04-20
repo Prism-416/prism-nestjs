@@ -8,11 +8,12 @@ import {
 } from '@/core/auth';
 import { UnitOfWork } from '@/core/database';
 import { OciEmailModule } from '@/core/email';
+import { OciQueueModule } from '@/core/queue';
 import { PasswordService } from '@/core/security';
 
 @Global()
 @Module({
-  imports: [JwtModule.register({}), OciEmailModule],
+  imports: [JwtModule.register({}), OciEmailModule, OciQueueModule],
   providers: [
     JwtTokenService,
     JwtAuthenticationGuard,
@@ -23,6 +24,7 @@ import { PasswordService } from '@/core/security';
   ],
   exports: [
     OciEmailModule,
+    OciQueueModule,
     JwtTokenService,
     JwtAuthenticationGuard,
     AuthTokenCookieInterceptor,

@@ -47,6 +47,7 @@
     "jsonwebtoken": "^9.0.3",
     "oci-common": "^2.126.2",
     "oci-emaildataplane": "^2.126.2",
+    "oci-queue": "^2.129.0",
     "octokit": "^5.0.5",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",

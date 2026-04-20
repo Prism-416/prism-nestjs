@@ -35,6 +35,7 @@ export const envValidationSchema = Joi.object({
   GITHUB_OAUTH_STATE_TTL_SEC: Joi.number().integer().min(60).default(600),
   GITHUB_OAUTH_SIGNIN_PAGE_URL: Joi.string().allow('').default(''),
   EMAIL_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  QUEUE_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   EMAIL_SENDER_EMAIL: Joi.string().allow('').default(''),
   EMAIL_SENDER_NAME: Joi.string().allow('').default(''),
   EMAIL_VERIFICATION_PAGE_URL: Joi.string().allow('').default(''),
@@ -42,6 +43,8 @@ export const envValidationSchema = Joi.object({
     .valid('api_key', 'instance_principal', 'resource_principal')
     .default('api_key'),
   OCI_COMPARTMENT_ID: Joi.string().allow('').default(''),
+  OCI_QUEUE_ID: Joi.string().allow('').default(''),
+  OCI_QUEUE_MESSAGES_ENDPOINT: Joi.string().allow('').default(''),
   OCI_REGION: Joi.string().allow('').default(''),
   OCI_TENANCY_OCID: Joi.string().allow('').default(''),
   OCI_USER_OCID: Joi.string().allow('').default(''),
@@ -80,35 +83,56 @@ export const envValidationSchema = Joi.object({
 })
   .custom((env, helpers) => {
     const values = env as EnvValidationValues;
+    const emailEnabled = values.EMAIL_ENABLED === true;
+    const queueEnabled = values.QUEUE_ENABLED === true;
 
-    if (values.EMAIL_ENABLED !== true) {
+    if (!emailEnabled && !queueEnabled) {
       return values;
     }
 
-    const missingKeys = ['EMAIL_SENDER_EMAIL', 'OCI_COMPARTMENT_ID'].filter(
-      (key) => !hasConfiguredValue(values[key]),
-    );
+    const missingKeys = new Set<string>();
 
-    if (values.OCI_AUTH_MODE === 'api_key') {
-      missingKeys.push(
-        ...[
-          'OCI_REGION',
-          'OCI_TENANCY_OCID',
-          'OCI_USER_OCID',
-          'OCI_FINGERPRINT',
-          'OCI_PRIVATE_KEY',
-        ].filter((key) => !hasConfiguredValue(values[key])),
-      );
+    if (emailEnabled) {
+      ['EMAIL_SENDER_EMAIL', 'OCI_COMPARTMENT_ID']
+        .filter((key) => !hasConfiguredValue(values[key]))
+        .forEach((key) => missingKeys.add(key));
     }
 
-    if (missingKeys.length > 0) {
+    if (queueEnabled) {
+      if (!hasConfiguredValue(values.OCI_QUEUE_ID)) {
+        missingKeys.add('OCI_QUEUE_ID');
+      }
+
+      if (
+        !hasConfiguredValue(values.OCI_QUEUE_MESSAGES_ENDPOINT) &&
+        !hasConfiguredValue(values.OCI_REGION)
+      ) {
+        missingKeys.add('OCI_REGION or OCI_QUEUE_MESSAGES_ENDPOINT');
+      }
+    }
+
+    if (values.OCI_AUTH_MODE === 'api_key') {
+      [
+        'OCI_REGION',
+        'OCI_TENANCY_OCID',
+        'OCI_USER_OCID',
+        'OCI_FINGERPRINT',
+        'OCI_PRIVATE_KEY',
+      ]
+        .filter((key) => !hasConfiguredValue(values[key]))
+        .forEach((key) => missingKeys.add(key));
+    }
+
+    if (missingKeys.size > 0) {
       return helpers.error('any.custom', {
-        message: `Missing required email configuration: ${missingKeys.join(', ')}`,
+        message: `Missing required OCI integration configuration: ${Array.from(
+          missingKeys,
+        ).join(', ')}`,
       });
     }
 
     return values;
-  }, 'OCI email validation')
+  }, 'OCI integration validation')
   .messages({
     'any.custom': '{{#message}}',
   });
