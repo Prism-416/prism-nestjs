@@ -413,7 +413,7 @@ export class WorkspaceUseCase {
   }
 
   async deleteWorkspace(userId: string, workspaceId: string): Promise<void> {
-    const deleted = await this.repo.markWorkspaceDeletedByIdAndAdminUserId(
+    const deleted = await this.repo.markWorkspaceDeletedByIdAndOwnerId(
       workspaceId,
       userId,
     );
@@ -426,7 +426,7 @@ export class WorkspaceUseCase {
     userId: string,
     workspaceId: string,
   ): Promise<WorkspaceResponseDto> {
-    const workspace = await this.repo.restoreWorkspaceByIdAndAdminUserId(
+    const workspace = await this.repo.restoreWorkspaceByIdAndOwnerId(
       workspaceId,
       userId,
     );

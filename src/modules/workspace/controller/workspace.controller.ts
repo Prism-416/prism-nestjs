@@ -170,7 +170,7 @@ export class WorkspaceController {
 
   @Post(':workspaceId/restore')
   @Authenticated()
-  @ApiOperation({ summary: 'Restore a deleted workspace the user administers' })
+  @ApiOperation({ summary: 'Restore a deleted workspace the user owns' })
   @ApiDataResponse(WorkspaceResponseDto)
   async restoreWorkspace(
     @CurrentUser() user: JwtPayload,
@@ -182,7 +182,7 @@ export class WorkspaceController {
   @Delete(':workspaceId')
   @Authenticated()
   @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Delete a workspace the user administers' })
+  @ApiOperation({ summary: 'Delete a workspace the user owns' })
   @ApiNoContentResponse({ description: 'Successfully deleted workspace' })
   async deleteWorkspace(
     @CurrentUser() user: JwtPayload,
