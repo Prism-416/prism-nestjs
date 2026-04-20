@@ -6,8 +6,8 @@ import {
   WorkspaceInvitationEventType,
   WorkspaceInvitationRow,
   WorkspaceMemberRow,
-  WorkspaceProjectRoleIdRow,
-  WorkspaceProjectRoleRow,
+  WorkspaceProjectJobIdRow,
+  WorkspaceProjectJobRow,
   WorkspaceRow,
   WorkspaceUserRow,
 } from '@/modules/workspace/types';
@@ -409,26 +409,26 @@ export class WorkspaceRepository {
     );
   }
 
-  async createProjectRoles(
+  async createProjectJobs(
     params: {
       workspaceId: string;
-      roles: Array<{
+      jobs: Array<{
         name: string;
         description: string;
       }>;
     },
     manager?: EntityManager,
-  ): Promise<WorkspaceProjectRoleRow[]> {
-    if (params.roles.length === 0) {
+  ): Promise<WorkspaceProjectJobRow[]> {
+    if (params.jobs.length === 0) {
       return [];
     }
 
-    const roleNames = params.roles.map((role) => role.name);
-    const roleDescriptions = params.roles.map((role) => role.description);
+    const jobNames = params.jobs.map((job) => job.name);
+    const jobDescriptions = params.jobs.map((job) => job.description);
 
-    return await this.getManager(manager).query<WorkspaceProjectRoleRow[]>(
+    return await this.getManager(manager).query<WorkspaceProjectJobRow[]>(
       `
-        INSERT INTO prism_project_roles_l (
+        INSERT INTO prism_project_jobs_l (
           workspace_id,
           name,
           description
@@ -439,50 +439,50 @@ export class WorkspaceRepository {
           input.description
         FROM unnest($2::text[], $3::text[]) AS input(name, description)
         RETURNING
-          role_id AS "roleId",
+          job_id AS "jobId",
           workspace_id AS "workspaceId",
           name,
           description,
           created_at AS "createdAt"
       `,
-      [params.workspaceId, roleNames, roleDescriptions],
+      [params.workspaceId, jobNames, jobDescriptions],
     );
   }
 
-  async findProjectRolesByIds(
+  async findProjectJobsByIds(
     workspaceId: string,
-    roleIds: string[],
+    jobIds: string[],
     manager?: EntityManager,
-  ): Promise<WorkspaceProjectRoleIdRow[]> {
-    if (roleIds.length === 0) {
+  ): Promise<WorkspaceProjectJobIdRow[]> {
+    if (jobIds.length === 0) {
       return [];
     }
 
-    return this.getManager(manager).query<WorkspaceProjectRoleIdRow[]>(
+    return this.getManager(manager).query<WorkspaceProjectJobIdRow[]>(
       `
         SELECT
-          role_id AS "roleId"
-        FROM prism_project_roles_l
+          job_id AS "jobId"
+        FROM prism_project_jobs_l
         WHERE workspace_id = $1
-          AND role_id = ANY($2::uuid[])
+          AND job_id = ANY($2::uuid[])
       `,
-      [workspaceId, roleIds],
+      [workspaceId, jobIds],
     );
   }
 
-  async findProjectRolesByWorkspaceId(
+  async findProjectJobsByWorkspaceId(
     workspaceId: string,
     manager?: EntityManager,
-  ): Promise<WorkspaceProjectRoleRow[]> {
-    return this.getManager(manager).query<WorkspaceProjectRoleRow[]>(
+  ): Promise<WorkspaceProjectJobRow[]> {
+    return this.getManager(manager).query<WorkspaceProjectJobRow[]>(
       `
         SELECT
-          role_id AS "roleId",
+          job_id AS "jobId",
           workspace_id AS "workspaceId",
           name,
           description,
           created_at AS "createdAt"
-        FROM prism_project_roles_l
+        FROM prism_project_jobs_l
         WHERE workspace_id = $1
         ORDER BY name ASC
       `,
@@ -490,28 +490,28 @@ export class WorkspaceRepository {
     );
   }
 
-  async updateProjectRoles(
+  async updateProjectJobs(
     params: {
       workspaceId: string;
-      roles: Array<{
-        roleId: string;
+      jobs: Array<{
+        jobId: string;
         name: string;
         description: string;
       }>;
     },
     manager?: EntityManager,
-  ): Promise<WorkspaceProjectRoleRow[]> {
-    if (params.roles.length === 0) {
+  ): Promise<WorkspaceProjectJobRow[]> {
+    if (params.jobs.length === 0) {
       return [];
     }
 
-    const roleIds = params.roles.map((role) => role.roleId);
-    const roleNames = params.roles.map((role) => role.name);
-    const roleDescriptions = params.roles.map((role) => role.description);
+    const jobIds = params.jobs.map((job) => job.jobId);
+    const jobNames = params.jobs.map((job) => job.name);
+    const jobDescriptions = params.jobs.map((job) => job.description);
 
-    return this.getManager(manager).query<WorkspaceProjectRoleRow[]>(
+    return this.getManager(manager).query<WorkspaceProjectJobRow[]>(
       `
-        UPDATE prism_project_roles_l pr
+        UPDATE prism_project_jobs_l pj
         SET
           name = input.name,
           description = input.description
@@ -519,17 +519,17 @@ export class WorkspaceRepository {
           $2::uuid[],
           $3::text[],
           $4::text[]
-        ) AS input(role_id, name, description)
-        WHERE pr.workspace_id = $1
-          AND pr.role_id = input.role_id
+        ) AS input(job_id, name, description)
+        WHERE pj.workspace_id = $1
+          AND pj.job_id = input.job_id
         RETURNING
-          pr.role_id AS "roleId",
-          pr.workspace_id AS "workspaceId",
-          pr.name,
-          pr.description,
-          pr.created_at AS "createdAt"
+          pj.job_id AS "jobId",
+          pj.workspace_id AS "workspaceId",
+          pj.name,
+          pj.description,
+          pj.created_at AS "createdAt"
       `,
-      [params.workspaceId, roleIds, roleNames, roleDescriptions],
+      [params.workspaceId, jobIds, jobNames, jobDescriptions],
     );
   }
 

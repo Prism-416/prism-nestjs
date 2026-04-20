@@ -11,11 +11,11 @@ import {
   UpsertProjectMembersDto,
 } from '@/modules/project/dto';
 import {
+  ProjectJobNotFoundError,
   ProjectMemberNotFoundError,
   isProjectSlugUniqueViolation,
   ProjectMemberWorkspaceMemberNotFoundError,
   ProjectNotFoundError,
-  ProjectRoleNotFoundError,
   ProjectSlugAlreadyExistsError,
 } from '@/modules/project/errors';
 import { ProjectRepository } from '@/modules/project/repository';
@@ -198,16 +198,16 @@ export class ProjectUseCase {
         throw new ProjectMemberWorkspaceMemberNotFoundError();
       }
 
-      const requestedRoleIds = [
-        ...new Set(dto.members.flatMap((member) => member.roleIds)),
+      const requestedJobIds = [
+        ...new Set(dto.members.flatMap((member) => member.jobIds)),
       ];
-      const projectRoles = await this.repo.findProjectRolesByIds(
+      const projectJobs = await this.repo.findProjectJobsByIds(
         project.workspaceId,
-        requestedRoleIds,
+        requestedJobIds,
         manager,
       );
-      if (projectRoles.length !== requestedRoleIds.length) {
-        throw new ProjectRoleNotFoundError();
+      if (projectJobs.length !== requestedJobIds.length) {
+        throw new ProjectJobNotFoundError();
       }
 
       const projectMembers = await this.repo.upsertProjectMembers(
@@ -222,12 +222,11 @@ export class ProjectUseCase {
         projectMembers.map((member) => [member.userId, member]),
       );
 
-      await this.repo.replaceProjectMemberRoles(
+      await this.repo.replaceProjectMemberJobs(
         {
-          workspaceId: project.workspaceId,
           members: dto.members.map((member) => ({
             memberId: memberByUserId.get(member.userId)!.memberId,
-            roleIds: member.roleIds,
+            jobIds: member.jobIds,
           })),
         },
         manager,
@@ -240,7 +239,7 @@ export class ProjectUseCase {
           workspaceId: projectMember.workspaceId,
           projectId: projectMember.projectId,
           userId: projectMember.userId,
-          roleIds: member.roleIds,
+          jobIds: member.jobIds,
           assignedAt: projectMember.assignedAt,
         };
       });

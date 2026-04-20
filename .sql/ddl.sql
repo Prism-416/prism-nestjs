@@ -163,31 +163,30 @@ CREATE TABLE IF NOT EXISTS prism_project_members_l
 CREATE INDEX IF NOT EXISTS idx_project_members_user_id
     ON prism_project_members_l (user_id);
 
-CREATE TABLE IF NOT EXISTS prism_project_roles_l
+CREATE TABLE IF NOT EXISTS prism_project_jobs_l
 (
     workspace_id UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
-    role_id      UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    job_id      UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
     name         VARCHAR(20) NOT NULL,
     description  TEXT        NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_project_roles_workspace_name UNIQUE (workspace_id, name),
-    CONSTRAINT uq_project_roles_workspace_role UNIQUE (workspace_id, role_id)
+    CONSTRAINT uq_project_jobs_workspace_name UNIQUE (workspace_id, name),
+    CONSTRAINT uq_project_jobs_workspace_job UNIQUE (workspace_id, job_id)
 );
 
-CREATE TABLE IF NOT EXISTS prism_project_member_role_map
+CREATE TABLE IF NOT EXISTS prism_project_member_job_map
 (
-    workspace_id UUID        NOT NULL,
-    role_id      UUID        NOT NULL,
+    job_id      UUID        NOT NULL,
     member_id    UUID        NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    PRIMARY KEY (role_id, member_id),
-    CONSTRAINT fk_project_member_role_map_role
-        FOREIGN KEY (workspace_id, role_id)
-            REFERENCES prism_project_roles_l (workspace_id, role_id) ON DELETE CASCADE,
-    CONSTRAINT fk_project_member_role_map_member
-        FOREIGN KEY (workspace_id, member_id)
-            REFERENCES prism_project_members_l (workspace_id, member_id) ON DELETE CASCADE
+    PRIMARY KEY (job_id, member_id),
+    CONSTRAINT fk_project_member_job_map_job
+        FOREIGN KEY (job_id)
+            REFERENCES prism_project_jobs_l (job_id) ON DELETE CASCADE,
+    CONSTRAINT fk_project_member_job_map_member
+        FOREIGN KEY (member_id)
+            REFERENCES prism_project_members_l (member_id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS idx_project_member_role_map_member_id
-    ON prism_project_member_role_map (member_id);
+CREATE INDEX IF NOT EXISTS idx_project_member_job_map_member_id
+    ON prism_project_member_job_map (member_id);

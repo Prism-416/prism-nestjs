@@ -4,20 +4,20 @@ import { randomUUID } from 'crypto';
 import { UnitOfWork } from '@/core/database';
 import {
   AcceptWorkspaceInvitationDto,
-  CreateProjectRolesDto,
+  CreateProjectJobsDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
-  ProjectRoleResponseDto,
-  UpdateProjectRolesDto,
+  ProjectJobResponseDto,
+  UpdateProjectJobsDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
 import {
-  isProjectRoleNameUniqueViolation,
-  ProjectRoleAlreadyExistsError,
-  ProjectRoleNotFoundError,
+  isProjectJobNameUniqueViolation,
+  ProjectJobAlreadyExistsError,
+  ProjectJobNotFoundError,
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberNotFoundError,
   WorkspaceMemberUserNotFoundError,
@@ -128,10 +128,10 @@ export class WorkspaceUseCase {
     });
   }
 
-  async getProjectRoles(
+  async getProjectJobs(
     userId: string,
     workspaceId: string,
-  ): Promise<ProjectRoleResponseDto[]> {
+  ): Promise<ProjectJobResponseDto[]> {
     const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
       workspaceId,
       userId,
@@ -140,14 +140,14 @@ export class WorkspaceUseCase {
       throw new WorkspaceNotFoundError();
     }
 
-    return this.repo.findProjectRolesByWorkspaceId(workspaceId);
+    return this.repo.findProjectJobsByWorkspaceId(workspaceId);
   }
 
-  async createProjectRoles(
+  async createProjectJobs(
     userId: string,
     workspaceId: string,
-    dto: CreateProjectRolesDto,
-  ): Promise<ProjectRoleResponseDto[]> {
+    dto: CreateProjectJobsDto,
+  ): Promise<ProjectJobResponseDto[]> {
     const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
       workspaceId,
       userId,
@@ -158,19 +158,19 @@ export class WorkspaceUseCase {
 
     return this.uow.run(async (manager) => {
       try {
-        return await this.repo.createProjectRoles(
+        return await this.repo.createProjectJobs(
           {
             workspaceId: workspace.workspaceId,
-            roles: dto.roles.map((role) => ({
-              name: role.name,
-              description: role.description,
+            jobs: dto.jobs.map((job) => ({
+              name: job.name,
+              description: job.description,
             })),
           },
           manager,
         );
       } catch (error) {
-        if (isProjectRoleNameUniqueViolation(error)) {
-          throw new ProjectRoleAlreadyExistsError();
+        if (isProjectJobNameUniqueViolation(error)) {
+          throw new ProjectJobAlreadyExistsError();
         }
 
         throw error;
@@ -178,11 +178,11 @@ export class WorkspaceUseCase {
     });
   }
 
-  async updateProjectRoles(
+  async updateProjectJobs(
     userId: string,
     workspaceId: string,
-    dto: UpdateProjectRolesDto,
-  ): Promise<ProjectRoleResponseDto[]> {
+    dto: UpdateProjectJobsDto,
+  ): Promise<ProjectJobResponseDto[]> {
     const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
       workspaceId,
       userId,
@@ -192,44 +192,44 @@ export class WorkspaceUseCase {
     }
 
     return this.uow.run(async (manager) => {
-      const requestedRoleIds = dto.roles.map((role) => role.roleId);
-      const projectRoles = await this.repo.findProjectRolesByIds(
+      const requestedJobIds = dto.jobs.map((job) => job.jobId);
+      const projectJobs = await this.repo.findProjectJobsByIds(
         workspace.workspaceId,
-        requestedRoleIds,
+        requestedJobIds,
         manager,
       );
-      if (projectRoles.length !== requestedRoleIds.length) {
-        throw new ProjectRoleNotFoundError();
+      if (projectJobs.length !== requestedJobIds.length) {
+        throw new ProjectJobNotFoundError();
       }
 
-      let updatedRoles: ProjectRoleResponseDto[];
+      let updatedJobs: ProjectJobResponseDto[];
 
       try {
-        updatedRoles = await this.repo.updateProjectRoles(
+        updatedJobs = await this.repo.updateProjectJobs(
           {
             workspaceId: workspace.workspaceId,
-            roles: dto.roles.map((role) => ({
-              roleId: role.roleId,
-              name: role.name,
-              description: role.description,
+            jobs: dto.jobs.map((job) => ({
+              jobId: job.jobId,
+              name: job.name,
+              description: job.description,
             })),
           },
           manager,
         );
       } catch (error) {
-        if (isProjectRoleNameUniqueViolation(error)) {
-          throw new ProjectRoleAlreadyExistsError();
+        if (isProjectJobNameUniqueViolation(error)) {
+          throw new ProjectJobAlreadyExistsError();
         }
 
         throw error;
       }
 
-      if (updatedRoles.length !== requestedRoleIds.length) {
-        throw new ProjectRoleNotFoundError();
+      if (updatedJobs.length !== requestedJobIds.length) {
+        throw new ProjectJobNotFoundError();
       }
 
-      const roleById = new Map(updatedRoles.map((role) => [role.roleId, role]));
-      return dto.roles.map((role) => roleById.get(role.roleId)!);
+      const jobById = new Map(updatedJobs.map((job) => [job.jobId, job]));
+      return dto.jobs.map((job) => jobById.get(job.jobId)!);
     });
   }
 
