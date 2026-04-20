@@ -43,6 +43,16 @@ export class WorkspaceOwnerRemovalError extends DomainError {
   }
 }
 
+export class WorkspaceOwnerRoleUpdateError extends DomainError {
+  constructor() {
+    super(
+      'Workspace owner role cannot be changed.',
+      'WORKSPACE_OWNER_ROLE_UPDATE',
+      400,
+    );
+  }
+}
+
 export class WorkspaceInvitationNotFoundError extends NotExistsError {
   constructor() {
     super('Workspace invitation not found.', 'WORKSPACE_INVITATION_NOT_FOUND');

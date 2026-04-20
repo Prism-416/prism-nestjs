@@ -8,6 +8,7 @@ import {
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   ProjectJobResponseDto,
+  UpdateWorkspaceMemberRoleDto,
   UpdateProjectJobsDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
@@ -25,6 +26,7 @@ import {
   WorkspaceInvitationNotFoundError,
   WorkspaceNotFoundError,
   WorkspaceOwnerRemovalError,
+  WorkspaceOwnerRoleUpdateError,
 } from '@/modules/workspace/errors';
 import { WorkspaceRepository } from '@/modules/workspace/repository';
 import {
@@ -125,6 +127,44 @@ export class WorkspaceUseCase {
       if (!deleted) {
         throw new WorkspaceMemberNotFoundError();
       }
+    });
+  }
+
+  async updateWorkspaceMemberRole(
+    userId: string,
+    workspaceId: string,
+    targetUserId: string,
+    dto: UpdateWorkspaceMemberRoleDto,
+  ): Promise<WorkspaceMemberResponseDto> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+        workspaceId,
+        userId,
+        manager,
+      );
+      if (!workspace) {
+        throw new WorkspaceNotFoundError();
+      }
+
+      const member = await this.repo.findWorkspaceMember(
+        workspace.workspaceId,
+        targetUserId,
+        manager,
+      );
+      if (!member) {
+        throw new WorkspaceMemberNotFoundError();
+      }
+
+      if (workspace.ownerId === member.userId) {
+        throw new WorkspaceOwnerRoleUpdateError();
+      }
+
+      return this.repo.updateWorkspaceMemberRole(
+        workspace.workspaceId,
+        member.userId,
+        dto.role,
+        manager,
+      );
     });
   }
 
