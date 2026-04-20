@@ -63,11 +63,14 @@ importers:
         specifier: ^9.0.3
         version: 9.0.3
       oci-common:
-        specifier: ^2.126.2
-        version: 2.126.2
+        specifier: ^2.129.0
+        version: 2.129.0
       oci-emaildataplane:
-        specifier: ^2.126.2
-        version: 2.126.2
+        specifier: ^2.129.0
+        version: 2.129.0
+      oci-objectstorage:
+        specifier: ^2.129.0
+        version: 2.129.0
       oci-queue:
         specifier: ^2.129.0
         version: 2.129.0
@@ -1498,6 +1501,9 @@ packages:
     resolution: {integrity: sha512-wvUjBtSGN7+7SjNpq/9M2Tg350UZD3q62IFZLbRAR1bSMlCo1ZaeW+BJ+D090e4hIIZLBcTDWe4Mh4jvUDajzQ==}
     engines: {node: '>= 0.4'}
 
+  await-semaphore@0.1.3:
+    resolution: {integrity: sha512-d1W2aNSYcz/sxYO4pMGX9vq65qOTu0P800epMud+6cYYX0QcT7zyqcxec3VWzpgvdXo57UWmVbZpLMjX2m1I7Q==}
+
   babel-jest@30.2.0:
     resolution: {integrity: sha512-0YiBEOxWqKkSQWL9nNGGEgndoeL0ZpWrbLMNL5u/Kaxrli3Eaxlt3ZtIDktEvXt4L/R9r3ODr2zKwGM/2BjxVw==}
     engines: {node: ^18.14.0 || ^20.0.0 || ^22.0.0 || >=24.0.0}
@@ -2894,20 +2900,17 @@ packages:
     resolution: {integrity: sha512-W67iLl4J2EXEGTbfeHCffrjDfitvLANg0UlX3wFUUSTx92KXRFegMHUVgSqE+wvhAbi4WqjGg9czysTV2Epbew==}
     engines: {node: '>= 0.4'}
 
-  oci-common@2.126.2:
-    resolution: {integrity: sha512-z45o9TKJRT2ZLUayt5rT9qkKHyDlfI/bQZf5txUj8XIMF8+fiTYGTfUl+r+gDY2jq6OPo3cbhsYyuv5HcEwrgA==}
-
   oci-common@2.129.0:
     resolution: {integrity: sha512-AlOwLAWwbi8Zh2RIoxpT5nTGNwQyx5d53XT+cWhOsXZ+XmQ6TzlXcIFQ9Ktk7gvuxNKIJ9wDc5LbWMhmI7PG5A==}
 
-  oci-emaildataplane@2.126.2:
-    resolution: {integrity: sha512-xqTRsqXyKntYLZYxl329G737FVfYFbVxDh82EczOFdvPCi083g0aW6h0F5z4vGhM4IFkgFmVJdjpBTiB6gcx2Q==}
+  oci-emaildataplane@2.129.0:
+    resolution: {integrity: sha512-zYQvyhuc/JV4LfsH+uUN7Kpg69pTGDIaplRk1M7ZqAtIfobuhkB0huPaAXSC5MN3KP41P1Pcl22svHgQCZ0iwQ==}
+
+  oci-objectstorage@2.129.0:
+    resolution: {integrity: sha512-digpyLVpTW/Jtfnc3UjCGK0zsCjjHxifB5sExAtF439WkV/27rotp8eSxdA/oey8gqptOAtNHbhVdE9pQh0Wrg==}
 
   oci-queue@2.129.0:
     resolution: {integrity: sha512-PBv6+FUJZRsMb76gdrPcCqAUJ2crKtqIBpm4Vg7uGVEXSI+iui7IdM2HVJSa1+bPxCH0sKZBDPcpG65TUp3Uug==}
-
-  oci-workrequests@2.126.2:
-    resolution: {integrity: sha512-j6YDfVpMU3bnjYAyRiseyQi3qbg8Iv9AS6UrL9fXY4E4eNfxBh48wXwBssS1NNgWU0oZj1nEQ22GRX6/CI/B7A==}
 
   oci-workrequests@2.129.0:
     resolution: {integrity: sha512-CfDaIRWsPMy/GkkdbhMKdPBD32pj4Ol82fDAOxmiJ8NC7WL20EDd92gOumCpS9UWEL4Zd1VHrZ344zcYk7zYzg==}
@@ -3286,11 +3289,6 @@ packages:
   sql-highlight@6.1.0:
     resolution: {integrity: sha512-ed7OK4e9ywpE7pgRMkMQmZDPKSVdm0oX5IEtZiKnFucSF0zu6c80GZBe38UqHuVhTWJ9xsKgSMjCG2bml86KvA==}
     engines: {node: '>=14'}
-
-  sshpk@1.16.1:
-    resolution: {integrity: sha512-HXXqVUq7+pcKeLqqZj6mHFUMvXtOJt1uoUx09pFW6011inTMxqI8BA8PM95myrIyyKwdnzjdFjLiE6KBPVtJIg==}
-    engines: {node: '>=0.10.0'}
-    hasBin: true
 
   sshpk@1.18.0:
     resolution: {integrity: sha512-2p2KJZTSqQ/I3+HX42EpYOa2l3f8Erv8MWKsy2I9uf4wA7yFIkXRffYdsx86y6z4vHtV8u7g+pPlr8/4ouAxsQ==}
@@ -5354,6 +5352,8 @@ snapshots:
     dependencies:
       possible-typed-array-names: 1.1.0
 
+  await-semaphore@0.1.3: {}
+
   babel-jest@30.2.0(@babel/core@7.29.0):
     dependencies:
       '@babel/core': 7.29.0
@@ -6211,7 +6211,7 @@ snapshots:
     dependencies:
       assert-plus: 1.0.0
       jsprim: 1.4.2
-      sshpk: 1.16.1
+      sshpk: 1.18.0
 
   https-proxy-agent@7.0.6:
     dependencies:
@@ -6930,24 +6930,6 @@ snapshots:
 
   object-inspect@1.13.4: {}
 
-  oci-common@2.126.2:
-    dependencies:
-      '@types/isomorphic-fetch': 0.0.35
-      '@types/jsonwebtoken': 9.0.3
-      '@types/jssha': 2.0.0
-      '@types/opossum': 4.1.1
-      '@types/sshpk': 1.10.3
-      es6-promise: 4.2.6
-      http-signature: 1.3.1
-      isomorphic-fetch: 3.0.0
-      jsonwebtoken: 9.0.3
-      jssha: 2.4.1
-      opossum: 5.0.1
-      sshpk: 1.16.1
-      uuid: 3.3.3
-    transitivePeerDependencies:
-      - encoding
-
   oci-common@2.129.0:
     dependencies:
       '@types/isomorphic-fetch': 0.0.35
@@ -6966,10 +6948,18 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  oci-emaildataplane@2.126.2:
+  oci-emaildataplane@2.129.0:
     dependencies:
-      oci-common: 2.126.2
-      oci-workrequests: 2.126.2
+      oci-common: 2.129.0
+      oci-workrequests: 2.129.0
+    transitivePeerDependencies:
+      - encoding
+
+  oci-objectstorage@2.129.0:
+    dependencies:
+      await-semaphore: 0.1.3
+      oci-common: 2.129.0
+      oci-workrequests: 2.129.0
     transitivePeerDependencies:
       - encoding
 
@@ -6977,12 +6967,6 @@ snapshots:
     dependencies:
       oci-common: 2.129.0
       oci-workrequests: 2.129.0
-    transitivePeerDependencies:
-      - encoding
-
-  oci-workrequests@2.126.2:
-    dependencies:
-      oci-common: 2.126.2
     transitivePeerDependencies:
       - encoding
 
@@ -7374,18 +7358,6 @@ snapshots:
   sprintf-js@1.0.3: {}
 
   sql-highlight@6.1.0: {}
-
-  sshpk@1.16.1:
-    dependencies:
-      asn1: 0.2.6
-      assert-plus: 1.0.0
-      bcrypt-pbkdf: 1.0.2
-      dashdash: 1.14.1
-      ecc-jsbn: 0.1.2
-      getpass: 0.1.7
-      jsbn: 0.1.1
-      safer-buffer: 2.1.2
-      tweetnacl: 0.14.5
 
   sshpk@1.18.0:
     dependencies:
