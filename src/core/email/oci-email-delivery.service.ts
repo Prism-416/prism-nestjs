@@ -4,8 +4,11 @@ import {
   Logger,
   ServiceUnavailableException,
 } from '@nestjs/common';
-import * as common from 'oci-common';
 import * as emailDataPlane from 'oci-emaildataplane';
+import {
+  buildOciAuthenticationDetailsProvider,
+  readOciAuthenticationConfig,
+} from '@/core/oci';
 import {
   SendEmailAddress,
   SendEmailInput,
@@ -17,15 +20,11 @@ export class OciEmailDeliveryService {
   private readonly logger = new Logger(OciEmailDeliveryService.name);
   private readonly enabled =
     (this.getEnv('EMAIL_ENABLED') ?? 'false').toLowerCase() === 'true';
-  private readonly authMode = (this.getEnv('OCI_AUTH_MODE') ?? 'api_key')
-    .toLowerCase()
-    .trim();
-  private readonly regionId = this.getEnv('OCI_REGION') ?? '';
-  private readonly tenancyOcid = this.getEnv('OCI_TENANCY_OCID') ?? '';
-  private readonly userOcid = this.getEnv('OCI_USER_OCID') ?? '';
-  private readonly fingerprint = this.getEnv('OCI_FINGERPRINT') ?? '';
-  private readonly privateKey =
-    this.getEnv('OCI_PRIVATE_KEY')?.replace(/\\n/g, '\n') ?? '';
+  private readonly ociConfig = readOciAuthenticationConfig((key) =>
+    this.getEnv(key),
+  );
+  private readonly authMode = this.ociConfig.authMode;
+  private readonly regionId = this.ociConfig.regionId;
   private readonly compartmentId = this.getEnv('OCI_COMPARTMENT_ID') ?? '';
   private readonly senderEmail = this.getEnv('EMAIL_SENDER_EMAIL') ?? '';
   private readonly senderName = this.getEnv('EMAIL_SENDER_NAME') ?? undefined;
@@ -149,47 +148,8 @@ export class OciEmailDeliveryService {
     return client;
   }
 
-  private async buildAuthenticationProvider(): Promise<common.AuthenticationDetailsProvider> {
-    if (this.authMode === 'instance_principal') {
-      return new common.InstancePrincipalsAuthenticationDetailsProviderBuilder().build();
-    }
-
-    if (this.authMode === 'resource_principal') {
-      return common.ResourcePrincipalAuthenticationDetailsProvider.builder();
-    }
-
-    if (this.authMode !== 'api_key') {
-      throw new InternalServerErrorException(
-        `Unsupported OCI_AUTH_MODE: ${this.authMode}.`,
-      );
-    }
-
-    this.ensureRequiredApiKeyConfiguration();
-    return new common.SimpleAuthenticationDetailsProvider(
-      this.tenancyOcid,
-      this.userOcid,
-      this.fingerprint,
-      this.privateKey,
-      null,
-    );
-  }
-
-  private ensureRequiredApiKeyConfiguration(): void {
-    const missingKeys = [
-      ['OCI_REGION', this.regionId],
-      ['OCI_TENANCY_OCID', this.tenancyOcid],
-      ['OCI_USER_OCID', this.userOcid],
-      ['OCI_FINGERPRINT', this.fingerprint],
-      ['OCI_PRIVATE_KEY', this.privateKey],
-    ]
-      .filter((entry) => !entry[1])
-      .map((entry) => entry[0]);
-
-    if (missingKeys.length > 0) {
-      throw new InternalServerErrorException(
-        `Missing OCI email configuration: ${missingKeys.join(', ')}`,
-      );
-    }
+  private async buildAuthenticationProvider() {
+    return buildOciAuthenticationDetailsProvider(this.ociConfig, 'OCI email');
   }
 
   private getEnv(key: string): string | undefined {
