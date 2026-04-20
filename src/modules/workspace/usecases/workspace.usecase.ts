@@ -19,10 +19,12 @@ import {
   ProjectRoleAlreadyExistsError,
   ProjectRoleNotFoundError,
   WorkspaceMemberAlreadyExistsError,
+  WorkspaceMemberNotFoundError,
   WorkspaceMemberUserNotFoundError,
   WorkspaceInvitationExpiredError,
   WorkspaceInvitationNotFoundError,
   WorkspaceNotFoundError,
+  WorkspaceOwnerRemovalError,
 } from '@/modules/workspace/errors';
 import { WorkspaceRepository } from '@/modules/workspace/repository';
 import {
@@ -79,6 +81,51 @@ export class WorkspaceUseCase {
     }
 
     return this.repo.findWorkspaceMembersByWorkspaceId(workspaceId);
+  }
+
+  async removeWorkspaceMember(
+    userId: string,
+    workspaceId: string,
+    targetUserId: string,
+  ): Promise<void> {
+    await this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+        workspaceId,
+        userId,
+        manager,
+      );
+      if (!workspace) {
+        throw new WorkspaceNotFoundError();
+      }
+
+      const member = await this.repo.findWorkspaceMember(
+        workspace.workspaceId,
+        targetUserId,
+        manager,
+      );
+      if (!member) {
+        throw new WorkspaceMemberNotFoundError();
+      }
+
+      if (workspace.ownerId === member.userId) {
+        throw new WorkspaceOwnerRemovalError();
+      }
+
+      await this.repo.deleteProjectMembersByWorkspaceMemberUserId(
+        workspace.workspaceId,
+        member.userId,
+        manager,
+      );
+
+      const deleted = await this.repo.deleteWorkspaceMemberByUserId(
+        workspace.workspaceId,
+        member.userId,
+        manager,
+      );
+      if (!deleted) {
+        throw new WorkspaceMemberNotFoundError();
+      }
+    });
   }
 
   async getProjectRoles(

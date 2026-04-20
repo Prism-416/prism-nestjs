@@ -19,8 +19,9 @@ export class WorkspaceRepository {
   async findWorkspaceByIdAndAdminUserId(
     workspaceId: string,
     userId: string,
+    manager?: EntityManager,
   ): Promise<WorkspaceRow | null> {
-    const workspaces = await this.dataSource.query<WorkspaceRow[]>(
+    const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
       `
         SELECT
           w.workspace_id AS "workspaceId",
@@ -200,6 +201,46 @@ export class WorkspaceRepository {
     );
 
     return members[0] ?? null;
+  }
+
+  async deleteProjectMembersByWorkspaceMemberUserId(
+    workspaceId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<number> {
+    const deletedMembers = await this.getManager(manager).query<
+      Array<{ memberId: string }>
+    >(
+      `
+        DELETE FROM prism_project_members_l
+        WHERE workspace_id = $1
+          AND user_id = $2
+        RETURNING member_id AS "memberId"
+      `,
+      [workspaceId, userId],
+    );
+
+    return deletedMembers.length;
+  }
+
+  async deleteWorkspaceMemberByUserId(
+    workspaceId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const [deletedMember] = await this.getManager(manager).query<
+      Array<{ userId: string }>
+    >(
+      `
+        DELETE FROM prism_workspace_members_l
+        WHERE workspace_id = $1
+          AND user_id = $2
+        RETURNING user_id AS "userId"
+      `,
+      [workspaceId, userId],
+    );
+
+    return Boolean(deletedMember);
   }
 
   async findUserById(
