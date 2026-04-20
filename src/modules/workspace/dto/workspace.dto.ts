@@ -109,6 +109,13 @@ export class UpdateWorkspaceDto {
   description?: string;
 }
 
+export class UpdateWorkspaceMemberRoleDto {
+  @ApiProperty({ enum: ['admin', 'member', 'viewer'] })
+  @IsString()
+  @IsIn(['admin', 'member', 'viewer'])
+  role!: 'admin' | 'member' | 'viewer';
+}
+
 export class WorkspaceResponseDto {
   @ApiProperty()
   workspaceId!: string;

@@ -19,6 +19,7 @@ import {
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   ProjectJobResponseDto,
+  UpdateWorkspaceMemberRoleDto,
   UpdateProjectJobsDto,
   UpdateWorkspaceDto,
   WorkspaceMemberResponseDto,
@@ -82,6 +83,24 @@ export class WorkspaceController {
       String(user.sub),
       workspaceId,
       targetUserId,
+    );
+  }
+
+  @Patch(':workspaceId/members/:userId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Update a workspace member role' })
+  @ApiDataResponse(WorkspaceMemberResponseDto)
+  async updateWorkspaceMemberRole(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Param('userId') targetUserId: string,
+    @Body() dto: UpdateWorkspaceMemberRoleDto,
+  ): Promise<WorkspaceMemberResponseDto> {
+    return this.usecase.updateWorkspaceMemberRole(
+      String(user.sub),
+      workspaceId,
+      targetUserId,
+      dto,
     );
   }
 
