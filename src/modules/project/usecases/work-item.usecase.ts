@@ -30,6 +30,30 @@ export class WorkItemUseCase {
     private readonly uow: UnitOfWork,
   ) {}
 
+  async getWorkItem(
+    userId: string,
+    projectId: string,
+    itemId: string,
+  ): Promise<WorkItemResponseDto> {
+    const project = await this.projectRepository.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const workItem = await this.workItemRepository.findWorkItemDetailById(
+      project.projectId,
+      itemId,
+    );
+    if (!workItem) {
+      throw new WorkItemNotFoundError();
+    }
+
+    return workItem;
+  }
+
   async createWorkItem(
     userId: string,
     projectId: string,
