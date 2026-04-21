@@ -1,12 +1,14 @@
 import {
   Body,
   Controller,
+  Delete,
+  HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
@@ -50,5 +52,18 @@ export class WorkItemController {
       itemId,
       dto,
     );
+  }
+
+  @Delete(':itemId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete work item' })
+  @ApiNoContentResponse({ description: 'Successfully deleted work item' })
+  async deleteWorkItem(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+  ): Promise<void> {
+    await this.usecase.deleteWorkItem(String(user.sub), projectId, itemId);
   }
 }

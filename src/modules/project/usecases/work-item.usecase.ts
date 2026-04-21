@@ -235,4 +235,31 @@ export class WorkItemUseCase {
       return updatedWorkItem;
     });
   }
+
+  async deleteWorkItem(
+    userId: string,
+    projectId: string,
+    itemId: string,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const project =
+        await this.projectRepository.findProjectByIdAndMemberUserId(
+          projectId,
+          userId,
+          manager,
+        );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      const deleted = await this.workItemRepository.deleteWorkItem(
+        project.projectId,
+        itemId,
+        manager,
+      );
+      if (!deleted) {
+        throw new WorkItemNotFoundError();
+      }
+    });
+  }
 }
