@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Param,
@@ -23,6 +24,18 @@ import { WorkItemUseCase } from '@/modules/project/usecases';
 @Controller(':projectId/work-items')
 export class WorkItemController {
   constructor(private readonly usecase: WorkItemUseCase) {}
+
+  @Get(':itemId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Get work item detail' })
+  @ApiDataResponse(WorkItemResponseDto)
+  async getWorkItem(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+  ): Promise<WorkItemResponseDto> {
+    return this.usecase.getWorkItem(String(user.sub), projectId, itemId);
+  }
 
   @Post()
   @Authenticated()
