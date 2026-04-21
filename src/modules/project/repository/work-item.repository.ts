@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   WorkItemAssigneeRow,
+  WorkItemDetailRow,
   WorkItemLabelRow,
   WorkItemPriority,
   WorkItemRow,
@@ -26,6 +27,90 @@ export class WorkItemRepository {
         FROM prism_work_items_l
         WHERE project_id = $1
           AND item_id = $2
+        LIMIT 1
+      `,
+      [projectId, itemId],
+    );
+
+    return items[0] ?? null;
+  }
+
+  async findWorkItemRecordById(
+    projectId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<WorkItemRow | null> {
+    const items = await this.getManager(manager).query<WorkItemRow[]>(
+      `
+        SELECT
+          item_id AS "itemId",
+          project_id AS "projectId",
+          parent_id AS "parentId",
+          title,
+          description,
+          type,
+          priority,
+          status,
+          status_changed_at AS "statusChangedAt",
+          created_at AS "createdAt"
+        FROM prism_work_items_l
+        WHERE project_id = $1
+          AND item_id = $2
+        LIMIT 1
+      `,
+      [projectId, itemId],
+    );
+
+    return items[0] ?? null;
+  }
+
+  async findWorkItemDetailById(
+    projectId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<WorkItemDetailRow | null> {
+    const items = await this.getManager(manager).query<WorkItemDetailRow[]>(
+      `
+        SELECT
+          wi.item_id AS "itemId",
+          wi.project_id AS "projectId",
+          wi.parent_id AS "parentId",
+          wi.title,
+          wi.description,
+          wi.type,
+          wi.priority,
+          wi.status,
+          wi.status_changed_at AS "statusChangedAt",
+          wi.created_at AS "createdAt",
+          COALESCE(
+            (
+              SELECT array_agg(u.username ORDER BY u.username)
+              FROM prism_work_item_member_map wimm
+                     INNER JOIN prism_project_members_l pm
+                                ON pm.project_id = wimm.project_id
+                               AND pm.member_id = wimm.member_id
+                     INNER JOIN prism_users_l u
+                                ON u.user_id = pm.user_id
+              WHERE wimm.project_id = wi.project_id
+                AND wimm.item_id = wi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "assigneeUsernames",
+          COALESCE(
+            (
+              SELECT array_agg(wil.label ORDER BY wil.label)
+              FROM prism_work_item_label_map wilm
+                     INNER JOIN prism_work_item_labels_l wil
+                                ON wil.project_id = wilm.project_id
+                               AND wil.label_id = wilm.label_id
+              WHERE wilm.project_id = wi.project_id
+                AND wilm.item_id = wi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "labelNames"
+        FROM prism_work_items_l wi
+        WHERE wi.project_id = $1
+          AND wi.item_id = $2
         LIMIT 1
       `,
       [projectId, itemId],
@@ -85,6 +170,74 @@ export class WorkItemRepository {
     return items[0];
   }
 
+  async updateWorkItem(
+    params: {
+      projectId: string;
+      itemId: string;
+      hasParentId: boolean;
+      parentId: string | null;
+      hasTitle: boolean;
+      title: string | null;
+      hasDescription: boolean;
+      description: string | null;
+      hasType: boolean;
+      type: WorkItemRow['type'] | null;
+      hasPriority: boolean;
+      priority: WorkItemPriority | null;
+      hasStatus: boolean;
+      status: WorkItemStatus | null;
+    },
+    manager?: EntityManager,
+  ): Promise<WorkItemRow> {
+    const items = await this.getManager(manager).query<WorkItemRow[]>(
+      `
+        UPDATE prism_work_items_l
+        SET
+          parent_id = CASE WHEN $3 THEN $4 ELSE parent_id END,
+          title = CASE WHEN $5 THEN $6 ELSE title END,
+          description = CASE WHEN $7 THEN $8 ELSE description END,
+          type = CASE WHEN $9 THEN $10 ELSE type END,
+          priority = CASE WHEN $11 THEN $12 ELSE priority END,
+          status = CASE WHEN $13 THEN $14 ELSE status END,
+          status_changed_at = CASE
+                                WHEN $13 AND status <> $14 THEN NOW()
+                                ELSE status_changed_at
+                              END
+        WHERE project_id = $1
+          AND item_id = $2
+        RETURNING
+          item_id AS "itemId",
+          project_id AS "projectId",
+          parent_id AS "parentId",
+          title,
+          description,
+          type,
+          priority,
+          status,
+          status_changed_at AS "statusChangedAt",
+          created_at AS "createdAt"
+      `,
+      [
+        params.projectId,
+        params.itemId,
+        params.hasParentId,
+        params.parentId,
+        params.hasTitle,
+        params.title,
+        params.hasDescription,
+        params.description,
+        params.hasType,
+        params.type,
+        params.hasPriority,
+        params.priority,
+        params.hasStatus,
+        params.status,
+      ],
+    );
+
+    return items[0];
+  }
+
   async findProjectMembersByUsernames(
     projectId: string,
     usernames: string[],
@@ -135,6 +288,24 @@ export class WorkItemRepository {
       `,
       [projectId, itemId, memberIds],
     );
+  }
+
+  async replaceWorkItemAssignees(
+    projectId: string,
+    itemId: string,
+    memberIds: string[],
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        DELETE FROM prism_work_item_member_map
+        WHERE project_id = $1
+          AND item_id = $2
+      `,
+      [projectId, itemId],
+    );
+
+    await this.createWorkItemAssignees(projectId, itemId, memberIds, manager);
   }
 
   async ensureWorkItemLabels(
@@ -201,6 +372,24 @@ export class WorkItemRepository {
       `,
       [projectId, itemId, labelIds],
     );
+  }
+
+  async replaceWorkItemLabels(
+    projectId: string,
+    itemId: string,
+    labelIds: string[],
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        DELETE FROM prism_work_item_label_map
+        WHERE project_id = $1
+          AND item_id = $2
+      `,
+      [projectId, itemId],
+    );
+
+    await this.createWorkItemLabels(projectId, itemId, labelIds, manager);
   }
 
   private getManager(manager?: EntityManager): DataSource | EntityManager {

@@ -1,10 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
-import { CreateWorkItemDto, WorkItemResponseDto } from '@/modules/project/dto';
+import {
+  CreateWorkItemDto,
+  UpdateWorkItemDto,
+  WorkItemResponseDto,
+} from '@/modules/project/dto';
 import {
   isWorkItemParentForeignKeyViolation,
   ProjectNotFoundError,
   WorkItemAssigneeNotFoundError,
+  WorkItemNotFoundError,
+  WorkItemParentInvalidError,
   WorkItemParentNotFoundError,
 } from '@/modules/project/errors';
 import {
@@ -106,6 +112,127 @@ export class WorkItemUseCase {
 
         throw error;
       }
+    });
+  }
+
+  async updateWorkItem(
+    userId: string,
+    projectId: string,
+    itemId: string,
+    dto: UpdateWorkItemDto,
+  ): Promise<WorkItemResponseDto> {
+    return this.uow.run(async (manager) => {
+      const project =
+        await this.projectRepository.findProjectByIdAndMemberUserId(
+          projectId,
+          userId,
+          manager,
+        );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      const currentWorkItem =
+        await this.workItemRepository.findWorkItemRecordById(
+          project.projectId,
+          itemId,
+          manager,
+        );
+      if (!currentWorkItem) {
+        throw new WorkItemNotFoundError();
+      }
+
+      if (dto.parentId !== undefined) {
+        if (dto.parentId === itemId) {
+          throw new WorkItemParentInvalidError();
+        }
+
+        if (dto.parentId) {
+          const parent = await this.workItemRepository.findWorkItemById(
+            project.projectId,
+            dto.parentId,
+            manager,
+          );
+          if (!parent) {
+            throw new WorkItemParentNotFoundError();
+          }
+        }
+      }
+
+      if (dto.assigneeUsernames !== undefined) {
+        const assignees =
+          await this.workItemRepository.findProjectMembersByUsernames(
+            project.projectId,
+            dto.assigneeUsernames,
+            manager,
+          );
+        if (assignees.length !== dto.assigneeUsernames.length) {
+          throw new WorkItemAssigneeNotFoundError();
+        }
+
+        await this.workItemRepository.replaceWorkItemAssignees(
+          project.projectId,
+          itemId,
+          assignees.map((assignee) => assignee.memberId),
+          manager,
+        );
+      }
+
+      if (dto.labelNames !== undefined) {
+        const labels = await this.workItemRepository.ensureWorkItemLabels(
+          project.projectId,
+          dto.labelNames,
+          manager,
+        );
+
+        await this.workItemRepository.replaceWorkItemLabels(
+          project.projectId,
+          itemId,
+          labels.map((label) => label.labelId),
+          manager,
+        );
+      }
+
+      try {
+        await this.workItemRepository.updateWorkItem(
+          {
+            projectId: project.projectId,
+            itemId,
+            hasParentId: dto.parentId !== undefined,
+            parentId:
+              dto.parentId !== undefined ? (dto.parentId ?? null) : null,
+            hasTitle: dto.title !== undefined,
+            title: dto.title ?? null,
+            hasDescription: dto.description !== undefined,
+            description: dto.description ?? null,
+            hasType: dto.type !== undefined,
+            type: dto.type ?? null,
+            hasPriority: dto.priority !== undefined,
+            priority: dto.priority ?? null,
+            hasStatus: dto.status !== undefined,
+            status: dto.status ?? null,
+          },
+          manager,
+        );
+      } catch (error) {
+        if (isWorkItemParentForeignKeyViolation(error)) {
+          throw new WorkItemParentNotFoundError();
+        }
+
+        throw error;
+      }
+
+      const updatedWorkItem =
+        await this.workItemRepository.findWorkItemDetailById(
+          project.projectId,
+          itemId,
+          manager,
+        );
+      if (!updatedWorkItem) {
+        throw new WorkItemNotFoundError();
+      }
+
+      return updatedWorkItem;
     });
   }
 }

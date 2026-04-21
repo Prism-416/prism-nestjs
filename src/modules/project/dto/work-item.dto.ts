@@ -83,6 +83,67 @@ export class CreateWorkItemDto {
   labelNames?: string[];
 }
 
+export class UpdateWorkItemDto {
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsUUID()
+  parentId?: string | null;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  title?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  description?: string;
+
+  @ApiPropertyOptional({ enum: WORK_ITEM_TYPES })
+  @IsOptional()
+  @IsString()
+  @IsIn(WORK_ITEM_TYPES)
+  type?: WorkItemType;
+
+  @ApiPropertyOptional({ enum: WORK_ITEM_PRIORITIES })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsIn(WORK_ITEM_PRIORITIES)
+  priority?: WorkItemPriority;
+
+  @ApiPropertyOptional({ enum: WORK_ITEM_STATUSES })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsIn(WORK_ITEM_STATUSES)
+  status?: WorkItemStatus;
+
+  @ApiPropertyOptional({ type: [String] })
+  @Transform(({ value }) => normalizeTrimmedStringArray(value))
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  @MaxLength(30, { each: true })
+  assigneeUsernames?: string[];
+
+  @ApiPropertyOptional({ type: [String] })
+  @Transform(({ value }) => normalizeTrimmedStringArray(value))
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  @MaxLength(20, { each: true })
+  labelNames?: string[];
+}
+
 export class WorkItemResponseDto {
   @ApiProperty()
   itemId!: string;
