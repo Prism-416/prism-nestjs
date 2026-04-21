@@ -43,3 +43,23 @@ export type WorkItemDetailRow = WorkItemRow & {
   assigneeUsernames: string[];
   labelNames: string[];
 };
+
+export type SearchWorkItemsParams = {
+  projectId: string;
+  query?: string;
+  parentId?: string;
+  type?: WorkItemType;
+  priority?: WorkItemPriority;
+  status?: WorkItemStatus;
+  assigneeUsername?: string;
+  labelName?: string;
+  limit: number;
+  offset: number;
+};
+
+export type SearchWorkItemsResult = {
+  items: WorkItemDetailRow[];
+  total: number;
+  limit: number;
+  offset: number;
+};

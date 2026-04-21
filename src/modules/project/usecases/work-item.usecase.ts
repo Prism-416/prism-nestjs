@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
 import {
   CreateWorkItemDto,
+  SearchWorkItemsQueryDto,
+  SearchWorkItemsResponseDto,
   UpdateWorkItemDto,
   WorkItemResponseDto,
 } from '@/modules/project/dto';
@@ -52,6 +54,33 @@ export class WorkItemUseCase {
     }
 
     return workItem;
+  }
+
+  async searchWorkItems(
+    userId: string,
+    projectId: string,
+    query: SearchWorkItemsQueryDto,
+  ): Promise<SearchWorkItemsResponseDto> {
+    const project = await this.projectRepository.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    return this.workItemRepository.searchWorkItems({
+      projectId: project.projectId,
+      query: query.query,
+      parentId: query.parentId,
+      type: query.type,
+      priority: query.priority,
+      status: query.status,
+      assigneeUsername: query.assigneeUsername,
+      labelName: query.labelName,
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
+    });
   }
 
   async getWorkItemChildren(
