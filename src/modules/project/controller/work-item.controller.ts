@@ -37,6 +37,22 @@ export class WorkItemController {
     return this.usecase.getWorkItem(String(user.sub), projectId, itemId);
   }
 
+  @Get(':itemId/children')
+  @Authenticated()
+  @ApiOperation({ summary: 'Get work item children' })
+  @ApiDataResponse(WorkItemResponseDto, { isArray: true })
+  async getWorkItemChildren(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+  ): Promise<WorkItemResponseDto[]> {
+    return this.usecase.getWorkItemChildren(
+      String(user.sub),
+      projectId,
+      itemId,
+    );
+  }
+
   @Post()
   @Authenticated()
   @ApiOperation({ summary: 'Create work item' })

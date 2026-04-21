@@ -119,6 +119,59 @@ export class WorkItemRepository {
     return items[0] ?? null;
   }
 
+  async findChildWorkItems(
+    projectId: string,
+    parentId: string,
+    manager?: EntityManager,
+  ): Promise<WorkItemDetailRow[]> {
+    return this.getManager(manager).query<WorkItemDetailRow[]>(
+      `
+        SELECT
+          wi.item_id AS "itemId",
+          wi.project_id AS "projectId",
+          wi.parent_id AS "parentId",
+          wi.title,
+          wi.description,
+          wi.type,
+          wi.priority,
+          wi.status,
+          wi.status_changed_at AS "statusChangedAt",
+          wi.created_at AS "createdAt",
+          COALESCE(
+            (
+              SELECT array_agg(u.username ORDER BY u.username)
+              FROM prism_work_item_member_map wimm
+                     INNER JOIN prism_project_members_l pm
+                                ON pm.project_id = wimm.project_id
+                               AND pm.member_id = wimm.member_id
+                     INNER JOIN prism_users_l u
+                                ON u.user_id = pm.user_id
+              WHERE wimm.project_id = wi.project_id
+                AND wimm.item_id = wi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "assigneeUsernames",
+          COALESCE(
+            (
+              SELECT array_agg(wil.label ORDER BY wil.label)
+              FROM prism_work_item_label_map wilm
+                     INNER JOIN prism_work_item_labels_l wil
+                                ON wil.project_id = wilm.project_id
+                               AND wil.label_id = wilm.label_id
+              WHERE wilm.project_id = wi.project_id
+                AND wilm.item_id = wi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "labelNames"
+        FROM prism_work_items_l wi
+        WHERE wi.project_id = $1
+          AND wi.parent_id = $2
+        ORDER BY wi.created_at ASC, wi.item_id ASC
+      `,
+      [projectId, parentId],
+    );
+  }
+
   async createWorkItem(
     params: {
       projectId: string;

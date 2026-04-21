@@ -54,6 +54,33 @@ export class WorkItemUseCase {
     return workItem;
   }
 
+  async getWorkItemChildren(
+    userId: string,
+    projectId: string,
+    itemId: string,
+  ): Promise<WorkItemResponseDto[]> {
+    const project = await this.projectRepository.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const workItem = await this.workItemRepository.findWorkItemById(
+      project.projectId,
+      itemId,
+    );
+    if (!workItem) {
+      throw new WorkItemNotFoundError();
+    }
+
+    return this.workItemRepository.findChildWorkItems(
+      project.projectId,
+      itemId,
+    );
+  }
+
   async createWorkItem(
     userId: string,
     projectId: string,
