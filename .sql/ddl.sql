@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS prism_users_l
     username   VARCHAR(50)  NOT NULL,
     created_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    UNIQUE (email)
+    UNIQUE (email),
+    UNIQUE (username)
 );
 
 CREATE TABLE IF NOT EXISTS prism_user_auths_l

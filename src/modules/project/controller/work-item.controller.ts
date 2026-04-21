@@ -1,0 +1,25 @@
+import { Body, Controller, HttpStatus, Param, Post } from '@nestjs/common';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Authenticated, CurrentUser } from '@/core/auth';
+import type { JwtPayload } from '@/core/auth';
+import { ApiDataResponse } from '@/core/response';
+import { CreateWorkItemDto, WorkItemResponseDto } from '@/modules/project/dto';
+import { WorkItemUseCase } from '@/modules/project/usecases';
+
+@ApiTags('Project Work Item')
+@Controller(':projectId/work-items')
+export class WorkItemController {
+  constructor(private readonly usecase: WorkItemUseCase) {}
+
+  @Post()
+  @Authenticated()
+  @ApiOperation({ summary: 'Create work item' })
+  @ApiDataResponse(WorkItemResponseDto, { status: HttpStatus.CREATED })
+  async createWorkItem(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateWorkItemDto,
+  ): Promise<WorkItemResponseDto> {
+    return this.usecase.createWorkItem(String(user.sub), projectId, dto);
+  }
+}

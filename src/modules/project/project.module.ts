@@ -1,10 +1,21 @@
 import { Module } from '@nestjs/common';
-import { ProjectController } from '@/modules/project/controller';
-import { ProjectRepository } from '@/modules/project/repository';
-import { ProjectUseCase } from '@/modules/project/usecases';
+import {
+  ProjectController,
+  WorkItemController,
+} from '@/modules/project/controller';
+import {
+  ProjectRepository,
+  WorkItemRepository,
+} from '@/modules/project/repository';
+import { ProjectUseCase, WorkItemUseCase } from '@/modules/project/usecases';
 
 @Module({
-  controllers: [ProjectController],
-  providers: [ProjectRepository, ProjectUseCase],
+  controllers: [ProjectController, WorkItemController],
+  providers: [
+    ProjectRepository,
+    WorkItemRepository,
+    ProjectUseCase,
+    WorkItemUseCase,
+  ],
 })
 export class ProjectModule {}
