@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
@@ -15,6 +16,8 @@ import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
   CreateWorkItemDto,
+  SearchWorkItemsQueryDto,
+  SearchWorkItemsResponseDto,
   UpdateWorkItemDto,
   WorkItemResponseDto,
 } from '@/modules/project/dto';
@@ -24,6 +27,18 @@ import { WorkItemUseCase } from '@/modules/project/usecases';
 @Controller(':projectId/work-items')
 export class WorkItemController {
   constructor(private readonly usecase: WorkItemUseCase) {}
+
+  @Get()
+  @Authenticated()
+  @ApiOperation({ summary: 'Search work items' })
+  @ApiDataResponse(SearchWorkItemsResponseDto)
+  async searchWorkItems(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Query() query: SearchWorkItemsQueryDto,
+  ): Promise<SearchWorkItemsResponseDto> {
+    return this.usecase.searchWorkItems(String(user.sub), projectId, query);
+  }
 
   @Get(':itemId')
   @Authenticated()

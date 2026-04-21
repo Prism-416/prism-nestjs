@@ -1,14 +1,17 @@
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayUnique,
   IsArray,
   IsIn,
+  IsInt,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
 import {
   normalizeTrimmedString,
@@ -81,6 +84,73 @@ export class CreateWorkItemDto {
   @IsNotEmpty({ each: true })
   @MaxLength(20, { each: true })
   labelNames?: string[];
+}
+
+export class SearchWorkItemsQueryDto {
+  @ApiPropertyOptional({
+    description: 'Case-insensitive search against title and description',
+  })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  query?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  parentId?: string;
+
+  @ApiPropertyOptional({ enum: WORK_ITEM_TYPES })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsIn(WORK_ITEM_TYPES)
+  type?: WorkItemType;
+
+  @ApiPropertyOptional({ enum: WORK_ITEM_PRIORITIES })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsIn(WORK_ITEM_PRIORITIES)
+  priority?: WorkItemPriority;
+
+  @ApiPropertyOptional({ enum: WORK_ITEM_STATUSES })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsIn(WORK_ITEM_STATUSES)
+  status?: WorkItemStatus;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(30)
+  assigneeUsername?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  labelName?: string;
+
+  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional({ default: 0, minimum: 0 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  offset?: number;
 }
 
 export class UpdateWorkItemDto {
@@ -180,4 +250,18 @@ export class WorkItemResponseDto {
 
   @ApiProperty({ type: [String] })
   labelNames!: string[];
+}
+
+export class SearchWorkItemsResponseDto {
+  @ApiProperty({ type: [WorkItemResponseDto] })
+  items!: WorkItemResponseDto[];
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  limit!: number;
+
+  @ApiProperty()
+  offset!: number;
 }
