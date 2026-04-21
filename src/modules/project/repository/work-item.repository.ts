@@ -238,6 +238,26 @@ export class WorkItemRepository {
     return items[0];
   }
 
+  async deleteWorkItem(
+    projectId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const items = await this.getManager(manager).query<
+      Array<{ itemId: string }>
+    >(
+      `
+        DELETE FROM prism_work_items_l
+        WHERE project_id = $1
+          AND item_id = $2
+        RETURNING item_id AS "itemId"
+      `,
+      [projectId, itemId],
+    );
+
+    return items.length > 0;
+  }
+
   async findProjectMembersByUsernames(
     projectId: string,
     usernames: string[],
