@@ -1,9 +1,20 @@
-import { Body, Controller, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpStatus,
+  Param,
+  Patch,
+  Post,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
-import { CreateWorkItemDto, WorkItemResponseDto } from '@/modules/project/dto';
+import {
+  CreateWorkItemDto,
+  UpdateWorkItemDto,
+  WorkItemResponseDto,
+} from '@/modules/project/dto';
 import { WorkItemUseCase } from '@/modules/project/usecases';
 
 @ApiTags('Project Work Item')
@@ -21,5 +32,23 @@ export class WorkItemController {
     @Body() dto: CreateWorkItemDto,
   ): Promise<WorkItemResponseDto> {
     return this.usecase.createWorkItem(String(user.sub), projectId, dto);
+  }
+
+  @Patch(':itemId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Update work item' })
+  @ApiDataResponse(WorkItemResponseDto)
+  async updateWorkItem(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateWorkItemDto,
+  ): Promise<WorkItemResponseDto> {
+    return this.usecase.updateWorkItem(
+      String(user.sub),
+      projectId,
+      itemId,
+      dto,
+    );
   }
 }

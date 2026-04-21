@@ -9,12 +9,24 @@ export class WorkItemParentNotFoundError extends NotExistsError {
   }
 }
 
+export class WorkItemNotFoundError extends NotExistsError {
+  constructor() {
+    super('Work item not found.', 'WORK_ITEM_NOT_FOUND');
+  }
+}
+
 export class WorkItemAssigneeNotFoundError extends NotExistsError {
   constructor() {
     super(
       'Work item assignee project member not found.',
       'WORK_ITEM_ASSIGNEE_NOT_FOUND',
     );
+  }
+}
+
+export class WorkItemParentInvalidError extends NotExistsError {
+  constructor() {
+    super('Work item parent is invalid.', 'WORK_ITEM_PARENT_INVALID');
   }
 }
 

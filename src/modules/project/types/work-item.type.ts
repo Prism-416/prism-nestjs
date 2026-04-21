@@ -38,3 +38,8 @@ export type WorkItemLabelRow = {
   labelId: string;
   label: string;
 };
+
+export type WorkItemDetailRow = WorkItemRow & {
+  assigneeUsernames: string[];
+  labelNames: string[];
+};
