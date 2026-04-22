@@ -5,6 +5,7 @@ import {
   WorkspaceInvitationEventRow,
   WorkspaceInvitationEventType,
   WorkspaceInvitationRow,
+  WorkspaceListRow,
   WorkspaceMemberRow,
   WorkspaceProjectJobIdRow,
   WorkspaceProjectJobRow,
@@ -126,8 +127,10 @@ export class WorkspaceRepository {
     return workspaces[0] ?? null;
   }
 
-  async findWorkspacesByMemberUserId(userId: string): Promise<WorkspaceRow[]> {
-    return this.dataSource.query<WorkspaceRow[]>(
+  async findWorkspacesByMemberUserId(
+    userId: string,
+  ): Promise<WorkspaceListRow[]> {
+    return this.dataSource.query<WorkspaceListRow[]>(
       `
         SELECT
           w.workspace_id AS "workspaceId",
@@ -135,6 +138,16 @@ export class WorkspaceRepository {
           w.slug,
           w.description,
           w.owner_id AS "ownerId",
+          (
+            SELECT COUNT(*)::int
+            FROM prism_workspace_members_l wm_count
+            WHERE wm_count.workspace_id = w.workspace_id
+          ) AS "memberCount",
+          (
+            SELECT COUNT(*)::int
+            FROM prism_projects_l p
+            WHERE p.workspace_id = w.workspace_id
+          ) AS "projectCount",
           w.created_at AS "createdAt"
         FROM prism_workspaces_l w
                INNER JOIN prism_workspace_members_l wm
@@ -536,7 +549,6 @@ export class WorkspaceRepository {
           created_at AS "createdAt"
         FROM prism_project_jobs_l
         WHERE workspace_id = $1
-        ORDER BY name ASC
       `,
       [workspaceId],
     );

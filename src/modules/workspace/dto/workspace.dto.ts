@@ -162,6 +162,14 @@ export class WorkspaceMemberResponseDto {
   invitedAt!: Date | null;
 }
 
+export class WorkspaceSummaryResponseDto extends WorkspaceResponseDto {
+  @ApiProperty()
+  memberCount!: number;
+
+  @ApiProperty()
+  projectCount!: number;
+}
+
 export class ProjectJobResponseDto {
   @ApiProperty()
   jobId!: string;
