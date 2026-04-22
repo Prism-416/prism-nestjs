@@ -7,6 +7,11 @@ export type WorkspaceRow = {
   createdAt: Date;
 };
 
+export type WorkspaceListRow = WorkspaceRow & {
+  memberCount: number;
+  projectCount: number;
+};
+
 export type WorkspaceMemberRow = {
   userId: string;
   fullName: string;

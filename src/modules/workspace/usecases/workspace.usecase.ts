@@ -12,6 +12,7 @@ import {
   UpdateWorkspaceMemberRoleDto,
   UpdateProjectJobsDto,
   UpdateWorkspaceDto,
+  WorkspaceSummaryResponseDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
   WorkspaceResponseDto,
@@ -54,7 +55,7 @@ export class WorkspaceUseCase {
     );
   }
 
-  async getWorkspaces(userId: string): Promise<WorkspaceResponseDto[]> {
+  async getWorkspaces(userId: string): Promise<WorkspaceSummaryResponseDto[]> {
     return this.repo.findWorkspacesByMemberUserId(userId);
   }
 

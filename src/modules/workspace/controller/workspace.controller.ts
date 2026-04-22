@@ -24,6 +24,7 @@ import {
   UpdateWorkspaceMemberRoleDto,
   UpdateProjectJobsDto,
   UpdateWorkspaceDto,
+  WorkspaceSummaryResponseDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
   WorkspaceResponseDto,
@@ -38,10 +39,10 @@ export class WorkspaceController {
   @Get()
   @Authenticated()
   @ApiOperation({ summary: 'Retrieve workspaces the user belongs to' })
-  @ApiDataResponse(WorkspaceResponseDto, { isArray: true })
+  @ApiDataResponse(WorkspaceSummaryResponseDto, { isArray: true })
   async getWorkspaces(
     @CurrentUser() user: JwtPayload,
-  ): Promise<WorkspaceResponseDto[]> {
+  ): Promise<WorkspaceSummaryResponseDto[]> {
     return this.usecase.getWorkspaces(String(user.sub));
   }
 
