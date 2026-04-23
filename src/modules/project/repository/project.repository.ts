@@ -40,6 +40,32 @@ export class ProjectRepository {
     return workspaces.length > 0;
   }
 
+  async existsWorkspaceBySlugAndMemberUserId(
+    workspaceSlug: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const workspaces = await this.getManager(manager).query<
+      Array<{ workspaceId: string }>
+    >(
+      `
+        SELECT
+          w.workspace_id AS "workspaceId"
+        FROM prism_workspaces_l w
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = w.workspace_id
+        WHERE w.slug = $1
+          AND wm.user_id = $2
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+        LIMIT 1
+      `,
+      [workspaceSlug, userId],
+    );
+
+    return workspaces.length > 0;
+  }
+
   async findProjectsByMemberUserId(
     userId: string,
     workspaceId: string,
@@ -66,6 +92,35 @@ export class ProjectRepository {
         ORDER BY p.created_at DESC
       `,
       [userId, workspaceId],
+    );
+  }
+
+  async findProjectsByWorkspaceSlugAndMemberUserId(
+    userId: string,
+    workspaceSlug: string,
+    manager?: EntityManager,
+  ): Promise<ProjectSummaryRow[]> {
+    return this.getManager(manager).query<ProjectSummaryRow[]>(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId",
+          p.name,
+          p.slug,
+          p.description,
+          p.created_at AS "createdAt"
+        FROM prism_projects_l p
+               INNER JOIN prism_workspaces_l w
+                          ON w.workspace_id = p.workspace_id
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = p.workspace_id
+        WHERE wm.user_id = $1
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+          AND w.slug = $2
+        ORDER BY p.created_at DESC
+      `,
+      [userId, workspaceSlug],
     );
   }
 

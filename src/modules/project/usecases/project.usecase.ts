@@ -45,6 +45,25 @@ export class ProjectUseCase {
     return this.repo.findProjectsByMemberUserId(userId, query.workspaceId);
   }
 
+  async getProjectsWithWorkspaceSlug(
+    userId: string,
+    workspaceSlug: string,
+  ): Promise<ProjectSummaryResponseDto[]> {
+    const hasWorkspaceAccess =
+      await this.repo.existsWorkspaceBySlugAndMemberUserId(
+        workspaceSlug,
+        userId,
+      );
+    if (!hasWorkspaceAccess) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.repo.findProjectsByWorkspaceSlugAndMemberUserId(
+      userId,
+      workspaceSlug,
+    );
+  }
+
   async getProject(
     userId: string,
     projectId: string,

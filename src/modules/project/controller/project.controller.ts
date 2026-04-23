@@ -44,6 +44,22 @@ export class ProjectController {
     return this.usecase.getProjects(String(user.sub), query);
   }
 
+  @Get('workspaces/:workspaceSlug')
+  @Authenticated()
+  @ApiOperation({
+    summary: 'Retrieve projects in a workspace by slug the user belongs to',
+  })
+  @ApiDataResponse(ProjectSummaryResponseDto, { isArray: true })
+  async getProjectsWithWorkspaceSlug(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceSlug') workspaceSlug: string,
+  ): Promise<ProjectSummaryResponseDto[]> {
+    return this.usecase.getProjectsWithWorkspaceSlug(
+      String(user.sub),
+      workspaceSlug,
+    );
+  }
+
   @Get(':projectId')
   @Authenticated()
   @ApiOperation({ summary: 'Retrieve project metadata' })
