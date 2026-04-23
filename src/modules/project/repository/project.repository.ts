@@ -124,6 +124,41 @@ export class ProjectRepository {
     );
   }
 
+  async findProjectByWorkspaceSlugAndProjectSlugAndMemberUserId(
+    userId: string,
+    workspaceSlug: string,
+    projectSlug: string,
+    manager?: EntityManager,
+  ): Promise<ProjectRow | null> {
+    const projects = await this.getManager(manager).query<ProjectRow[]>(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId",
+          p.name,
+          p.slug,
+          p.description,
+          p.timezone,
+          p.locale,
+          p.created_at AS "createdAt"
+        FROM prism_projects_l p
+               INNER JOIN prism_workspaces_l w
+                          ON w.workspace_id = p.workspace_id
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = p.workspace_id
+        WHERE wm.user_id = $1
+          AND w.slug = $2
+          AND p.slug = $3
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+        LIMIT 1
+      `,
+      [userId, workspaceSlug, projectSlug],
+    );
+
+    return projects[0] ?? null;
+  }
+
   async findProjectByIdAndMemberUserId(
     projectId: string,
     userId: string,
