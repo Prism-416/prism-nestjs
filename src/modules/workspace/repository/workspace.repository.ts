@@ -127,6 +127,95 @@ export class WorkspaceRepository {
     return workspaces[0] ?? null;
   }
 
+  async findUserByEmail(
+    email: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceUserRow | null> {
+    const users = await this.getManager(manager).query<WorkspaceUserRow[]>(
+      `
+        SELECT
+          u.user_id AS "userId",
+          u.email,
+          u.full_name AS "fullName",
+          u.username
+        FROM prism_users_l u
+        WHERE LOWER(u.email) = LOWER($1)
+          AND EXISTS (
+            SELECT 1
+            FROM prism_user_auths_l ua
+            WHERE ua.user_id = u.user_id
+              AND ua.is_verified = TRUE
+          )
+        LIMIT 1
+      `,
+      [email],
+    );
+
+    return users[0] ?? null;
+  }
+
+  async searchWorkspaceMemberCandidates(
+    keyword: string,
+    excludeUserId: string,
+    workspaceId?: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceUserRow[]> {
+    const containsKeyword = `%${keyword}%`;
+    const prefixedKeyword = `${keyword}%`;
+
+    return this.getManager(manager).query<WorkspaceUserRow[]>(
+      `
+        SELECT
+          u.user_id AS "userId",
+          u.email,
+          u.full_name AS "fullName",
+          u.username
+        FROM prism_users_l u
+        WHERE u.user_id <> $2
+          AND EXISTS (
+            SELECT 1
+            FROM prism_user_auths_l ua
+            WHERE ua.user_id = u.user_id
+              AND ua.is_verified = TRUE
+          )
+          AND (
+            u.username ILIKE $1
+            OR u.full_name ILIKE $1
+            OR u.email ILIKE $1
+          )
+          AND (
+            $3::uuid IS NULL
+            OR NOT EXISTS (
+              SELECT 1
+              FROM prism_workspace_members_l wm
+              WHERE wm.workspace_id = $3
+                AND wm.user_id = u.user_id
+            )
+          )
+        ORDER BY
+          CASE
+            WHEN LOWER(u.username) = LOWER($5) THEN 0
+            WHEN LOWER(u.full_name) = LOWER($5) THEN 1
+            WHEN LOWER(u.email) = LOWER($5) THEN 2
+            WHEN u.username ILIKE $4 THEN 3
+            WHEN u.full_name ILIKE $4 THEN 4
+            WHEN u.email ILIKE $4 THEN 5
+            ELSE 6
+          END,
+          u.username,
+          u.email
+        LIMIT 10
+      `,
+      [
+        containsKeyword,
+        excludeUserId,
+        workspaceId ?? null,
+        prefixedKeyword,
+        keyword,
+      ],
+    );
+  }
+
   async findWorkspacesByMemberUserId(
     userId: string,
   ): Promise<WorkspaceListRow[]> {
@@ -315,12 +404,18 @@ export class WorkspaceRepository {
     const users = await this.getManager(manager).query<WorkspaceUserRow[]>(
       `
         SELECT
-          user_id AS "userId",
-          email,
-          full_name AS "fullName",
-          username
-        FROM prism_users_l
-        WHERE user_id = $1
+          u.user_id AS "userId",
+          u.email,
+          u.full_name AS "fullName",
+          u.username
+        FROM prism_users_l u
+        WHERE u.user_id = $1
+          AND EXISTS (
+            SELECT 1
+            FROM prism_user_auths_l ua
+            WHERE ua.user_id = u.user_id
+              AND ua.is_verified = TRUE
+          )
         LIMIT 1
       `,
       [userId],

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
+import { isEmail } from 'class-validator';
 import { UnitOfWork } from '@/core/database';
 import {
   AcceptWorkspaceInvitationDto,
@@ -8,10 +9,13 @@ import {
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   ProjectJobResponseDto,
+  SearchWorkspaceMemberCandidatesQueryDto,
   TransferWorkspaceOwnerDto,
   UpdateWorkspaceMemberRoleDto,
   UpdateProjectJobsDto,
   UpdateWorkspaceDto,
+  WorkspaceMemberCandidateSearchResponseDto,
+  WorkspaceMemberCandidateResponseDto,
   WorkspaceSummaryResponseDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
@@ -36,7 +40,12 @@ import {
   WorkspaceInvitationNotifierService,
   WorkspaceProvisioningService,
 } from '@/modules/workspace/services';
-import { WorkspaceInvitationRow } from '@/modules/workspace/types';
+import {
+  WorkspaceInvitationRow,
+  WorkspaceMemberCandidateKind,
+  WorkspaceMemberCandidateSearchReason,
+  WorkspaceUserRow,
+} from '@/modules/workspace/types';
 
 @Injectable()
 export class WorkspaceUseCase {
@@ -57,6 +66,75 @@ export class WorkspaceUseCase {
 
   async getWorkspaces(userId: string): Promise<WorkspaceSummaryResponseDto[]> {
     return this.repo.findWorkspacesByMemberUserId(userId);
+  }
+
+  async searchWorkspaceMemberCandidates(
+    userId: string,
+    query: SearchWorkspaceMemberCandidatesQueryDto,
+  ): Promise<WorkspaceMemberCandidateSearchResponseDto> {
+    if (query.workspaceId) {
+      const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+        query.workspaceId,
+        userId,
+      );
+      if (!workspace) {
+        throw new WorkspaceNotFoundError();
+      }
+    }
+
+    if (this.isExactEmail(query.keyword)) {
+      const existingUser = await this.repo.findUserByEmail(query.keyword);
+      if (existingUser) {
+        if (existingUser.userId === userId) {
+          return this.toWorkspaceMemberCandidateSearchResult('self');
+        }
+
+        if (query.workspaceId) {
+          const existingMember = await this.repo.findWorkspaceMember(
+            query.workspaceId,
+            existingUser.userId,
+          );
+          if (existingMember) {
+            return this.toWorkspaceMemberCandidateSearchResult(
+              'already_member',
+            );
+          }
+        }
+
+        return this.toWorkspaceMemberCandidateSearchResult('success', [
+          this.toWorkspaceMemberCandidate('existing', existingUser),
+        ]);
+      }
+
+      return this.toWorkspaceMemberCandidateSearchResult('success', [
+        {
+          kind: 'external',
+          userId: null,
+          email: query.keyword,
+          fullName: null,
+          username: null,
+        },
+      ]);
+    }
+
+    if (query.keyword.length < 2) {
+      return this.toWorkspaceMemberCandidateSearchResult('success');
+    }
+
+    const users = await this.repo.searchWorkspaceMemberCandidates(
+      query.keyword,
+      userId,
+      query.workspaceId,
+    );
+
+    if (users.length === 0) {
+      return this.toWorkspaceMemberCandidateSearchResult('no_results');
+    }
+
+    return this.toWorkspaceMemberCandidateSearchResult(
+      'success',
+      users.map((user) => this.toWorkspaceMemberCandidate('existing', user)),
+    );
   }
 
   async getWorkspace(
@@ -526,5 +604,32 @@ export class WorkspaceUseCase {
       return token;
     }
     return `${this.invitationPageUrl}?token=${encodeURIComponent(token)}`;
+  }
+
+  private isExactEmail(keyword: string): boolean {
+    return isEmail(keyword);
+  }
+
+  private toWorkspaceMemberCandidate(
+    kind: WorkspaceMemberCandidateKind,
+    user: WorkspaceUserRow,
+  ): WorkspaceMemberCandidateResponseDto {
+    return {
+      kind,
+      userId: user.userId,
+      email: user.email,
+      fullName: user.fullName,
+      username: user.username,
+    };
+  }
+
+  private toWorkspaceMemberCandidateSearchResult(
+    reason: WorkspaceMemberCandidateSearchReason,
+    items: WorkspaceMemberCandidateResponseDto[] = [],
+  ): WorkspaceMemberCandidateSearchResponseDto {
+    return {
+      reason,
+      items,
+    };
   }
 }

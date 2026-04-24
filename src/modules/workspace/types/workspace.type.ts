@@ -1,3 +1,5 @@
+import type { WorkspaceMemberRole } from '@/modules/workspace/constants';
+
 export type WorkspaceRow = {
   workspaceId: string;
   name: string;
@@ -12,11 +14,23 @@ export type WorkspaceListRow = WorkspaceRow & {
   projectCount: number;
 };
 
+export type WorkspaceMemberCandidateKind = 'existing' | 'external';
+
+export const WORKSPACE_MEMBER_CANDIDATE_SEARCH_REASONS = [
+  'success',
+  'self',
+  'already_member',
+  'no_results',
+] as const;
+
+export type WorkspaceMemberCandidateSearchReason =
+  (typeof WORKSPACE_MEMBER_CANDIDATE_SEARCH_REASONS)[number];
+
 export type WorkspaceMemberRow = {
   userId: string;
   fullName: string;
   username: string;
-  role: 'admin' | 'member' | 'viewer';
+  role: WorkspaceMemberRole;
   joinedAt: Date | null;
   invitedAt: Date | null;
 };

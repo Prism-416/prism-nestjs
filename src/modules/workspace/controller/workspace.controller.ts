@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
@@ -20,6 +21,8 @@ import {
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   ProjectJobResponseDto,
+  SearchWorkspaceMemberCandidatesQueryDto,
+  WorkspaceMemberCandidateSearchResponseDto,
   TransferWorkspaceOwnerDto,
   UpdateWorkspaceMemberRoleDto,
   UpdateProjectJobsDto,
@@ -44,6 +47,22 @@ export class WorkspaceController {
     @CurrentUser() user: JwtPayload,
   ): Promise<WorkspaceSummaryResponseDto[]> {
     return this.usecase.getWorkspaces(String(user.sub));
+  }
+
+  @Get('member-candidates')
+  @Authenticated()
+  @ApiOperation({
+    summary: 'Search workspace member candidates by email, username, or name',
+  })
+  @ApiDataResponse(WorkspaceMemberCandidateSearchResponseDto)
+  async searchWorkspaceMemberCandidates(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: SearchWorkspaceMemberCandidatesQueryDto,
+  ): Promise<WorkspaceMemberCandidateSearchResponseDto> {
+    return this.usecase.searchWorkspaceMemberCandidates(
+      String(user.sub),
+      query,
+    );
   }
 
   @Get(':workspaceId')
