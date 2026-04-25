@@ -1,5 +1,5 @@
 import { Transform, Type } from 'class-transformer';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
   ArrayUnique,
@@ -17,7 +17,14 @@ import {
   normalizeOptionalTrimmedString,
   normalizeTrimmedString,
 } from '@/modules/workspace/utils';
-import { MAX_WORKSPACE_NAME_LENGTH } from '@/modules/workspace/constants';
+import {
+  MAX_WORKSPACE_NAME_LENGTH,
+  WORKSPACE_MEMBER_ROLES,
+} from '@/modules/workspace/constants';
+import {
+  WORKSPACE_MEMBER_CANDIDATE_SEARCH_REASONS,
+  type WorkspaceMemberCandidateSearchReason,
+} from '@/modules/workspace/types';
 
 export class CreateWorkspaceDto {
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
@@ -110,10 +117,10 @@ export class UpdateWorkspaceDto {
 }
 
 export class UpdateWorkspaceMemberRoleDto {
-  @ApiProperty({ enum: ['admin', 'member', 'viewer'] })
+  @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
   @IsString()
-  @IsIn(['admin', 'member', 'viewer'])
-  role!: 'admin' | 'member' | 'viewer';
+  @IsIn(WORKSPACE_MEMBER_ROLES)
+  role!: (typeof WORKSPACE_MEMBER_ROLES)[number];
 }
 
 export class TransferWorkspaceOwnerDto {
@@ -152,8 +159,8 @@ export class WorkspaceMemberResponseDto {
   @ApiProperty()
   username!: string;
 
-  @ApiProperty({ enum: ['admin', 'member', 'viewer'] })
-  role!: 'admin' | 'member' | 'viewer';
+  @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
+  role!: (typeof WORKSPACE_MEMBER_ROLES)[number];
 
   @ApiProperty({ nullable: true })
   joinedAt!: Date | null;
@@ -168,6 +175,46 @@ export class WorkspaceSummaryResponseDto extends WorkspaceResponseDto {
 
   @ApiProperty()
   projectCount!: number;
+}
+
+export class SearchWorkspaceMemberCandidatesQueryDto {
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MinLength(1)
+  @MaxLength(320)
+  keyword!: string;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsUUID()
+  workspaceId?: string;
+}
+
+export class WorkspaceMemberCandidateResponseDto {
+  @ApiProperty({ enum: ['existing', 'external'] })
+  kind!: 'existing' | 'external';
+
+  @ApiProperty({ nullable: true })
+  userId!: string | null;
+
+  @ApiProperty()
+  email!: string;
+
+  @ApiProperty({ nullable: true })
+  fullName!: string | null;
+
+  @ApiProperty({ nullable: true })
+  username!: string | null;
+}
+
+export class WorkspaceMemberCandidateSearchResponseDto {
+  @ApiProperty({ enum: WORKSPACE_MEMBER_CANDIDATE_SEARCH_REASONS })
+  reason!: WorkspaceMemberCandidateSearchReason;
+
+  @ApiProperty({ type: [WorkspaceMemberCandidateResponseDto] })
+  items!: WorkspaceMemberCandidateResponseDto[];
 }
 
 export class ProjectJobResponseDto {
@@ -192,10 +239,10 @@ export class CreateWorkspaceInvitationDto {
   @IsUUID()
   receiverId!: string;
 
-  @ApiProperty({ enum: ['admin', 'member', 'viewer'] })
+  @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
   @IsString()
-  @IsIn(['admin', 'member', 'viewer'])
-  role!: 'admin' | 'member' | 'viewer';
+  @IsIn(WORKSPACE_MEMBER_ROLES)
+  role!: (typeof WORKSPACE_MEMBER_ROLES)[number];
 }
 
 export class AcceptWorkspaceInvitationDto {
@@ -218,8 +265,8 @@ export class WorkspaceInvitationResponseDto {
   @ApiProperty()
   receiverId!: string;
 
-  @ApiProperty({ enum: ['admin', 'member', 'viewer'] })
-  role!: 'admin' | 'member' | 'viewer';
+  @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
+  role!: (typeof WORKSPACE_MEMBER_ROLES)[number];
 
   @ApiProperty()
   expiresAt!: Date;

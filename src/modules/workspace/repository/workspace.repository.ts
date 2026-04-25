@@ -127,35 +127,145 @@ export class WorkspaceRepository {
     return workspaces[0] ?? null;
   }
 
+  async findUserByEmail(
+    email: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceUserRow | null> {
+    const users = await this.getManager(manager).query<WorkspaceUserRow[]>(
+      `
+        WITH verified_users AS (
+          SELECT DISTINCT ua.user_id
+          FROM prism_user_auths_l ua
+          WHERE ua.is_verified = TRUE
+        )
+        SELECT
+          u.user_id AS "userId",
+          u.email,
+          u.full_name AS "fullName",
+          u.username
+        FROM prism_users_l u
+               INNER JOIN verified_users vu
+                          ON vu.user_id = u.user_id
+        WHERE LOWER(u.email) = LOWER($1)
+        LIMIT 1
+      `,
+      [email],
+    );
+
+    return users[0] ?? null;
+  }
+
+  async searchWorkspaceMemberCandidates(
+    keyword: string,
+    excludeUserId: string,
+    workspaceId?: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceUserRow[]> {
+    const containsKeyword = `%${keyword}%`;
+    const prefixedKeyword = `${keyword}%`;
+
+    return this.getManager(manager).query<WorkspaceUserRow[]>(
+      `
+        WITH verified_users AS (
+          SELECT DISTINCT ua.user_id
+          FROM prism_user_auths_l ua
+          WHERE ua.is_verified = TRUE
+        ),
+        excluded_workspace_members AS (
+          SELECT wm.user_id
+          FROM prism_workspace_members_l wm
+          WHERE wm.workspace_id = $3
+        )
+        SELECT
+          u.user_id AS "userId",
+          u.email,
+          u.full_name AS "fullName",
+          u.username
+        FROM prism_users_l u
+               INNER JOIN verified_users vu
+                          ON vu.user_id = u.user_id
+               LEFT JOIN excluded_workspace_members ewm
+                         ON ewm.user_id = u.user_id
+        WHERE u.user_id <> $2
+          AND (
+            u.username ILIKE $1
+            OR u.full_name ILIKE $1
+            OR u.email ILIKE $1
+          )
+          AND ($3::uuid IS NULL OR ewm.user_id IS NULL)
+        ORDER BY
+          CASE
+            WHEN LOWER(u.username) = LOWER($5) THEN 0
+            WHEN LOWER(u.full_name) = LOWER($5) THEN 1
+            WHEN LOWER(u.email) = LOWER($5) THEN 2
+            WHEN u.username ILIKE $4 THEN 3
+            WHEN u.full_name ILIKE $4 THEN 4
+            WHEN u.email ILIKE $4 THEN 5
+            ELSE 6
+          END,
+          u.username,
+          u.email
+        LIMIT 10
+      `,
+      [
+        containsKeyword,
+        excludeUserId,
+        workspaceId ?? null,
+        prefixedKeyword,
+        keyword,
+      ],
+    );
+  }
+
   async findWorkspacesByMemberUserId(
     userId: string,
   ): Promise<WorkspaceListRow[]> {
     return this.dataSource.query<WorkspaceListRow[]>(
       `
+        WITH member_workspaces AS (
+          SELECT
+            w.workspace_id,
+            w.name,
+            w.slug,
+            w.description,
+            w.owner_id,
+            w.created_at
+          FROM prism_workspaces_l w
+                 INNER JOIN prism_workspace_members_l wm
+                            ON wm.workspace_id = w.workspace_id
+          WHERE wm.user_id = $1
+            AND w.deleted_at IS NULL
+            AND w.status = 'active'
+        ),
+        workspace_member_counts AS (
+          SELECT
+            wm.workspace_id,
+            COUNT(*)::int AS member_count
+          FROM prism_workspace_members_l wm
+          GROUP BY wm.workspace_id
+        ),
+        workspace_project_counts AS (
+          SELECT
+            p.workspace_id,
+            COUNT(*)::int AS project_count
+          FROM prism_projects_l p
+          GROUP BY p.workspace_id
+        )
         SELECT
-          w.workspace_id AS "workspaceId",
-          w.name,
-          w.slug,
-          w.description,
-          w.owner_id AS "ownerId",
-          (
-            SELECT COUNT(*)::int
-            FROM prism_workspace_members_l wm_count
-            WHERE wm_count.workspace_id = w.workspace_id
-          ) AS "memberCount",
-          (
-            SELECT COUNT(*)::int
-            FROM prism_projects_l p
-            WHERE p.workspace_id = w.workspace_id
-          ) AS "projectCount",
-          w.created_at AS "createdAt"
-        FROM prism_workspaces_l w
-               INNER JOIN prism_workspace_members_l wm
-                          ON wm.workspace_id = w.workspace_id
-        WHERE wm.user_id = $1
-          AND w.deleted_at IS NULL
-          AND w.status = 'active'
-        ORDER BY w.created_at DESC
+          mw.workspace_id AS "workspaceId",
+          mw.name,
+          mw.slug,
+          mw.description,
+          mw.owner_id AS "ownerId",
+          COALESCE(wmc.member_count, 0) AS "memberCount",
+          COALESCE(wpc.project_count, 0) AS "projectCount",
+          mw.created_at AS "createdAt"
+        FROM member_workspaces mw
+               LEFT JOIN workspace_member_counts wmc
+                         ON wmc.workspace_id = mw.workspace_id
+               LEFT JOIN workspace_project_counts wpc
+                         ON wpc.workspace_id = mw.workspace_id
+        ORDER BY mw.created_at DESC
       `,
       [userId],
     );
@@ -314,13 +424,20 @@ export class WorkspaceRepository {
   ): Promise<WorkspaceUserRow | null> {
     const users = await this.getManager(manager).query<WorkspaceUserRow[]>(
       `
+        WITH verified_users AS (
+          SELECT DISTINCT ua.user_id
+          FROM prism_user_auths_l ua
+          WHERE ua.is_verified = TRUE
+        )
         SELECT
-          user_id AS "userId",
-          email,
-          full_name AS "fullName",
-          username
-        FROM prism_users_l
-        WHERE user_id = $1
+          u.user_id AS "userId",
+          u.email,
+          u.full_name AS "fullName",
+          u.username
+        FROM prism_users_l u
+               INNER JOIN verified_users vu
+                          ON vu.user_id = u.user_id
+        WHERE u.user_id = $1
         LIMIT 1
       `,
       [userId],

@@ -4,3 +4,7 @@ export const MAX_WORKSPACE_SLUG_LENGTH = 20;
 export const WORKSPACE_SLUG_RANDOM_DIGITS = 9;
 export const MAX_WORKSPACE_SLUG_BASE_LENGTH =
   MAX_WORKSPACE_SLUG_LENGTH - WORKSPACE_SLUG_RANDOM_DIGITS - 1;
+
+export const WORKSPACE_MEMBER_ROLES = ['admin', 'member', 'viewer'] as const;
+
+export type WorkspaceMemberRole = (typeof WORKSPACE_MEMBER_ROLES)[number];
