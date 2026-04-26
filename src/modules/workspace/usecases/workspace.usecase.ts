@@ -4,7 +4,6 @@ import { randomUUID } from 'crypto';
 import { isEmail } from 'class-validator';
 import { UnitOfWork } from '@/core/database';
 import { ProjectSummaryResponseDto } from '@/modules/project/dto';
-import { ProjectRepository } from '@/modules/project/repository';
 import {
   AcceptWorkspaceInvitationDto,
   CreateProjectJobsDto,
@@ -55,7 +54,6 @@ export class WorkspaceUseCase {
 
   constructor(
     private readonly repo: WorkspaceRepository,
-    private readonly projectRepo: ProjectRepository,
     private readonly uow: UnitOfWork,
     private readonly invitationNotifier: WorkspaceInvitationNotifierService,
     private readonly workspaceProvisioning: WorkspaceProvisioningService,
@@ -158,16 +156,15 @@ export class WorkspaceUseCase {
     userId: string,
     workspaceSlug: string,
   ): Promise<ProjectSummaryResponseDto[]> {
-    const hasWorkspaceAccess =
-      await this.projectRepo.existsWorkspaceBySlugAndMemberUserId(
-        workspaceSlug,
-        userId,
-      );
-    if (!hasWorkspaceAccess) {
+    const workspace = await this.repo.findWorkspaceBySlugAndMemberUserId(
+      workspaceSlug,
+      userId,
+    );
+    if (!workspace) {
       throw new WorkspaceNotFoundError();
     }
 
-    return this.projectRepo.findProjectsByWorkspaceSlugAndMemberUserId(
+    return this.repo.findProjectsByWorkspaceSlugAndMemberUserId(
       userId,
       workspaceSlug,
     );
