@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { isEmail } from 'class-validator';
 import { UnitOfWork } from '@/core/database';
+import { ProjectSummaryResponseDto } from '@/modules/project/dto';
+import { ProjectRepository } from '@/modules/project/repository';
 import {
   AcceptWorkspaceInvitationDto,
   CreateProjectJobsDto,
@@ -53,6 +55,7 @@ export class WorkspaceUseCase {
 
   constructor(
     private readonly repo: WorkspaceRepository,
+    private readonly projectRepo: ProjectRepository,
     private readonly uow: UnitOfWork,
     private readonly invitationNotifier: WorkspaceInvitationNotifierService,
     private readonly workspaceProvisioning: WorkspaceProvisioningService,
@@ -149,6 +152,25 @@ export class WorkspaceUseCase {
       throw new WorkspaceNotFoundError();
     }
     return workspace;
+  }
+
+  async getWorkspaceProjectsBySlug(
+    userId: string,
+    workspaceSlug: string,
+  ): Promise<ProjectSummaryResponseDto[]> {
+    const hasWorkspaceAccess =
+      await this.projectRepo.existsWorkspaceBySlugAndMemberUserId(
+        workspaceSlug,
+        userId,
+      );
+    if (!hasWorkspaceAccess) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.projectRepo.findProjectsByWorkspaceSlugAndMemberUserId(
+      userId,
+      workspaceSlug,
+    );
   }
 
   async getWorkspaceMembers(
