@@ -50,7 +50,7 @@ export class WorkspaceController {
     return this.usecase.getWorkspaces(String(user.sub));
   }
 
-  @Get('member-candidates')
+  @Get('members/search')
   @Authenticated()
   @ApiOperation({
     summary: 'Search workspace member candidates by email, username, or name',
