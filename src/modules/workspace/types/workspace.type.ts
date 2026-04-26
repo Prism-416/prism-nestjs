@@ -74,3 +74,12 @@ export type WorkspaceProjectJobRow = {
 export type WorkspaceProjectJobIdRow = {
   jobId: string;
 };
+
+export type WorkspaceProjectSummaryRow = {
+  projectId: string;
+  workspaceId: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  createdAt: Date;
+};
