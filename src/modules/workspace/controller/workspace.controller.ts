@@ -15,6 +15,7 @@ import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import type { JwtPayload } from '@/core/auth/jwt-token.service';
+import { ProjectSummaryResponseDto } from '@/modules/project/dto';
 import {
   AcceptWorkspaceInvitationDto,
   CreateProjectJobsDto,
@@ -49,7 +50,7 @@ export class WorkspaceController {
     return this.usecase.getWorkspaces(String(user.sub));
   }
 
-  @Get('member-candidates')
+  @Get('members/search')
   @Authenticated()
   @ApiOperation({
     summary: 'Search workspace member candidates by email, username, or name',
@@ -62,6 +63,22 @@ export class WorkspaceController {
     return this.usecase.searchWorkspaceMemberCandidates(
       String(user.sub),
       query,
+    );
+  }
+
+  @Get(':workspaceSlug/projects')
+  @Authenticated()
+  @ApiOperation({
+    summary: 'Retrieve projects in a workspace by slug the user belongs to',
+  })
+  @ApiDataResponse(ProjectSummaryResponseDto, { isArray: true })
+  async getWorkspaceProjectsBySlug(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceSlug') workspaceSlug: string,
+  ): Promise<ProjectSummaryResponseDto[]> {
+    return this.usecase.getWorkspaceProjectsBySlug(
+      String(user.sub),
+      workspaceSlug,
     );
   }
 

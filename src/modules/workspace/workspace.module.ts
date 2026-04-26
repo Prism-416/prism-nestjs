@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { OciEmailModule } from '@/core/email';
+import { ProjectRepository } from '@/modules/project/repository';
 import { WorkspaceController } from '@/modules/workspace/controller';
 import { WorkspaceRepository } from '@/modules/workspace/repository';
 import {
@@ -12,6 +13,7 @@ import { WorkspaceUseCase } from '@/modules/workspace/usecases';
   imports: [OciEmailModule],
   controllers: [WorkspaceController],
   providers: [
+    ProjectRepository,
     WorkspaceRepository,
     WorkspaceInvitationNotifierService,
     WorkspaceProvisioningService,

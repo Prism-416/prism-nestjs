@@ -50,8 +50,9 @@ export class WorkspaceRepository {
   async findWorkspaceByIdAndMemberUserId(
     workspaceId: string,
     userId: string,
+    manager?: EntityManager,
   ): Promise<WorkspaceRow | null> {
-    const workspaces = await this.dataSource.query<WorkspaceRow[]>(
+    const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
       `
         SELECT
           w.workspace_id AS "workspaceId",
