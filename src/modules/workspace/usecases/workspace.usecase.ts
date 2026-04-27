@@ -594,6 +594,17 @@ export class WorkspaceUseCase {
   }
 
   async deleteWorkspace(userId: string, workspaceId: string): Promise<void> {
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+    if (workspace.ownerId !== userId) {
+      throw new WorkspaceOwnerRequiredError();
+    }
+
     const deleted = await this.repo.markWorkspaceDeletedByIdAndOwnerId(
       workspaceId,
       userId,
