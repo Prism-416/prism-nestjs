@@ -21,9 +21,12 @@ import {
   CreateProjectJobsDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
+  DeclineWorkspaceInvitationDto,
+  GetWorkspaceInvitationQueryDto,
   ProjectJobResponseDto,
   SearchWorkspaceMemberCandidatesQueryDto,
   WorkspaceMemberCandidateSearchResponseDto,
+  WorkspaceInvitationPreviewResponseDto,
   TransferWorkspaceOwnerDto,
   UpdateWorkspaceMemberRoleDto,
   UpdateProjectJobsDto,
@@ -64,6 +67,17 @@ export class WorkspaceController {
       String(user.sub),
       query,
     );
+  }
+
+  @Get('invitations')
+  @ApiOperation({
+    summary: 'Retrieve a workspace invitation using an invitation token',
+  })
+  @ApiDataResponse(WorkspaceInvitationPreviewResponseDto)
+  async getWorkspaceInvitation(
+    @Query() query: GetWorkspaceInvitationQueryDto,
+  ): Promise<WorkspaceInvitationPreviewResponseDto> {
+    return this.usecase.getWorkspaceInvitation(query);
   }
 
   @Get(':workspaceSlug/projects')
@@ -228,6 +242,20 @@ export class WorkspaceController {
     @Body() dto: AcceptWorkspaceInvitationDto,
   ): Promise<WorkspaceResponseDto> {
     return this.usecase.acceptWorkspaceInvitation(dto);
+  }
+
+  @Post('invitations/decline')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Decline a workspace invitation using an invitation token',
+  })
+  @ApiNoContentResponse({
+    description: 'Successfully declined the workspace invitation',
+  })
+  async declineWorkspaceInvitation(
+    @Body() dto: DeclineWorkspaceInvitationDto,
+  ): Promise<void> {
+    await this.usecase.declineWorkspaceInvitation(dto);
   }
 
   @Patch(':workspaceId')

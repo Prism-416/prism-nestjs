@@ -26,7 +26,7 @@ export const envValidationSchema = Joi.object({
     .integer()
     .min(300)
     .default(86400),
-  WORKSPACE_INVITATION_PAGE_URL: Joi.string().allow('').default(''),
+  EMAIL_WORKSPACE_INVITATION_PAGE_URL: Joi.string().allow('').default(''),
   GOOGLE_CLIENT_ID: Joi.string().allow('').default(''),
   GITHUB_CLIENT_ID: Joi.string().allow('').default(''),
   GITHUB_CLIENT_SECRET: Joi.string().allow('').default(''),

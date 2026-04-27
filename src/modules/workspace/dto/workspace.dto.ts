@@ -26,6 +26,13 @@ import {
   type WorkspaceMemberCandidateSearchReason,
 } from '@/modules/workspace/types';
 
+const WORKSPACE_INVITATION_STATUSES = [
+  'pending',
+  'accepted',
+  'declined',
+  'expired',
+] as const;
+
 export class CreateWorkspaceDto {
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
   @IsString()
@@ -164,9 +171,6 @@ export class WorkspaceMemberResponseDto {
 
   @ApiProperty({ nullable: true })
   joinedAt!: Date | null;
-
-  @ApiProperty({ nullable: true })
-  invitedAt!: Date | null;
 }
 
 export class WorkspaceSummaryResponseDto extends WorkspaceResponseDto {
@@ -245,11 +249,45 @@ export class CreateWorkspaceInvitationDto {
   role!: (typeof WORKSPACE_MEMBER_ROLES)[number];
 }
 
+export class GetWorkspaceInvitationQueryDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  token!: string;
+}
+
 export class AcceptWorkspaceInvitationDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
   token!: string;
+}
+
+export class DeclineWorkspaceInvitationDto {
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  token!: string;
+}
+
+export class WorkspaceInvitationPreviewResponseDto {
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  workspaceName!: string;
+
+  @ApiProperty()
+  workspaceSlug!: string;
+
+  @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
+  role!: (typeof WORKSPACE_MEMBER_ROLES)[number];
+
+  @ApiProperty()
+  expiresAt!: Date;
+
+  @ApiProperty({ enum: WORKSPACE_INVITATION_STATUSES })
+  status!: (typeof WORKSPACE_INVITATION_STATUSES)[number];
 }
 
 export class WorkspaceInvitationResponseDto {
