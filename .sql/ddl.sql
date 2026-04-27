@@ -89,7 +89,6 @@ CREATE TABLE IF NOT EXISTS prism_workspace_members_l
     user_id      UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
     role         VARCHAR(20) NOT NULL,
     joined_at    TIMESTAMPTZ,
-    invited_at   TIMESTAMPTZ,
     PRIMARY KEY (workspace_id, user_id),
     CHECK (role IN ('admin', 'member', 'viewer'))
 );

@@ -32,7 +32,6 @@ export type WorkspaceMemberRow = {
   username: string;
   role: WorkspaceMemberRole;
   joinedAt: Date | null;
-  invitedAt: Date | null;
 };
 
 export type WorkspaceInvitationRow = {

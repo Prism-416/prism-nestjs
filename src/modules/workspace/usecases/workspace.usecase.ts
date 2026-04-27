@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { isEmail } from 'class-validator';
+import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
 import { ProjectSummaryResponseDto } from '@/modules/project/dto';
 import {
@@ -9,6 +10,8 @@ import {
   CreateProjectJobsDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
+  DeclineWorkspaceInvitationDto,
+  GetWorkspaceInvitationQueryDto,
   ProjectJobResponseDto,
   SearchWorkspaceMemberCandidatesQueryDto,
   TransferWorkspaceOwnerDto,
@@ -17,6 +20,7 @@ import {
   UpdateWorkspaceDto,
   WorkspaceMemberCandidateSearchResponseDto,
   WorkspaceMemberCandidateResponseDto,
+  WorkspaceInvitationPreviewResponseDto,
   WorkspaceSummaryResponseDto,
   WorkspaceMemberResponseDto,
   WorkspaceInvitationResponseDto,
@@ -29,6 +33,8 @@ import {
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberNotFoundError,
   WorkspaceMemberUserNotFoundError,
+  WorkspaceInvitationAlreadyAcceptedError,
+  WorkspaceInvitationAlreadyDeclinedError,
   WorkspaceInvitationExpiredError,
   WorkspaceInvitationNotFoundError,
   WorkspaceNotFoundError,
@@ -45,8 +51,15 @@ import {
   WorkspaceInvitationRow,
   WorkspaceMemberCandidateKind,
   WorkspaceMemberCandidateSearchReason,
+  WorkspaceRow,
   WorkspaceUserRow,
 } from '@/modules/workspace/types';
+
+type WorkspaceInvitationStatus =
+  | 'pending'
+  | 'accepted'
+  | 'declined'
+  | 'expired';
 
 @Injectable()
 export class WorkspaceUseCase {
@@ -60,7 +73,7 @@ export class WorkspaceUseCase {
     private readonly configService: ConfigService,
   ) {
     this.invitationPageUrl = this.configService.get<string>(
-      'WORKSPACE_INVITATION_PAGE_URL',
+      'EMAIL_WORKSPACE_INVITATION_PAGE_URL',
       '',
     );
   }
@@ -136,6 +149,16 @@ export class WorkspaceUseCase {
       'success',
       users.map((user) => this.toWorkspaceMemberCandidate('existing', user)),
     );
+  }
+
+  async getWorkspaceInvitation(
+    query: GetWorkspaceInvitationQueryDto,
+  ): Promise<WorkspaceInvitationPreviewResponseDto> {
+    const invitationContext = await this.getWorkspaceInvitationContext(
+      query.token,
+    );
+
+    return this.toWorkspaceInvitationPreview(invitationContext);
   }
 
   async getWorkspace(
@@ -505,41 +528,19 @@ export class WorkspaceUseCase {
     dto: AcceptWorkspaceInvitationDto,
   ): Promise<WorkspaceResponseDto> {
     return this.uow.run(async (manager) => {
-      const invitation = await this.repo.findWorkspaceInvitationByToken(
+      const invitationContext = await this.getWorkspaceInvitationContext(
         dto.token,
         manager,
       );
-      if (!invitation) {
-        throw new WorkspaceInvitationNotFoundError();
-      }
+      const { invitation, workspace, status } = invitationContext;
 
-      const workspace = await this.repo.findWorkspaceById(
-        invitation.workspaceId,
-        manager,
-      );
-      if (!workspace) {
-        throw new WorkspaceNotFoundError();
-      }
-
-      const existingMember = await this.repo.findWorkspaceMember(
-        invitation.workspaceId,
-        invitation.receiverId,
-        manager,
-      );
-      if (existingMember) {
-        throw new WorkspaceMemberAlreadyExistsError();
-      }
-
-      if (invitation.expiresAt.getTime() < Date.now()) {
-        throw new WorkspaceInvitationExpiredError();
-      }
+      this.ensurePendingWorkspaceInvitation(status);
 
       await this.repo.createWorkspaceMembership(
         {
           workspaceId: invitation.workspaceId,
           userId: invitation.receiverId,
           role: invitation.role,
-          invitedAt: invitation.createdAt,
         },
         manager,
       );
@@ -554,6 +555,29 @@ export class WorkspaceUseCase {
       );
 
       return workspace;
+    });
+  }
+
+  async declineWorkspaceInvitation(
+    dto: DeclineWorkspaceInvitationDto,
+  ): Promise<void> {
+    await this.uow.run(async (manager) => {
+      const invitationContext = await this.getWorkspaceInvitationContext(
+        dto.token,
+        manager,
+      );
+      const { invitation, status } = invitationContext;
+
+      this.ensurePendingWorkspaceInvitation(status);
+
+      await this.repo.createWorkspaceInvitationEvent(
+        {
+          invitationId: invitation.invitationId,
+          actorId: invitation.receiverId,
+          eventType: 'denied',
+        },
+        manager,
+      );
     });
   }
 
@@ -630,11 +654,113 @@ export class WorkspaceUseCase {
     return workspace;
   }
 
-  private buildInvitationLink(token: string): string {
-    if (!this.invitationPageUrl) {
-      return token;
+  private async getWorkspaceInvitationContext(
+    token: string,
+    manager?: EntityManager,
+  ): Promise<{
+    invitation: WorkspaceInvitationRow;
+    workspace: WorkspaceRow;
+    status: WorkspaceInvitationStatus;
+  }> {
+    const invitation = await this.repo.findWorkspaceInvitationByToken(
+      token,
+      manager,
+    );
+    if (!invitation) {
+      throw new WorkspaceInvitationNotFoundError();
     }
-    return `${this.invitationPageUrl}?token=${encodeURIComponent(token)}`;
+
+    const workspace = await this.repo.findWorkspaceById(
+      invitation.workspaceId,
+      manager,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    const existingMember = await this.repo.findWorkspaceMember(
+      invitation.workspaceId,
+      invitation.receiverId,
+      manager,
+    );
+    if (existingMember) {
+      return {
+        invitation,
+        workspace,
+        status: 'accepted',
+      };
+    }
+
+    const latestEvent = await this.repo.findLatestWorkspaceInvitationEvent(
+      invitation.invitationId,
+      manager,
+    );
+
+    return {
+      invitation,
+      workspace,
+      status: this.resolveWorkspaceInvitationStatus(invitation, latestEvent),
+    };
+  }
+
+  private resolveWorkspaceInvitationStatus(
+    invitation: WorkspaceInvitationRow,
+    latestEvent: { eventType: 'sent' | 'accepted' | 'denied' } | null,
+  ): WorkspaceInvitationStatus {
+    if (latestEvent?.eventType === 'accepted') {
+      return 'accepted';
+    }
+
+    if (latestEvent?.eventType === 'denied') {
+      return 'declined';
+    }
+
+    if (invitation.expiresAt.getTime() < Date.now()) {
+      return 'expired';
+    }
+
+    return 'pending';
+  }
+
+  private ensurePendingWorkspaceInvitation(
+    status: WorkspaceInvitationStatus,
+  ): void {
+    if (status === 'accepted') {
+      throw new WorkspaceInvitationAlreadyAcceptedError();
+    }
+
+    if (status === 'declined') {
+      throw new WorkspaceInvitationAlreadyDeclinedError();
+    }
+
+    if (status === 'expired') {
+      throw new WorkspaceInvitationExpiredError();
+    }
+  }
+
+  private toWorkspaceInvitationPreview(invitationContext: {
+    invitation: WorkspaceInvitationRow;
+    workspace: WorkspaceRow;
+    status: WorkspaceInvitationStatus;
+  }): WorkspaceInvitationPreviewResponseDto {
+    const { invitation, workspace, status } = invitationContext;
+
+    return {
+      workspaceId: workspace.workspaceId,
+      workspaceName: workspace.name,
+      workspaceSlug: workspace.slug,
+      role: invitation.role,
+      expiresAt: invitation.expiresAt,
+      status,
+    };
+  }
+
+  private buildInvitationLink(token: string): string {
+    const invitationPageUrl =
+      this.invitationPageUrl || '/workspaces/invitations/accept';
+    const separator = invitationPageUrl.includes('?') ? '&' : '?';
+
+    return `${invitationPageUrl}${separator}token=${encodeURIComponent(token)}`;
   }
 
   private isExactEmail(keyword: string): boolean {

@@ -79,6 +79,26 @@ export class WorkspaceInvitationExpiredError extends DomainError {
   }
 }
 
+export class WorkspaceInvitationAlreadyAcceptedError extends DomainError {
+  constructor() {
+    super(
+      'Workspace invitation has already been accepted.',
+      'WORKSPACE_INVITATION_ALREADY_ACCEPTED',
+      400,
+    );
+  }
+}
+
+export class WorkspaceInvitationAlreadyDeclinedError extends DomainError {
+  constructor() {
+    super(
+      'Workspace invitation has already been declined.',
+      'WORKSPACE_INVITATION_ALREADY_DECLINED',
+      400,
+    );
+  }
+}
+
 export class ProjectJobAlreadyExistsError extends DuplicateError {
   constructor() {
     super('Project job already exists.', 'PROJECT_JOB_ALREADY_EXISTS');

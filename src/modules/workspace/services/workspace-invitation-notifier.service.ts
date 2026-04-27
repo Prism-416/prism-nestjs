@@ -29,10 +29,8 @@ export class WorkspaceInvitationNotifierService {
     try {
       await this.emailDelivery.sendEmail({
         to: [{ email: receiver.email, name: receiver.fullName }],
-        subject: `Invitation to join ${workspaceName}`,
-        bodyText: destination.startsWith('http')
-          ? `You have been invited to join ${workspaceName} as ${invitation.role}. Open this link to continue: ${destination}`
-          : `You have been invited to join ${workspaceName} as ${invitation.role}. Your invitation token is: ${destination}`,
+        subject: `Invitation to join the "${workspaceName}" workspace`,
+        bodyText: `You have been invited to join the "${workspaceName}" workspace as ${invitation.role}. Review the invitation here: ${destination}`,
       });
 
       this.logger.log(
