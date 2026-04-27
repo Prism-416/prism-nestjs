@@ -509,7 +509,7 @@ export class WorkspaceRepository {
     params: {
       name: string;
       slug: string;
-      description?: string;
+      description?: string | null;
       ownerId: string;
     },
     manager?: EntityManager,

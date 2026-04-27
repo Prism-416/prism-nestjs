@@ -9,3 +9,9 @@ export function buildDefaultWorkspaceName(username: string): string {
 
   return `${normalizedUsername.slice(0, MAX_WORKSPACE_NAME_PREFIX_LENGTH)}${DEFAULT_WORKSPACE_NAME_SUFFIX}`;
 }
+
+export function buildDefaultWorkspaceDescription(
+  workspaceName: string,
+): string {
+  return `Welcome to ${workspaceName}.`;
+}
