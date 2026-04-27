@@ -10,7 +10,10 @@ import {
   EmailVerificationService,
 } from '@/modules/auth/services';
 import { WorkspaceProvisioningService } from '@/modules/workspace/services';
-import { buildDefaultWorkspaceName } from '@/modules/workspace/utils';
+import {
+  buildDefaultWorkspaceDescription,
+  buildDefaultWorkspaceName,
+} from '@/modules/workspace/utils';
 
 @Injectable()
 export class OnboardingUseCase {
@@ -48,11 +51,13 @@ export class OnboardingUseCase {
         tokenPayload,
         manager,
       );
+      const workspaceName = buildDefaultWorkspaceName(user.username);
 
       await this.workspaceProvisioning.ensureOwnedWorkspace(
         {
           ownerId: user.userId,
-          name: buildDefaultWorkspaceName(user.username),
+          name: workspaceName,
+          description: buildDefaultWorkspaceDescription(workspaceName),
         },
         manager,
       );

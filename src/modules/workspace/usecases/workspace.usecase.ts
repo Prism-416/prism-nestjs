@@ -589,7 +589,8 @@ export class WorkspaceUseCase {
     return this.repo.updateWorkspace({
       workspaceId,
       name: dto.name ?? workspace.name,
-      description: dto.description ?? workspace.description,
+      description:
+        dto.description !== undefined ? dto.description : workspace.description,
     });
   }
 

@@ -17,7 +17,7 @@ export class WorkspaceProvisioningService {
     params: {
       ownerId: string;
       name: string;
-      description?: string;
+      description?: string | null;
     },
     manager: EntityManager,
   ): Promise<WorkspaceRow> {
@@ -37,7 +37,7 @@ export class WorkspaceProvisioningService {
     params: {
       ownerId: string;
       name: string;
-      description?: string;
+      description?: string | null;
     },
     manager: EntityManager,
   ): Promise<WorkspaceRow> {
@@ -59,7 +59,7 @@ export class WorkspaceProvisioningService {
     params: {
       ownerId: string;
       name: string;
-      description?: string;
+      description?: string | null;
     },
     manager: EntityManager,
   ): Promise<WorkspaceRow> {
