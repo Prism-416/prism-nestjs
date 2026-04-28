@@ -228,7 +228,7 @@ export class ProjectRepository {
 
   async createProject(
     params: {
-      workspaceId: string;
+      workspaceSlug: string;
       adminUserId: string;
       name: string;
       slug: string;
@@ -256,7 +256,7 @@ export class ProjectRepository {
         FROM prism_workspaces_l w
                INNER JOIN prism_workspace_members_l wm
                           ON wm.workspace_id = w.workspace_id
-        WHERE w.workspace_id = $1
+        WHERE w.slug = $1
           AND wm.user_id = $2
           AND wm.role = 'admin'
           AND w.deleted_at IS NULL
@@ -272,7 +272,7 @@ export class ProjectRepository {
           created_at AS "createdAt"
       `,
       [
-        params.workspaceId,
+        params.workspaceSlug,
         params.adminUserId,
         params.name,
         params.slug,

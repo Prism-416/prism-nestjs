@@ -16,11 +16,15 @@ import {
   normalizeOptionalTrimmedString,
   normalizeTrimmedString,
 } from '@/modules/project/utils';
+import { MAX_WORKSPACE_SLUG_LENGTH } from '@/modules/workspace/constants';
 
 export class CreateProjectDto {
   @ApiProperty()
-  @IsUUID()
-  workspaceId!: string;
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(MAX_WORKSPACE_SLUG_LENGTH)
+  workspaceSlug!: string;
 
   @ApiProperty()
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
