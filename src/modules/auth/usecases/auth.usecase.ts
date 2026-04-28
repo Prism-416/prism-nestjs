@@ -4,6 +4,7 @@ import { JwtTokenService } from '@/core/auth';
 import { UnitOfWork } from '@/core/database';
 import { PasswordService } from '@/core/security';
 import {
+  AuthMeResponseDto,
   AuthTokenPairResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
@@ -13,6 +14,7 @@ import {
 } from '@/modules/auth/dto';
 import {
   EmailNotVerifiedError,
+  InvalidAccessTokenUserError,
   InvalidCredentialsError,
   InvalidRefreshTokenError,
 } from '@/modules/auth/errors';
@@ -61,6 +63,22 @@ export class AuthUseCase {
         manager,
       );
     });
+  }
+
+  async getMe(userId: string): Promise<AuthMeResponseDto> {
+    const user = await this.repo.findUserById(userId);
+    if (!user) {
+      throw new InvalidAccessTokenUserError();
+    }
+
+    return {
+      user: {
+        userId: user.userId,
+        email: user.email,
+        fullName: user.fullName,
+        username: user.username,
+      },
+    };
   }
 
   async signInWithGoogle(

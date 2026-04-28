@@ -108,6 +108,25 @@ export class GithubOAuthAuthorizeResponseDto {
   expiresAt: Date;
 }
 
+export class AuthMeUserDto {
+  @ApiProperty()
+  userId!: string;
+
+  @ApiProperty()
+  email!: string;
+
+  @ApiProperty()
+  fullName!: string;
+
+  @ApiProperty()
+  username!: string;
+}
+
+export class AuthMeResponseDto {
+  @ApiProperty({ type: AuthMeUserDto })
+  user!: AuthMeUserDto;
+}
+
 export class AuthTokenResponseDto {
   @ApiProperty()
   accessToken: string;

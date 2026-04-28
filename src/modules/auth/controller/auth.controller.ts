@@ -13,7 +13,10 @@ import {
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
 import {
+  Authenticated,
   AuthTokenCookieInterceptor,
+  CurrentUser,
+  type JwtPayload,
   REFRESH_TOKEN_COOKIE,
   RefreshToken,
 } from '@/core/auth';
@@ -27,6 +30,7 @@ import {
   GitHubOAuthCookieInterceptor,
 } from '@/modules/auth/interceptors';
 import {
+  AuthMeResponseDto,
   AuthTokenResponseDto,
   GithubOAuthCallbackQueryDto,
   GithubOAuthAuthorizeResponseDto,
@@ -51,6 +55,14 @@ export class AuthController {
   @UseInterceptors(AuthTokenCookieInterceptor)
   async signIn(@Body() dto: SignInWithEmailDto) {
     return await this.usecase.signInWithEmail(dto);
+  }
+
+  @Get('me')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve current authenticated user' })
+  @ApiDataResponse(AuthMeResponseDto)
+  async getMe(@CurrentUser() user: JwtPayload): Promise<AuthMeResponseDto> {
+    return await this.usecase.getMe(String(user.sub));
   }
 
   @Post('email-verification')

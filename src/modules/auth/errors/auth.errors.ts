@@ -34,6 +34,12 @@ export class InvalidRefreshTokenError extends UnauthorizedDomainError {
   }
 }
 
+export class InvalidAccessTokenUserError extends UnauthorizedDomainError {
+  constructor() {
+    super('Invalid access token user.', 'INVALID_ACCESS_TOKEN_USER');
+  }
+}
+
 export class InvalidGoogleIdTokenError extends UnauthorizedDomainError {
   constructor() {
     super('Invalid Google ID token.', 'INVALID_GOOGLE_ID_TOKEN');

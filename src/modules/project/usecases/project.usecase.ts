@@ -131,7 +131,7 @@ export class ProjectUseCase {
       try {
         project = await this.repo.createProject(
           {
-            workspaceId: dto.workspaceId,
+            workspaceSlug: dto.workspaceSlug,
             adminUserId: userId,
             name: dto.name,
             slug: generateProjectSlug(dto.name),
