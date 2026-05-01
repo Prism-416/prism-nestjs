@@ -60,22 +60,17 @@ export class ProjectController {
     );
   }
 
-  @Get('workspaces/:workspaceSlug/:projectSlug')
+  @Get('slugs/:projectSlug')
   @Authenticated()
   @ApiOperation({
-    summary: 'Retrieve a project by workspace slug and project slug',
+    summary: 'Retrieve a project by slug',
   })
   @ApiDataResponse(ProjectResponseDto)
-  async getProjectWithWorkspaceSlug(
+  async getProjectBySlug(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceSlug') workspaceSlug: string,
     @Param('projectSlug') projectSlug: string,
   ): Promise<ProjectResponseDto> {
-    return this.usecase.getProjectWithWorkspaceSlug(
-      String(user.sub),
-      workspaceSlug,
-      projectSlug,
-    );
+    return this.usecase.getProjectBySlug(String(user.sub), projectSlug);
   }
 
   @Get(':projectId')

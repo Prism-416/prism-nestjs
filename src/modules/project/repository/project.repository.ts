@@ -124,9 +124,8 @@ export class ProjectRepository {
     );
   }
 
-  async findProjectByWorkspaceSlugAndProjectSlugAndMemberUserId(
+  async findProjectBySlugAndMemberUserId(
     userId: string,
-    workspaceSlug: string,
     projectSlug: string,
     manager?: EntityManager,
   ): Promise<ProjectRow | null> {
@@ -147,13 +146,12 @@ export class ProjectRepository {
                INNER JOIN prism_workspace_members_l wm
                           ON wm.workspace_id = p.workspace_id
         WHERE wm.user_id = $1
-          AND w.slug = $2
-          AND p.slug = $3
+          AND p.slug = $2
           AND w.deleted_at IS NULL
           AND w.status = 'active'
         LIMIT 1
       `,
-      [userId, workspaceSlug, projectSlug],
+      [userId, projectSlug],
     );
 
     return projects[0] ?? null;
