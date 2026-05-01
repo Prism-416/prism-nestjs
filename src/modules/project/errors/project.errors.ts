@@ -1,7 +1,10 @@
 import { DuplicateError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
-const PROJECT_SLUG_UNIQUE_CONSTRAINT = 'uq_projects_workspace_slug';
+const PROJECT_SLUG_UNIQUE_CONSTRAINTS = new Set([
+  'uq_projects_slug',
+  'uq_projects_workspace_slug',
+]);
 
 export class ProjectSlugAlreadyExistsError extends DuplicateError {
   constructor() {
@@ -47,6 +50,7 @@ export function isProjectSlugUniqueViolation(error: unknown): boolean {
 
   return (
     driverError?.code === '23505' &&
-    driverError.constraint === PROJECT_SLUG_UNIQUE_CONSTRAINT
+    typeof driverError.constraint === 'string' &&
+    PROJECT_SLUG_UNIQUE_CONSTRAINTS.has(driverError.constraint)
   );
 }

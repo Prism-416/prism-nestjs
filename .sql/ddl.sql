@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS prism_projects_l
     timezone     VARCHAR(50) NOT NULL DEFAULT 'UTC',
     locale       VARCHAR(20) NOT NULL DEFAULT 'en-US',
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT uq_projects_workspace_slug UNIQUE (workspace_id, slug),
+    CONSTRAINT uq_projects_slug UNIQUE (slug),
     CONSTRAINT uq_projects_workspace_project UNIQUE (workspace_id, project_id)
 );
 
