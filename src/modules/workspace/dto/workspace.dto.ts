@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   ArrayMinSize,
   ArrayUnique,
+  IsEmail,
   IsIn,
   IsArray,
   IsOptional,
@@ -19,19 +20,13 @@ import {
 } from '@/modules/workspace/utils';
 import {
   MAX_WORKSPACE_NAME_LENGTH,
+  WORKSPACE_INVITATION_STATUSES,
   WORKSPACE_MEMBER_ROLES,
 } from '@/modules/workspace/constants';
 import {
   WORKSPACE_MEMBER_CANDIDATE_SEARCH_REASONS,
   type WorkspaceMemberCandidateSearchReason,
 } from '@/modules/workspace/types';
-
-const WORKSPACE_INVITATION_STATUSES = [
-  'pending',
-  'accepted',
-  'declined',
-  'expired',
-] as const;
 
 export class CreateWorkspaceDto {
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
@@ -239,9 +234,17 @@ export class ProjectJobResponseDto {
 }
 
 export class CreateWorkspaceInvitationDto {
-  @ApiProperty()
+  @ApiPropertyOptional()
+  @IsOptional()
   @IsUUID()
-  receiverId!: string;
+  receiverId?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsEmail()
+  @MaxLength(320)
+  email?: string;
 
   @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
   @IsString()
@@ -288,6 +291,9 @@ export class WorkspaceInvitationPreviewResponseDto {
 
   @ApiProperty({ enum: WORKSPACE_INVITATION_STATUSES })
   status!: (typeof WORKSPACE_INVITATION_STATUSES)[number];
+
+  @ApiProperty()
+  requiresSignup!: boolean;
 }
 
 export class WorkspaceInvitationResponseDto {
@@ -300,8 +306,11 @@ export class WorkspaceInvitationResponseDto {
   @ApiProperty()
   senderId!: string;
 
+  @ApiProperty({ nullable: true })
+  receiverId!: string | null;
+
   @ApiProperty()
-  receiverId!: string;
+  receiverEmail!: string;
 
   @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
   role!: (typeof WORKSPACE_MEMBER_ROLES)[number];

@@ -37,6 +37,8 @@ import {
   WorkspaceInvitationAlreadyDeclinedError,
   WorkspaceInvitationExpiredError,
   WorkspaceInvitationNotFoundError,
+  WorkspaceInvitationRecipientRequiredError,
+  WorkspaceInvitationSignupRequiredError,
   WorkspaceNotFoundError,
   WorkspaceOwnerRemovalError,
   WorkspaceOwnerRequiredError,
@@ -47,19 +49,15 @@ import {
   WorkspaceInvitationNotifierService,
   WorkspaceProvisioningService,
 } from '@/modules/workspace/services';
+import { WorkspaceInvitationStatus } from '@/modules/workspace/constants';
 import {
   WorkspaceInvitationRow,
+  WorkspaceInvitationReceiver,
   WorkspaceMemberCandidateKind,
   WorkspaceMemberCandidateSearchReason,
   WorkspaceRow,
   WorkspaceUserRow,
 } from '@/modules/workspace/types';
-
-type WorkspaceInvitationStatus =
-  | 'pending'
-  | 'accepted'
-  | 'declined'
-  | 'expired';
 
 @Injectable()
 export class WorkspaceUseCase {
@@ -452,18 +450,20 @@ export class WorkspaceUseCase {
           throw new WorkspaceNotFoundError();
         }
 
-        const receiver = await this.repo.findUserById(dto.receiverId, manager);
-        if (!receiver) {
-          throw new WorkspaceMemberUserNotFoundError();
-        }
-
-        const existingMember = await this.repo.findWorkspaceMember(
-          workspaceId,
-          dto.receiverId,
+        const receiver = await this.resolveWorkspaceInvitationCreateReceiver(
+          dto,
           manager,
         );
-        if (existingMember) {
-          throw new WorkspaceMemberAlreadyExistsError();
+
+        if (receiver.userId) {
+          const existingMember = await this.repo.findWorkspaceMember(
+            workspaceId,
+            receiver.userId,
+            manager,
+          );
+          if (existingMember) {
+            throw new WorkspaceMemberAlreadyExistsError();
+          }
         }
 
         const token = randomUUID();
@@ -481,7 +481,8 @@ export class WorkspaceUseCase {
             {
               workspaceId,
               senderId: userId,
-              receiverId: dto.receiverId,
+              receiverId: receiver.userId,
+              receiverEmail: receiver.email,
               role: dto.role,
               token,
               expiresAt,
@@ -506,6 +507,7 @@ export class WorkspaceUseCase {
             workspaceId: invitation.workspaceId,
             senderId: invitation.senderId,
             receiverId: invitation.receiverId,
+            receiverEmail: invitation.receiverEmail,
             role: invitation.role,
             expiresAt: invitation.expiresAt,
             token: invitation.token,
@@ -536,19 +538,39 @@ export class WorkspaceUseCase {
 
       this.ensurePendingWorkspaceInvitation(status);
 
+      const receiver = await this.resolveWorkspaceInvitationReceiver(
+        invitation,
+        manager,
+      );
+
+      const existingMember = await this.repo.findWorkspaceMember(
+        invitation.workspaceId,
+        receiver.userId,
+        manager,
+      );
+      if (existingMember) {
+        throw new WorkspaceMemberAlreadyExistsError();
+      }
+
       await this.repo.createWorkspaceMembership(
         {
           workspaceId: invitation.workspaceId,
-          userId: invitation.receiverId,
+          userId: receiver.userId,
           role: invitation.role,
         },
+        manager,
+      );
+
+      await this.repo.attachWorkspaceInvitationReceiver(
+        invitation.invitationId,
+        receiver.userId,
         manager,
       );
 
       await this.repo.createWorkspaceInvitationEvent(
         {
           invitationId: invitation.invitationId,
-          actorId: invitation.receiverId,
+          actorId: receiver.userId,
           eventType: 'accepted',
         },
         manager,
@@ -661,6 +683,7 @@ export class WorkspaceUseCase {
     invitation: WorkspaceInvitationRow;
     workspace: WorkspaceRow;
     status: WorkspaceInvitationStatus;
+    requiresSignup: boolean;
   }> {
     const invitation = await this.repo.findWorkspaceInvitationByToken(
       token,
@@ -678,17 +701,29 @@ export class WorkspaceUseCase {
       throw new WorkspaceNotFoundError();
     }
 
-    const existingMember = await this.repo.findWorkspaceMember(
-      invitation.workspaceId,
-      invitation.receiverId,
-      manager,
-    );
-    if (existingMember) {
-      return {
-        invitation,
-        workspace,
-        status: 'accepted',
-      };
+    let resolvedReceiverId = invitation.receiverId;
+    if (!resolvedReceiverId) {
+      const receiver = await this.repo.findUserByEmail(
+        invitation.receiverEmail,
+        manager,
+      );
+      resolvedReceiverId = receiver?.userId ?? null;
+    }
+
+    if (resolvedReceiverId) {
+      const existingMember = await this.repo.findWorkspaceMember(
+        invitation.workspaceId,
+        resolvedReceiverId,
+        manager,
+      );
+      if (existingMember) {
+        return {
+          invitation,
+          workspace,
+          status: 'accepted',
+          requiresSignup: false,
+        };
+      }
     }
 
     const latestEvent = await this.repo.findLatestWorkspaceInvitationEvent(
@@ -700,6 +735,7 @@ export class WorkspaceUseCase {
       invitation,
       workspace,
       status: this.resolveWorkspaceInvitationStatus(invitation, latestEvent),
+      requiresSignup: !resolvedReceiverId,
     };
   }
 
@@ -742,8 +778,9 @@ export class WorkspaceUseCase {
     invitation: WorkspaceInvitationRow;
     workspace: WorkspaceRow;
     status: WorkspaceInvitationStatus;
+    requiresSignup: boolean;
   }): WorkspaceInvitationPreviewResponseDto {
-    const { invitation, workspace, status } = invitationContext;
+    const { invitation, workspace, status, requiresSignup } = invitationContext;
 
     return {
       workspaceId: workspace.workspaceId,
@@ -752,7 +789,65 @@ export class WorkspaceUseCase {
       role: invitation.role,
       expiresAt: invitation.expiresAt,
       status,
+      requiresSignup,
     };
+  }
+
+  private async resolveWorkspaceInvitationCreateReceiver(
+    dto: CreateWorkspaceInvitationDto,
+    manager: EntityManager,
+  ): Promise<WorkspaceInvitationReceiver> {
+    if (dto.receiverId) {
+      const receiver = await this.repo.findUserById(dto.receiverId, manager);
+      if (!receiver) {
+        throw new WorkspaceMemberUserNotFoundError();
+      }
+
+      return receiver;
+    }
+
+    if (!dto.email) {
+      throw new WorkspaceInvitationRecipientRequiredError();
+    }
+
+    const receiver = await this.repo.findUserByEmail(dto.email, manager);
+    if (receiver) {
+      return receiver;
+    }
+
+    return {
+      userId: null,
+      email: dto.email,
+      fullName: null,
+      username: null,
+    };
+  }
+
+  private async resolveWorkspaceInvitationReceiver(
+    invitation: WorkspaceInvitationRow,
+    manager: EntityManager,
+  ): Promise<WorkspaceUserRow> {
+    if (invitation.receiverId) {
+      const receiver = await this.repo.findUserById(
+        invitation.receiverId,
+        manager,
+      );
+      if (!receiver) {
+        throw new WorkspaceMemberUserNotFoundError();
+      }
+
+      return receiver;
+    }
+
+    const receiver = await this.repo.findUserByEmail(
+      invitation.receiverEmail,
+      manager,
+    );
+    if (!receiver) {
+      throw new WorkspaceInvitationSignupRequiredError();
+    }
+
+    return receiver;
   }
 
   private buildInvitationLink(token: string): string {

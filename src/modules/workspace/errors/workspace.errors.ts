@@ -99,6 +99,26 @@ export class WorkspaceInvitationAlreadyDeclinedError extends DomainError {
   }
 }
 
+export class WorkspaceInvitationRecipientRequiredError extends DomainError {
+  constructor() {
+    super(
+      'Workspace invitation requires a receiver id or email.',
+      'WORKSPACE_INVITATION_RECIPIENT_REQUIRED',
+      400,
+    );
+  }
+}
+
+export class WorkspaceInvitationSignupRequiredError extends DomainError {
+  constructor() {
+    super(
+      'Workspace invitation recipient must sign up before accepting.',
+      'WORKSPACE_INVITATION_SIGNUP_REQUIRED',
+      409,
+    );
+  }
+}
+
 export class ProjectJobAlreadyExistsError extends DuplicateError {
   constructor() {
     super('Project job already exists.', 'PROJECT_JOB_ALREADY_EXISTS');

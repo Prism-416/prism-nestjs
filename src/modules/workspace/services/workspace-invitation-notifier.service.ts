@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OciEmailDeliveryService } from '@/core/email';
 import { WorkspaceInvitationResponseDto } from '@/modules/workspace/dto';
-import { WorkspaceUserRow } from '@/modules/workspace/types';
+import { WorkspaceInvitationReceiver } from '@/modules/workspace/types';
 
 @Injectable()
 export class WorkspaceInvitationNotifierService {
@@ -19,7 +19,7 @@ export class WorkspaceInvitationNotifierService {
   async sendWorkspaceInvitation(
     workspaceName: string,
     invitation: WorkspaceInvitationResponseDto,
-    receiver: WorkspaceUserRow,
+    receiver: WorkspaceInvitationReceiver,
   ): Promise<void> {
     if (!this.emailEnabled) {
       return;
@@ -28,17 +28,17 @@ export class WorkspaceInvitationNotifierService {
     const destination = invitation.invitationLink;
     try {
       await this.emailDelivery.sendEmail({
-        to: [{ email: receiver.email, name: receiver.fullName }],
+        to: [{ email: receiver.email, name: receiver.fullName ?? undefined }],
         subject: `Invitation to join ${workspaceName}`,
         bodyText: `You have been invited to join ${workspaceName} as ${invitation.role}. Review the invitation here: ${destination}`,
       });
 
       this.logger.log(
-        `Workspace invitation sent: workspace=${invitation.workspaceId}, receiver=${receiver.userId}`,
+        `Workspace invitation sent: workspace=${invitation.workspaceId}, receiver=${receiver.userId ?? receiver.email}`,
       );
     } catch (error) {
       this.logger.error(
-        `Workspace invitation delivery failed: workspace=${invitation.workspaceId}, receiver=${receiver.userId}`,
+        `Workspace invitation delivery failed: workspace=${invitation.workspaceId}, receiver=${receiver.userId ?? receiver.email}`,
         error instanceof Error ? error.stack : String(error),
       );
     }

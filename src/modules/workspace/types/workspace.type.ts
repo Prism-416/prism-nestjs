@@ -38,11 +38,19 @@ export type WorkspaceInvitationRow = {
   invitationId: string;
   workspaceId: string;
   senderId: string;
-  receiverId: string;
+  receiverId: string | null;
+  receiverEmail: string;
   role: WorkspaceMemberRow['role'];
   token: string;
   expiresAt: Date;
   createdAt: Date;
+};
+
+export type WorkspaceInvitationReceiver = {
+  userId: string | null;
+  email: string;
+  fullName: string | null;
+  username: string | null;
 };
 
 export type WorkspaceInvitationEventType = 'sent' | 'accepted' | 'denied';
