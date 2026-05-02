@@ -547,7 +547,8 @@ export class WorkspaceRepository {
     params: {
       workspaceId: string;
       senderId: string;
-      receiverId: string;
+      receiverId: string | null;
+      receiverEmail: string;
       role: WorkspaceMemberRow['role'];
       token: string;
       expiresAt: Date;
@@ -562,14 +563,16 @@ export class WorkspaceRepository {
           workspace_id,
           sender_id,
           receiver_id,
+          receiver_email,
           role,
           invitation_token,
           expires_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
-        ON CONFLICT (workspace_id, receiver_id)
+        VALUES ($1, $2, $3, LOWER($4), $5, $6, $7)
+        ON CONFLICT (workspace_id, receiver_email)
         DO UPDATE SET
           sender_id = EXCLUDED.sender_id,
+          receiver_id = EXCLUDED.receiver_id,
           role = EXCLUDED.role,
           invitation_token = EXCLUDED.invitation_token,
           expires_at = EXCLUDED.expires_at
@@ -578,6 +581,7 @@ export class WorkspaceRepository {
           workspace_id AS "workspaceId",
           sender_id AS "senderId",
           receiver_id AS "receiverId",
+          receiver_email AS "receiverEmail",
           role,
           invitation_token AS "token",
           expires_at AS "expiresAt",
@@ -587,6 +591,7 @@ export class WorkspaceRepository {
         params.workspaceId,
         params.senderId,
         params.receiverId,
+        params.receiverEmail,
         params.role,
         params.token,
         params.expiresAt,
@@ -609,6 +614,7 @@ export class WorkspaceRepository {
           workspace_id AS "workspaceId",
           sender_id AS "senderId",
           receiver_id AS "receiverId",
+          receiver_email AS "receiverEmail",
           role,
           invitation_token AS "token",
           expires_at AS "expiresAt",
@@ -621,6 +627,22 @@ export class WorkspaceRepository {
     );
 
     return invitations[0] ?? null;
+  }
+
+  async attachWorkspaceInvitationReceiver(
+    invitationId: string,
+    receiverId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        UPDATE prism_workspace_invitations_l
+        SET receiver_id = $2
+        WHERE invitation_id = $1
+          AND receiver_id IS NULL
+      `,
+      [invitationId, receiverId],
+    );
   }
 
   async findLatestWorkspaceInvitationEvent(

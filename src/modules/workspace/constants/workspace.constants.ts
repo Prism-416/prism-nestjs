@@ -8,3 +8,13 @@ export const MAX_WORKSPACE_SLUG_BASE_LENGTH =
 export const WORKSPACE_MEMBER_ROLES = ['admin', 'member', 'viewer'] as const;
 
 export type WorkspaceMemberRole = (typeof WORKSPACE_MEMBER_ROLES)[number];
+
+export const WORKSPACE_INVITATION_STATUSES = [
+  'pending',
+  'accepted',
+  'declined',
+  'expired',
+] as const;
+
+export type WorkspaceInvitationStatus =
+  (typeof WORKSPACE_INVITATION_STATUSES)[number];

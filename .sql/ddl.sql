@@ -104,12 +104,14 @@ CREATE TABLE IF NOT EXISTS prism_workspace_invitations_l
     invitation_id    UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
     workspace_id     UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
     sender_id        UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
-    receiver_id      UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    receiver_id      UUID        REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    receiver_email   VARCHAR(320) NOT NULL,
     role             VARCHAR(20) NOT NULL,
     invitation_token UUID        NOT NULL,
     expires_at       TIMESTAMPTZ NOT NULL,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (invitation_token),
+    UNIQUE (workspace_id, receiver_email),
     CHECK (role IN ('admin', 'member', 'viewer'))
 );
 
