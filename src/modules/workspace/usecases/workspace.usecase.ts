@@ -30,6 +30,7 @@ import {
   isProjectJobNameUniqueViolation,
   ProjectJobAlreadyExistsError,
   ProjectJobNotFoundError,
+  WorkspaceNameAlreadyExistsError,
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberNotFoundError,
   WorkspaceMemberUserNotFoundError,
@@ -615,6 +616,15 @@ export class WorkspaceUseCase {
     dto: CreateWorkspaceDto,
   ): Promise<WorkspaceResponseDto> {
     return this.uow.run(async (manager) => {
+      const existingWorkspace = await this.repo.findWorkspaceByOwnerIdAndName(
+        userId,
+        dto.name,
+        manager,
+      );
+      if (existingWorkspace) {
+        throw new WorkspaceNameAlreadyExistsError();
+      }
+
       return this.workspaceProvisioning.createOwnedWorkspace(
         {
           ownerId: userId,
@@ -631,19 +641,39 @@ export class WorkspaceUseCase {
     workspaceId: string,
     dto: UpdateWorkspaceDto,
   ): Promise<WorkspaceResponseDto> {
-    const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
-      workspaceId,
-      userId,
-    );
-    if (!workspace) {
-      throw new WorkspaceNotFoundError();
-    }
+    return this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+        workspaceId,
+        userId,
+        manager,
+      );
+      if (!workspace) {
+        throw new WorkspaceNotFoundError();
+      }
 
-    return this.repo.updateWorkspace({
-      workspaceId,
-      name: dto.name ?? workspace.name,
-      description:
-        dto.description !== undefined ? dto.description : workspace.description,
+      if (dto.name !== undefined) {
+        const existingWorkspace = await this.repo.findWorkspaceByOwnerIdAndName(
+          workspace.ownerId,
+          dto.name,
+          manager,
+          workspace.workspaceId,
+        );
+        if (existingWorkspace) {
+          throw new WorkspaceNameAlreadyExistsError();
+        }
+      }
+
+      return this.repo.updateWorkspace(
+        {
+          workspaceId,
+          name: dto.name ?? workspace.name,
+          description:
+            dto.description !== undefined
+              ? dto.description
+              : workspace.description,
+        },
+        manager,
+      );
     });
   }
 
