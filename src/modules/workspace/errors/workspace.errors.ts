@@ -10,6 +10,12 @@ export class WorkspaceSlugAlreadyExistsError extends DuplicateError {
   }
 }
 
+export class WorkspaceNameAlreadyExistsError extends DuplicateError {
+  constructor() {
+    super('Workspace name already exists.', 'WORKSPACE_NAME_ALREADY_EXISTS');
+  }
+}
+
 export class WorkspaceNotFoundError extends NotExistsError {
   constructor() {
     super('Workspace not found.', 'WORKSPACE_NOT_FOUND');

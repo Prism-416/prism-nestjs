@@ -135,6 +135,7 @@ export class WorkspaceRepository {
     ownerId: string,
     name: string,
     manager?: EntityManager,
+    excludeWorkspaceId?: string,
   ): Promise<WorkspaceRow | null> {
     const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
       `
@@ -147,12 +148,13 @@ export class WorkspaceRepository {
           created_at AS "createdAt"
         FROM prism_workspaces_l
         WHERE owner_id = $1
-          AND name = $2
+          AND LOWER(name) = LOWER($2)
+          AND ($3::uuid IS NULL OR workspace_id <> $3)
           AND deleted_at IS NULL
           AND status = 'active'
         LIMIT 1
       `,
-      [ownerId, name],
+      [ownerId, name, excludeWorkspaceId ?? null],
     );
 
     return workspaces[0] ?? null;
