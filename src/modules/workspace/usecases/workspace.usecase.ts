@@ -212,11 +212,18 @@ export class WorkspaceUseCase {
     targetUserId: string,
   ): Promise<void> {
     await this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
-        workspaceId,
-        userId,
-        manager,
-      );
+      const isLeavingSelf = userId === targetUserId;
+      const workspace = isLeavingSelf
+        ? await this.repo.findWorkspaceByIdAndMemberUserId(
+            workspaceId,
+            userId,
+            manager,
+          )
+        : await this.repo.findWorkspaceByIdAndAdminUserId(
+            workspaceId,
+            userId,
+            manager,
+          );
       if (!workspace) {
         throw new WorkspaceNotFoundError();
       }
