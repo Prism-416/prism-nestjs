@@ -6,6 +6,10 @@ import {
   UpdateSprintMetadataDto,
 } from '@/modules/sprint/dto';
 import {
+  SearchWorkItemsQueryDto,
+  SearchWorkItemsResponseDto,
+} from '@/modules/project/dto';
+import {
   isSprintNameUniqueViolation,
   isSprintPeriodCheckViolation,
   SprintAlreadyExistsError,
@@ -19,16 +23,17 @@ import { SPRINT_STATUSES } from '@/modules/sprint/types';
 @Injectable()
 export class SprintUseCase {
   constructor(
-    private readonly sprintRepository: SprintRepository,
+    private readonly repo: SprintRepository,
     private readonly uow: UnitOfWork,
   ) {}
 
-  async getSprintMetadata(
+  async getSprintWorkItems(
     userId: string,
     projectId: string,
     sprintId: string,
-  ): Promise<SprintResponseDto> {
-    const project = await this.sprintRepository.findProjectByIdAndMemberUserId(
+    query: SearchWorkItemsQueryDto,
+  ): Promise<SearchWorkItemsResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
       projectId,
       userId,
     );
@@ -36,10 +41,40 @@ export class SprintUseCase {
       throw new SprintProjectNotFoundError();
     }
 
-    const sprint = await this.sprintRepository.findSprintById(
-      project.projectId,
-      sprintId,
+    const sprint = await this.repo.findSprintById(project.projectId, sprintId);
+    if (!sprint) {
+      throw new SprintNotFoundError();
+    }
+
+    return this.repo.searchSprintWorkItems({
+      projectId: project.projectId,
+      sprintId: sprint.sprintId,
+      query: query.query,
+      parentId: query.parentId,
+      type: query.type,
+      priority: query.priority,
+      status: query.status,
+      assigneeUsername: query.assigneeUsername,
+      labelName: query.labelName,
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
+    });
+  }
+
+  async getSprintMetadata(
+    userId: string,
+    projectId: string,
+    sprintId: string,
+  ): Promise<SprintResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
     );
+    if (!project) {
+      throw new SprintProjectNotFoundError();
+    }
+
+    const sprint = await this.repo.findSprintById(project.projectId, sprintId);
     if (!sprint) {
       throw new SprintNotFoundError();
     }
@@ -60,18 +95,17 @@ export class SprintUseCase {
     }
 
     return this.uow.run(async (manager) => {
-      const project =
-        await this.sprintRepository.findProjectByIdAndMemberUserId(
-          projectId,
-          userId,
-          manager,
-        );
+      const project = await this.repo.findProjectByIdAndMemberUserId(
+        projectId,
+        userId,
+        manager,
+      );
       if (!project) {
         throw new SprintProjectNotFoundError();
       }
 
       try {
-        return await this.sprintRepository.createSprint(
+        return await this.repo.createSprint(
           {
             projectId: project.projectId,
             name: dto.name,
@@ -103,17 +137,16 @@ export class SprintUseCase {
     dto: UpdateSprintMetadataDto,
   ): Promise<SprintResponseDto> {
     return this.uow.run(async (manager) => {
-      const project =
-        await this.sprintRepository.findProjectByIdAndMemberUserId(
-          projectId,
-          userId,
-          manager,
-        );
+      const project = await this.repo.findProjectByIdAndMemberUserId(
+        projectId,
+        userId,
+        manager,
+      );
       if (!project) {
         throw new SprintProjectNotFoundError();
       }
 
-      const currentSprint = await this.sprintRepository.findSprintById(
+      const currentSprint = await this.repo.findSprintById(
         project.projectId,
         sprintId,
         manager,
@@ -133,8 +166,10 @@ export class SprintUseCase {
         throw new SprintPeriodInvalidError();
       }
 
+      let updatedSprint: SprintResponseDto | null;
+
       try {
-        const updatedSprint = await this.sprintRepository.updateSprintMetadata(
+        updatedSprint = await this.repo.updateSprintMetadata(
           {
             projectId: project.projectId,
             sprintId,
@@ -146,11 +181,6 @@ export class SprintUseCase {
           },
           manager,
         );
-        if (!updatedSprint) {
-          throw new SprintNotFoundError();
-        }
-
-        return updatedSprint;
       } catch (error) {
         if (isSprintNameUniqueViolation(error)) {
           throw new SprintAlreadyExistsError();
@@ -162,6 +192,12 @@ export class SprintUseCase {
 
         throw error;
       }
+
+      if (!updatedSprint) {
+        throw new SprintNotFoundError();
+      }
+
+      return updatedSprint;
     });
   }
 }

@@ -6,6 +6,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
@@ -16,12 +17,34 @@ import {
   SprintResponseDto,
   UpdateSprintMetadataDto,
 } from '@/modules/sprint/dto';
+import {
+  SearchWorkItemsQueryDto,
+  SearchWorkItemsResponseDto,
+} from '@/modules/project/dto';
 import { SprintUseCase } from '@/modules/sprint/usecases';
 
 @ApiTags('Project Sprint')
 @Controller(':projectId/sprints')
 export class SprintController {
   constructor(private readonly usecase: SprintUseCase) {}
+
+  @Get(':sprintId/work-items')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve sprint work items' })
+  @ApiDataResponse(SearchWorkItemsResponseDto)
+  async getSprintWorkItems(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('sprintId') sprintId: string,
+    @Query() query: SearchWorkItemsQueryDto,
+  ): Promise<SearchWorkItemsResponseDto> {
+    return this.usecase.getSprintWorkItems(
+      String(user.sub),
+      projectId,
+      sprintId,
+      query,
+    );
+  }
 
   @Get(':sprintId')
   @Authenticated()
