@@ -17,7 +17,7 @@ import {
 } from '@/modules/sprint/dto';
 import { SprintUseCase } from '@/modules/sprint/usecases';
 
-@ApiTags('Project Sprints')
+@ApiTags('Project Sprint')
 @Controller(':projectId/sprints')
 export class SprintController {
   constructor(private readonly usecase: SprintUseCase) {}
