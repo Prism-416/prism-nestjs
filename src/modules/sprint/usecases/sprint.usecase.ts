@@ -27,6 +27,21 @@ export class SprintUseCase {
     private readonly uow: UnitOfWork,
   ) {}
 
+  async getSprints(
+    userId: string,
+    projectId: string,
+  ): Promise<SprintResponseDto[]> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new SprintProjectNotFoundError();
+    }
+
+    return this.repo.findSprintsByProjectId(project.projectId);
+  }
+
   async getSprintWorkItems(
     userId: string,
     projectId: string,

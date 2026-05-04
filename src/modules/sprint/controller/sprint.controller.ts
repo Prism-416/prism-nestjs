@@ -28,6 +28,17 @@ import { SprintUseCase } from '@/modules/sprint/usecases';
 export class SprintController {
   constructor(private readonly usecase: SprintUseCase) {}
 
+  @Get()
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve project sprints' })
+  @ApiDataResponse(SprintResponseDto, { isArray: true })
+  async getSprints(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+  ): Promise<SprintResponseDto[]> {
+    return this.usecase.getSprints(String(user.sub), projectId);
+  }
+
   @Get(':sprintId/work-items')
   @Authenticated()
   @ApiOperation({ summary: 'Retrieve sprint work items' })
