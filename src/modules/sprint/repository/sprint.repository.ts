@@ -116,6 +116,29 @@ export class SprintRepository {
     return sprints[0] ?? null;
   }
 
+  async findSprintsByProjectId(
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<SprintRow[]> {
+    return this.getManager(manager).query<SprintRow[]>(
+      `
+        SELECT
+          sprint_id AS "sprintId",
+          project_id AS "projectId",
+          sprint_name AS "name",
+          description,
+          starts_at AS "startsAt",
+          ends_at AS "endsAt",
+          status,
+          created_at AS "createdAt"
+        FROM prism_sprints_l
+        WHERE project_id = $1
+        ORDER BY starts_at DESC, sprint_id DESC
+      `,
+      [projectId],
+    );
+  }
+
   async searchSprintWorkItems(
     params: SearchWorkItemsParams & { sprintId: string },
     manager?: EntityManager,
