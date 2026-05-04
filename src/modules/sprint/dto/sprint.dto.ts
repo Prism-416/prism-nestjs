@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 import { SPRINT_STATUSES } from '@/modules/sprint/types';
@@ -80,6 +81,12 @@ export class UpdateSprintMetadataDto {
   status?: SprintStatus;
 }
 
+export class AddSprintWorkItemDto {
+  @ApiProperty()
+  @IsUUID()
+  itemId!: string;
+}
+
 export class SprintResponseDto {
   @ApiProperty()
   sprintId!: string;
@@ -101,6 +108,20 @@ export class SprintResponseDto {
 
   @ApiProperty({ enum: SPRINT_STATUSES })
   status!: SprintStatus;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
+export class SprintWorkItemResponseDto {
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  sprintId!: string;
+
+  @ApiProperty()
+  itemId!: string;
 
   @ApiProperty()
   createdAt!: Date;

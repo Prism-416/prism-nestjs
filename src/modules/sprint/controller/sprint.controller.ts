@@ -13,8 +13,10 @@ import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
+  AddSprintWorkItemDto,
   CreateSprintDto,
   SprintResponseDto,
+  SprintWorkItemResponseDto,
   UpdateSprintMetadataDto,
 } from '@/modules/sprint/dto';
 import {
@@ -54,6 +56,24 @@ export class SprintController {
       projectId,
       sprintId,
       query,
+    );
+  }
+
+  @Post(':sprintId/work-items')
+  @Authenticated()
+  @ApiOperation({ summary: 'Add work item to sprint' })
+  @ApiDataResponse(SprintWorkItemResponseDto, { status: HttpStatus.CREATED })
+  async addSprintWorkItem(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('sprintId') sprintId: string,
+    @Body() dto: AddSprintWorkItemDto,
+  ): Promise<SprintWorkItemResponseDto> {
+    return this.usecase.addSprintWorkItem(
+      String(user.sub),
+      projectId,
+      sprintId,
+      dto,
     );
   }
 
