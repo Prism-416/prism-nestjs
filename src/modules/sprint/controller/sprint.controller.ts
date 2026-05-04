@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpStatus,
   Param,
   Patch,
@@ -21,6 +22,22 @@ import { SprintUseCase } from '@/modules/sprint/usecases';
 @Controller(':projectId/sprints')
 export class SprintController {
   constructor(private readonly usecase: SprintUseCase) {}
+
+  @Get(':sprintId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve sprint metadata' })
+  @ApiDataResponse(SprintResponseDto)
+  async getSprintMetadata(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('sprintId') sprintId: string,
+  ): Promise<SprintResponseDto> {
+    return this.usecase.getSprintMetadata(
+      String(user.sub),
+      projectId,
+      sprintId,
+    );
+  }
 
   @Post()
   @Authenticated()

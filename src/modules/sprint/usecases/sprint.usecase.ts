@@ -23,6 +23,30 @@ export class SprintUseCase {
     private readonly uow: UnitOfWork,
   ) {}
 
+  async getSprintMetadata(
+    userId: string,
+    projectId: string,
+    sprintId: string,
+  ): Promise<SprintResponseDto> {
+    const project = await this.sprintRepository.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new SprintProjectNotFoundError();
+    }
+
+    const sprint = await this.sprintRepository.findSprintById(
+      project.projectId,
+      sprintId,
+    );
+    if (!sprint) {
+      throw new SprintNotFoundError();
+    }
+
+    return sprint;
+  }
+
   async createSprint(
     userId: string,
     projectId: string,
