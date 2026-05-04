@@ -215,4 +215,30 @@ export class SprintUseCase {
       return updatedSprint;
     });
   }
+
+  async deleteSprint(
+    userId: string,
+    projectId: string,
+    sprintId: string,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const project = await this.repo.findProjectByIdAndMemberUserId(
+        projectId,
+        userId,
+        manager,
+      );
+      if (!project) {
+        throw new SprintProjectNotFoundError();
+      }
+
+      const deleted = await this.repo.deleteSprint(
+        project.projectId,
+        sprintId,
+        manager,
+      );
+      if (!deleted) {
+        throw new SprintNotFoundError();
+      }
+    });
+  }
 }

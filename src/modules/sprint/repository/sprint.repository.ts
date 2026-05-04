@@ -361,6 +361,26 @@ export class SprintRepository {
     return sprints[0] ?? null;
   }
 
+  async deleteSprint(
+    projectId: string,
+    sprintId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const sprints = await this.getManager(manager).query<
+      Array<{ sprintId: string }>
+    >(
+      `
+        DELETE FROM prism_sprints_l
+        WHERE project_id = $1
+          AND sprint_id = $2
+        RETURNING sprint_id AS "sprintId"
+      `,
+      [projectId, sprintId],
+    );
+
+    return sprints.length > 0;
+  }
+
   private getManager(manager?: EntityManager): DataSource | EntityManager {
     return manager ?? this.dataSource;
   }
