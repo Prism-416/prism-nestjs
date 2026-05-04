@@ -16,10 +16,3 @@ export type SprintRow = {
   status: SprintStatus;
   createdAt: Date;
 };
-
-export type SprintWorkItemRow = {
-  projectId: string;
-  sprintId: string;
-  itemId: string;
-  createdAt: Date;
-};

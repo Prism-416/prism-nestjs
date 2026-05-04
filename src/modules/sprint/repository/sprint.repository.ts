@@ -5,7 +5,6 @@ import {
   SprintProjectRow,
   SprintRow,
   SprintStatus,
-  SprintWorkItemRow,
 } from '@/modules/sprint/types';
 import type {
   SearchWorkItemsParams,
@@ -138,77 +137,6 @@ export class SprintRepository {
       `,
       [projectId],
     );
-  }
-
-  async findWorkItemById(
-    projectId: string,
-    itemId: string,
-    manager?: EntityManager,
-  ): Promise<Pick<SprintWorkItemRow, 'itemId'> | null> {
-    const workItems = await this.getManager(manager).query<
-      Array<Pick<SprintWorkItemRow, 'itemId'>>
-    >(
-      `
-        SELECT wi.item_id AS "itemId"
-        FROM prism_work_items_l wi
-        WHERE wi.project_id = $1
-          AND wi.item_id = $2
-        LIMIT 1
-      `,
-      [projectId, itemId],
-    );
-
-    return workItems[0] ?? null;
-  }
-
-  async createSprintWorkItem(
-    params: {
-      projectId: string;
-      sprintId: string;
-      itemId: string;
-    },
-    manager?: EntityManager,
-  ): Promise<SprintWorkItemRow> {
-    const workItems = await this.getManager(manager).query<SprintWorkItemRow[]>(
-      `
-        INSERT INTO prism_sprint_work_item_map (
-          project_id,
-          sprint_id,
-          item_id
-        )
-        VALUES ($1, $2, $3)
-        RETURNING
-          project_id AS "projectId",
-          sprint_id AS "sprintId",
-          item_id AS "itemId",
-          created_at AS "createdAt"
-      `,
-      [params.projectId, params.sprintId, params.itemId],
-    );
-
-    return workItems[0];
-  }
-
-  async deleteSprintWorkItem(
-    projectId: string,
-    sprintId: string,
-    itemId: string,
-    manager?: EntityManager,
-  ): Promise<boolean> {
-    const workItems = await this.getManager(manager).query<
-      Array<Pick<SprintWorkItemRow, 'itemId'>>
-    >(
-      `
-        DELETE FROM prism_sprint_work_item_map
-        WHERE project_id = $1
-          AND sprint_id = $2
-          AND item_id = $3
-        RETURNING item_id AS "itemId"
-      `,
-      [projectId, sprintId, itemId],
-    );
-
-    return workItems.length > 0;
   }
 
   async searchSprintWorkItems(

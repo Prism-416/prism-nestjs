@@ -1,10 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
 import {
-  AddSprintWorkItemDto,
   CreateSprintDto,
   SprintResponseDto,
-  SprintWorkItemResponseDto,
   UpdateSprintMetadataDto,
 } from '@/modules/sprint/dto';
 import {
@@ -14,13 +12,10 @@ import {
 import {
   isSprintNameUniqueViolation,
   isSprintPeriodCheckViolation,
-  isSprintWorkItemUniqueViolation,
   SprintAlreadyExistsError,
   SprintNotFoundError,
   SprintPeriodInvalidError,
   SprintProjectNotFoundError,
-  SprintWorkItemAlreadyExistsError,
-  SprintWorkItemNotFoundError,
 } from '@/modules/sprint/errors';
 import { SprintRepository } from '@/modules/sprint/repository';
 import { SPRINT_STATUSES } from '@/modules/sprint/types';
@@ -100,96 +95,6 @@ export class SprintUseCase {
     }
 
     return sprint;
-  }
-
-  async addSprintWorkItem(
-    userId: string,
-    projectId: string,
-    sprintId: string,
-    dto: AddSprintWorkItemDto,
-  ): Promise<SprintWorkItemResponseDto> {
-    return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndMemberUserId(
-        projectId,
-        userId,
-        manager,
-      );
-      if (!project) {
-        throw new SprintProjectNotFoundError();
-      }
-
-      const sprint = await this.repo.findSprintById(
-        project.projectId,
-        sprintId,
-        manager,
-      );
-      if (!sprint) {
-        throw new SprintNotFoundError();
-      }
-
-      const workItem = await this.repo.findWorkItemById(
-        project.projectId,
-        dto.itemId,
-        manager,
-      );
-      if (!workItem) {
-        throw new SprintWorkItemNotFoundError();
-      }
-
-      try {
-        return await this.repo.createSprintWorkItem(
-          {
-            projectId: project.projectId,
-            sprintId: sprint.sprintId,
-            itemId: dto.itemId,
-          },
-          manager,
-        );
-      } catch (error) {
-        if (isSprintWorkItemUniqueViolation(error)) {
-          throw new SprintWorkItemAlreadyExistsError();
-        }
-
-        throw error;
-      }
-    });
-  }
-
-  async removeSprintWorkItem(
-    userId: string,
-    projectId: string,
-    sprintId: string,
-    itemId: string,
-  ): Promise<void> {
-    return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndMemberUserId(
-        projectId,
-        userId,
-        manager,
-      );
-      if (!project) {
-        throw new SprintProjectNotFoundError();
-      }
-
-      const sprint = await this.repo.findSprintById(
-        project.projectId,
-        sprintId,
-        manager,
-      );
-      if (!sprint) {
-        throw new SprintNotFoundError();
-      }
-
-      const deleted = await this.repo.deleteSprintWorkItem(
-        project.projectId,
-        sprint.sprintId,
-        itemId,
-        manager,
-      );
-      if (!deleted) {
-        throw new SprintWorkItemNotFoundError();
-      }
-    });
   }
 
   async createSprint(
