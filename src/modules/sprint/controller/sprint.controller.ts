@@ -1,14 +1,16 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
@@ -74,6 +76,27 @@ export class SprintController {
       projectId,
       sprintId,
       dto,
+    );
+  }
+
+  @Delete(':sprintId/work-items/:itemId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove work item from sprint' })
+  @ApiNoContentResponse({
+    description: 'Successfully removed work item from sprint',
+  })
+  async removeSprintWorkItem(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('sprintId') sprintId: string,
+    @Param('itemId') itemId: string,
+  ): Promise<void> {
+    await this.usecase.removeSprintWorkItem(
+      String(user.sub),
+      projectId,
+      sprintId,
+      itemId,
     );
   }
 

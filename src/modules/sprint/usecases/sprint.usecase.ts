@@ -155,6 +155,43 @@ export class SprintUseCase {
     });
   }
 
+  async removeSprintWorkItem(
+    userId: string,
+    projectId: string,
+    sprintId: string,
+    itemId: string,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const project = await this.repo.findProjectByIdAndMemberUserId(
+        projectId,
+        userId,
+        manager,
+      );
+      if (!project) {
+        throw new SprintProjectNotFoundError();
+      }
+
+      const sprint = await this.repo.findSprintById(
+        project.projectId,
+        sprintId,
+        manager,
+      );
+      if (!sprint) {
+        throw new SprintNotFoundError();
+      }
+
+      const deleted = await this.repo.deleteSprintWorkItem(
+        project.projectId,
+        sprint.sprintId,
+        itemId,
+        manager,
+      );
+      if (!deleted) {
+        throw new SprintWorkItemNotFoundError();
+      }
+    });
+  }
+
   async createSprint(
     userId: string,
     projectId: string,
