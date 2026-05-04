@@ -117,15 +117,15 @@ CREATE INDEX IF NOT EXISTS idx_workspace_members_role
 
 CREATE TABLE IF NOT EXISTS prism_workspace_invitations_l
 (
-    invitation_id    UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
-    workspace_id     UUID        NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
-    sender_id        UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
-    receiver_id      UUID        REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    invitation_id    UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
+    workspace_id     UUID         NOT NULL REFERENCES prism_workspaces_l (workspace_id) ON DELETE CASCADE,
+    sender_id        UUID         NOT NULL REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    receiver_id      UUID REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
     receiver_email   VARCHAR(320) NOT NULL,
-    role             VARCHAR(20) NOT NULL,
-    invitation_token UUID        NOT NULL,
-    expires_at       TIMESTAMPTZ NOT NULL,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    role             VARCHAR(20)  NOT NULL,
+    invitation_token UUID         NOT NULL,
+    expires_at       TIMESTAMPTZ  NOT NULL,
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (invitation_token),
     UNIQUE (workspace_id, receiver_email),
     CHECK (role IN ('admin', 'member', 'viewer'))
@@ -212,15 +212,15 @@ CREATE INDEX IF NOT EXISTS idx_project_member_job_map_member_id
 
 CREATE TABLE IF NOT EXISTS prism_work_items_l
 (
-    item_id            UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
-    project_id         UUID        NOT NULL REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
-    parent_id          UUID,
-    title              VARCHAR(50) NOT NULL,
-    description        TEXT        NOT NULL,
-    created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    type               VARCHAR(5)  NOT NULL,
-    priority           VARCHAR(10) NOT NULL,
-    status             VARCHAR(20) NOT NULL,
+    item_id           UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    project_id        UUID        NOT NULL REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    parent_id         UUID,
+    title             VARCHAR(50) NOT NULL,
+    description       TEXT        NOT NULL,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    type              VARCHAR(5)  NOT NULL,
+    priority          VARCHAR(10) NOT NULL,
+    status            VARCHAR(20) NOT NULL,
     status_changed_at TIMESTAMPTZ,
     CONSTRAINT uq_work_items_project_item UNIQUE (project_id, item_id),
     CONSTRAINT fk_work_items_parent
@@ -241,9 +241,9 @@ CREATE INDEX IF NOT EXISTS idx_work_items_project_status
 
 CREATE TABLE IF NOT EXISTS prism_work_item_member_map
 (
-    project_id   UUID        NOT NULL,
-    item_id      UUID        NOT NULL,
-    member_id    UUID        NOT NULL,
+    project_id  UUID        NOT NULL,
+    item_id     UUID        NOT NULL,
+    member_id   UUID        NOT NULL,
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (item_id, member_id),
     CONSTRAINT fk_work_item_member_map_item
@@ -259,10 +259,10 @@ CREATE INDEX IF NOT EXISTS idx_work_item_member_map_member_id
 
 CREATE TABLE IF NOT EXISTS prism_work_item_labels_l
 (
-    label_id    UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
-    project_id  UUID        NOT NULL REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
-    label       VARCHAR(20) NOT NULL,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    label_id   UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    project_id UUID        NOT NULL REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    label      VARCHAR(20) NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT uq_work_item_labels_project_label UNIQUE (project_id, label),
     CONSTRAINT uq_work_item_labels_project_label_id UNIQUE (project_id, label_id)
 );
@@ -284,3 +284,43 @@ CREATE TABLE IF NOT EXISTS prism_work_item_label_map
 
 CREATE INDEX IF NOT EXISTS idx_work_item_label_map_project_label_id
     ON prism_work_item_label_map (project_id, label_id);
+
+CREATE TABLE IF NOT EXISTS prism_sprints_l
+(
+    project_id  UUID        NOT NULL REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    sprint_id   UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    sprint_name VARCHAR(50) NOT NULL,
+    description TEXT,
+    starts_at   TIMESTAMPTZ NOT NULL,
+    ends_at     TIMESTAMPTZ NOT NULL,
+    status      VARCHAR(20) NOT NULL,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_sprints_project_name UNIQUE (project_id, sprint_name),
+    CONSTRAINT uq_sprints_project_sprint UNIQUE (project_id, sprint_id),
+    CONSTRAINT ck_sprints_period CHECK (starts_at < ends_at),
+    CHECK (status IN ('backlog', 'in_progress', 'done'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_sprints_project_status
+    ON prism_sprints_l (project_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_sprints_project_period
+    ON prism_sprints_l (project_id, starts_at, ends_at);
+
+CREATE TABLE IF NOT EXISTS prism_sprint_work_item_map
+(
+    project_id UUID        NOT NULL,
+    sprint_id  UUID        NOT NULL,
+    item_id    UUID        NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (sprint_id, item_id),
+    CONSTRAINT fk_sprint_work_item_map_sprint
+        FOREIGN KEY (project_id, sprint_id)
+            REFERENCES prism_sprints_l (project_id, sprint_id) ON DELETE CASCADE,
+    CONSTRAINT fk_sprint_work_item_map_item
+        FOREIGN KEY (project_id, item_id)
+            REFERENCES prism_work_items_l (project_id, item_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_sprint_work_item_map_project_item_id
+    ON prism_sprint_work_item_map (project_id, item_id);
