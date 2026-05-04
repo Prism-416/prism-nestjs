@@ -189,6 +189,28 @@ export class SprintRepository {
     return workItems[0];
   }
 
+  async deleteSprintWorkItem(
+    projectId: string,
+    sprintId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const workItems = await this.getManager(manager).query<
+      Array<Pick<SprintWorkItemRow, 'itemId'>>
+    >(
+      `
+        DELETE FROM prism_sprint_work_item_map
+        WHERE project_id = $1
+          AND sprint_id = $2
+          AND item_id = $3
+        RETURNING item_id AS "itemId"
+      `,
+      [projectId, sprintId, itemId],
+    );
+
+    return workItems.length > 0;
+  }
+
   async searchSprintWorkItems(
     params: SearchWorkItemsParams & { sprintId: string },
     manager?: EntityManager,
