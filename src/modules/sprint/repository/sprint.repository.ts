@@ -6,6 +6,13 @@ import {
   SprintRow,
   SprintStatus,
 } from '@/modules/sprint/types';
+import type {
+  SearchWorkItemsParams,
+  SearchWorkItemsResult,
+  WorkItemPriority,
+  WorkItemRow,
+  WorkItemStatus,
+} from '@/modules/project/types';
 
 @Injectable()
 export class SprintRepository {
@@ -107,6 +114,181 @@ export class SprintRepository {
     );
 
     return sprints[0] ?? null;
+  }
+
+  async searchSprintWorkItems(
+    params: SearchWorkItemsParams & { sprintId: string },
+    manager?: EntityManager,
+  ): Promise<SearchWorkItemsResult> {
+    type SearchSprintWorkItemRow = {
+      itemId: string | null;
+      projectId: string | null;
+      parentId: string | null;
+      title: string | null;
+      description: string | null;
+      type: WorkItemRow['type'] | null;
+      priority: WorkItemPriority | null;
+      status: WorkItemStatus | null;
+      statusChangedAt: Date | null;
+      createdAt: Date | null;
+      assigneeUsernames: string[];
+      labelNames: string[];
+      total: number;
+    };
+
+    const rows = await this.getManager(manager).query<
+      SearchSprintWorkItemRow[]
+    >(
+      `
+        WITH filtered_items AS (
+          SELECT
+            wi.item_id,
+            wi.project_id,
+            wi.parent_id,
+            wi.title,
+            wi.description,
+            wi.type,
+            wi.priority,
+            wi.status,
+            wi.status_changed_at,
+            wi.created_at
+          FROM prism_sprint_work_item_map swim
+                 INNER JOIN prism_work_items_l wi
+                            ON wi.project_id = swim.project_id
+                           AND wi.item_id = swim.item_id
+          WHERE swim.project_id = $1
+            AND swim.sprint_id = $2
+            AND (
+              $3::text IS NULL
+              OR wi.title ILIKE '%' || $3 || '%'
+              OR wi.description ILIKE '%' || $3 || '%'
+            )
+            AND ($4::uuid IS NULL OR wi.parent_id = $4)
+            AND ($5::text IS NULL OR wi.type = $5)
+            AND ($6::text IS NULL OR wi.priority = $6)
+            AND ($7::text IS NULL OR wi.status = $7)
+            AND (
+              $8::text IS NULL
+              OR EXISTS (
+                SELECT 1
+                FROM prism_work_item_member_map wimm
+                       INNER JOIN prism_project_members_l pm
+                                  ON pm.project_id = wimm.project_id
+                                 AND pm.member_id = wimm.member_id
+                       INNER JOIN prism_users_l u
+                                  ON u.user_id = pm.user_id
+                WHERE wimm.project_id = wi.project_id
+                  AND wimm.item_id = wi.item_id
+                  AND u.username = $8
+              )
+            )
+            AND (
+              $9::text IS NULL
+              OR EXISTS (
+                SELECT 1
+                FROM prism_work_item_label_map wilm
+                       INNER JOIN prism_work_item_labels_l wil
+                                  ON wil.project_id = wilm.project_id
+                                 AND wil.label_id = wilm.label_id
+                WHERE wilm.project_id = wi.project_id
+                  AND wilm.item_id = wi.item_id
+                  AND wil.label = $9
+              )
+            )
+        ),
+        total_count AS (
+          SELECT COUNT(*)::int AS total
+          FROM filtered_items
+        ),
+        paged_items AS (
+          SELECT *
+          FROM filtered_items
+          ORDER BY created_at DESC, item_id DESC
+          LIMIT $10
+          OFFSET $11
+        )
+        SELECT
+          pi.item_id AS "itemId",
+          pi.project_id AS "projectId",
+          pi.parent_id AS "parentId",
+          pi.title,
+          pi.description,
+          pi.type,
+          pi.priority,
+          pi.status,
+          pi.status_changed_at AS "statusChangedAt",
+          pi.created_at AS "createdAt",
+          COALESCE(
+            (
+              SELECT array_agg(u.username ORDER BY u.username)
+              FROM prism_work_item_member_map wimm
+                     INNER JOIN prism_project_members_l pm
+                                ON pm.project_id = wimm.project_id
+                               AND pm.member_id = wimm.member_id
+                     INNER JOIN prism_users_l u
+                                ON u.user_id = pm.user_id
+              WHERE wimm.project_id = pi.project_id
+                AND wimm.item_id = pi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "assigneeUsernames",
+          COALESCE(
+            (
+              SELECT array_agg(wil.label ORDER BY wil.label)
+              FROM prism_work_item_label_map wilm
+                     INNER JOIN prism_work_item_labels_l wil
+                                ON wil.project_id = wilm.project_id
+                               AND wil.label_id = wilm.label_id
+              WHERE wilm.project_id = pi.project_id
+                AND wilm.item_id = pi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "labelNames",
+          tc.total
+        FROM total_count tc
+               LEFT JOIN paged_items pi
+                         ON TRUE
+        ORDER BY pi.created_at DESC NULLS LAST, pi.item_id DESC NULLS LAST
+      `,
+      [
+        params.projectId,
+        params.sprintId,
+        params.query ?? null,
+        params.parentId ?? null,
+        params.type ?? null,
+        params.priority ?? null,
+        params.status ?? null,
+        params.assigneeUsername ?? null,
+        params.labelName ?? null,
+        params.limit,
+        params.offset,
+      ],
+    );
+
+    return {
+      items: rows
+        .filter(
+          (row): row is SearchSprintWorkItemRow & { itemId: string } =>
+            row.itemId !== null,
+        )
+        .map((row) => ({
+          itemId: row.itemId,
+          projectId: row.projectId as string,
+          parentId: row.parentId,
+          title: row.title as string,
+          description: row.description as string,
+          type: row.type as WorkItemRow['type'],
+          priority: row.priority as WorkItemPriority,
+          status: row.status as WorkItemStatus,
+          statusChangedAt: row.statusChangedAt as Date,
+          createdAt: row.createdAt as Date,
+          assigneeUsernames: row.assigneeUsernames,
+          labelNames: row.labelNames,
+        })),
+      total: rows[0]?.total ?? 0,
+      limit: params.limit,
+      offset: params.offset,
+    };
   }
 
   async updateSprintMetadata(
