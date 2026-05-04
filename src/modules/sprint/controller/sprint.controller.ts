@@ -1,24 +1,20 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
-  HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
-  AddSprintWorkItemDto,
   CreateSprintDto,
   SprintResponseDto,
-  SprintWorkItemResponseDto,
   UpdateSprintMetadataDto,
 } from '@/modules/sprint/dto';
 import {
@@ -58,45 +54,6 @@ export class SprintController {
       projectId,
       sprintId,
       query,
-    );
-  }
-
-  @Post(':sprintId/work-items')
-  @Authenticated()
-  @ApiOperation({ summary: 'Add work item to sprint' })
-  @ApiDataResponse(SprintWorkItemResponseDto, { status: HttpStatus.CREATED })
-  async addSprintWorkItem(
-    @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
-    @Param('sprintId') sprintId: string,
-    @Body() dto: AddSprintWorkItemDto,
-  ): Promise<SprintWorkItemResponseDto> {
-    return this.usecase.addSprintWorkItem(
-      String(user.sub),
-      projectId,
-      sprintId,
-      dto,
-    );
-  }
-
-  @Delete(':sprintId/work-items/:itemId')
-  @Authenticated()
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Remove work item from sprint' })
-  @ApiNoContentResponse({
-    description: 'Successfully removed work item from sprint',
-  })
-  async removeSprintWorkItem(
-    @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
-    @Param('sprintId') sprintId: string,
-    @Param('itemId') itemId: string,
-  ): Promise<void> {
-    await this.usecase.removeSprintWorkItem(
-      String(user.sub),
-      projectId,
-      sprintId,
-      itemId,
     );
   }
 
