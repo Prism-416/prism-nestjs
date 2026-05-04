@@ -498,15 +498,6 @@ export class WorkspaceUseCase {
             manager,
           );
 
-        await this.repo.createWorkspaceInvitationEvent(
-          {
-            invitationId: invitation.invitationId,
-            actorId: userId,
-            eventType: 'sent',
-          },
-          manager,
-        );
-
         return {
           workspaceName: workspace.name,
           receiver,
@@ -530,6 +521,12 @@ export class WorkspaceUseCase {
       invitationResponse,
       receiver,
     );
+
+    await this.repo.createWorkspaceInvitationEvent({
+      invitationId: invitationResponse.invitationId,
+      actorId: userId,
+      eventType: 'sent',
+    });
 
     return invitationResponse;
   }

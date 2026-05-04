@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { OciEmailDeliveryService } from '@/core/email';
 import { WorkspaceInvitationResponseDto } from '@/modules/workspace/dto';
 import { WorkspaceInvitationReceiver } from '@/modules/workspace/types';
@@ -7,24 +6,14 @@ import { WorkspaceInvitationReceiver } from '@/modules/workspace/types';
 @Injectable()
 export class WorkspaceInvitationNotifierService {
   private readonly logger = new Logger(WorkspaceInvitationNotifierService.name);
-  private readonly emailEnabled: boolean;
 
-  constructor(
-    private readonly emailDelivery: OciEmailDeliveryService,
-    private readonly configService: ConfigService,
-  ) {
-    this.emailEnabled = this.configService.get<boolean>('EMAIL_ENABLED', false);
-  }
+  constructor(private readonly emailDelivery: OciEmailDeliveryService) {}
 
   async sendWorkspaceInvitation(
     workspaceName: string,
     invitation: WorkspaceInvitationResponseDto,
     receiver: WorkspaceInvitationReceiver,
   ): Promise<void> {
-    if (!this.emailEnabled) {
-      return;
-    }
-
     const destination = invitation.invitationLink;
     try {
       await this.emailDelivery.sendEmail({
@@ -41,6 +30,7 @@ export class WorkspaceInvitationNotifierService {
         `Workspace invitation delivery failed: workspace=${invitation.workspaceId}, receiver=${receiver.userId ?? receiver.email}`,
         error instanceof Error ? error.stack : String(error),
       );
+      throw error;
     }
   }
 }
