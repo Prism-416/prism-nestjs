@@ -43,6 +43,7 @@ export const envValidationSchema = Joi.object({
   EMAIL_SENDER_EMAIL: Joi.string().allow('').default(''),
   EMAIL_SENDER_NAME: Joi.string().allow('').default(''),
   EMAIL_VERIFICATION_PAGE_URL: Joi.string().allow('').default(''),
+  EMAIL_PASSWORD_RESET_PAGE_URL: Joi.string().allow('').default(''),
   OCI_AUTH_MODE: Joi.string()
     .valid('api_key', 'instance_principal', 'resource_principal')
     .default('api_key'),

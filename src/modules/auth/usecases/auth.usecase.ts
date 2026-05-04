@@ -4,16 +4,23 @@ import { JwtTokenService } from '@/core/auth';
 import { UnitOfWork } from '@/core/database';
 import { PasswordService } from '@/core/security';
 import {
+  ChangePasswordDto,
+  ChangePasswordResponseDto,
   AuthMeResponseDto,
   AuthTokenPairResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
+  RequestPasswordResetDto,
+  RequestPasswordResetResponseDto,
+  ResetPasswordDto,
+  ResetPasswordResponseDto,
   SignInWithEmailDto,
   SignInWithGithubDto,
   SignInWithGoogleDto,
 } from '@/modules/auth/dto';
 import {
   EmailNotVerifiedError,
+  InvalidCurrentPasswordError,
   InvalidAccessTokenUserError,
   InvalidCredentialsError,
   InvalidRefreshTokenError,
@@ -26,6 +33,7 @@ import {
   GithubTokenVerifierService,
   OAuthIdentityService,
   OAuthRegistrationService,
+  PasswordResetService,
 } from '@/modules/auth/services';
 import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
 import { buildUsernameSeeds, normalizeUsername } from '@/modules/auth/utils';
@@ -40,6 +48,7 @@ export class AuthUseCase {
     private readonly pwdService: PasswordService,
     private readonly authSession: AuthSessionService,
     private readonly emailVerification: EmailVerificationService,
+    private readonly passwordReset: PasswordResetService,
     private readonly github: GithubTokenVerifierService,
     private readonly oauthIdentity: OAuthIdentityService,
     private readonly oauthRegistration: OAuthRegistrationService,
@@ -182,6 +191,66 @@ export class AuthUseCase {
     });
 
     return { requested: true };
+  }
+
+  async requestPasswordReset(
+    dto: RequestPasswordResetDto,
+  ): Promise<RequestPasswordResetResponseDto> {
+    await this.uow.run(async (manager) => {
+      const auth = await this.repo.findEmailAuthCredentialByEmail(
+        dto.email,
+        manager,
+      );
+      if (!auth) {
+        return;
+      }
+
+      await this.passwordReset.issue(auth.email, auth.authId, manager);
+    });
+
+    return { requested: true };
+  }
+
+  async resetPassword(
+    dto: ResetPasswordDto,
+  ): Promise<ResetPasswordResponseDto> {
+    await this.uow.run(async (manager) => {
+      await this.passwordReset.resetPassword(
+        dto.token,
+        dto.newPassword,
+        manager,
+      );
+    });
+
+    return { reset: true };
+  }
+
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+  ): Promise<ChangePasswordResponseDto> {
+    return await this.uow.run(async (manager) => {
+      const auth = await this.repo.findEmailAuthCredentialByUserId(
+        userId,
+        manager,
+      );
+      if (
+        !auth ||
+        !(await this.pwdService.verify(dto.currentPassword, auth.password))
+      ) {
+        throw new InvalidCurrentPasswordError();
+      }
+
+      const passwordHash = await this.pwdService.hash(dto.newPassword);
+      await this.repo.updateEmailAuthPassword(
+        auth.authId,
+        passwordHash,
+        manager,
+      );
+      await this.repo.invalidateRefreshTokensByUserId(userId, manager);
+
+      return { changed: true };
+    });
   }
 
   private getRequiredPageUrl(key: 'GITHUB_OAUTH_SIGNIN_PAGE_URL'): string {

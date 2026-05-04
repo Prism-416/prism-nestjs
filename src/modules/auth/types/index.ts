@@ -19,6 +19,14 @@ export type CreatedUserRow = UserProfileRow & {
   createdAt: Date;
 };
 
+export type EmailAuthCredentialRow = {
+  authId: string;
+  userId: string;
+  email: string;
+  password: string;
+  isVerified: boolean;
+};
+
 export type RefreshTokenRow = {
   refreshTokenId: string;
   userId: string;
@@ -32,6 +40,14 @@ export type EmailVerificationTokenRow = {
   authId: string;
   emailTokenHash: string;
   expiresAt: Date | null;
+  usedAt: Date | null;
+};
+
+export type PasswordResetTokenRow = {
+  passwordResetTokenId: string;
+  authId: string;
+  passwordResetTokenHash: string;
+  expiresAt: Date;
   usedAt: Date | null;
 };
 

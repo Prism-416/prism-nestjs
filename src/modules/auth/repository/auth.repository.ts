@@ -5,7 +5,9 @@ import { SignInWithEmailDto, SignUpWithEmailDto } from '@/modules/auth/dto';
 import {
   AuthProvider,
   CreatedUserRow,
+  EmailAuthCredentialRow,
   EmailVerificationTokenRow,
+  PasswordResetTokenRow,
   RefreshTokenRow,
   UserCredentialRow,
   UserProfileRow,
@@ -220,6 +222,95 @@ export class AuthRepository {
     return auths[0] ?? null;
   }
 
+  async findEmailAuthCredentialByEmail(
+    email: string,
+    manager?: EntityManager,
+  ): Promise<EmailAuthCredentialRow | null> {
+    const auths = await this.getManager(manager).query<
+      EmailAuthCredentialRow[]
+    >(
+      `
+        SELECT auth_id       AS "authId",
+               user_id       AS "userId",
+               email,
+               password_hash AS "password",
+               is_verified   AS "isVerified"
+        FROM prism_user_auths_l
+        WHERE provider = 'email'
+          AND email = $1
+        LIMIT 1
+      `,
+      [email],
+    );
+
+    return auths[0] ?? null;
+  }
+
+  async findEmailAuthCredentialByUserId(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<EmailAuthCredentialRow | null> {
+    const auths = await this.getManager(manager).query<
+      EmailAuthCredentialRow[]
+    >(
+      `
+        SELECT auth_id       AS "authId",
+               user_id       AS "userId",
+               email,
+               password_hash AS "password",
+               is_verified   AS "isVerified"
+        FROM prism_user_auths_l
+        WHERE provider = 'email'
+          AND user_id = $1
+        LIMIT 1
+      `,
+      [userId],
+    );
+
+    return auths[0] ?? null;
+  }
+
+  async findEmailAuthCredentialByAuthId(
+    authId: string,
+    manager?: EntityManager,
+  ): Promise<EmailAuthCredentialRow | null> {
+    const auths = await this.getManager(manager).query<
+      EmailAuthCredentialRow[]
+    >(
+      `
+        SELECT auth_id       AS "authId",
+               user_id       AS "userId",
+               email,
+               password_hash AS "password",
+               is_verified   AS "isVerified"
+        FROM prism_user_auths_l
+        WHERE provider = 'email'
+          AND auth_id = $1
+        LIMIT 1
+      `,
+      [authId],
+    );
+
+    return auths[0] ?? null;
+  }
+
+  async updateEmailAuthPassword(
+    authId: string,
+    passwordHash: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        UPDATE prism_user_auths_l
+        SET password_hash = $2,
+            updated_at = NOW()
+        WHERE auth_id = $1
+          AND provider = 'email'
+      `,
+      [authId, passwordHash],
+    );
+  }
+
   async deleteUnusedEmailTokensByAuthId(
     authId: string,
     manager?: EntityManager,
@@ -307,6 +398,82 @@ export class AuthRepository {
         WHERE auth_id = $1
       `,
       [authId],
+    );
+  }
+
+  async deleteUnusedPasswordResetTokensByAuthId(
+    authId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        DELETE
+        FROM prism_password_reset_tokens_l
+        WHERE auth_id = $1
+          AND used_at IS NULL
+      `,
+      [authId],
+    );
+  }
+
+  async createPasswordResetToken(
+    authId: string,
+    passwordResetTokenHash: string,
+    expiresAt: Date,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        INSERT INTO prism_password_reset_tokens_l (
+          auth_id,
+          password_reset_token_hash,
+          expires_at
+        )
+        VALUES ($1, $2, $3)
+      `,
+      [authId, passwordResetTokenHash, expiresAt],
+    );
+  }
+
+  async findValidPasswordResetTokenByHash(
+    passwordResetTokenHash: string,
+    now: Date,
+    manager?: EntityManager,
+  ): Promise<PasswordResetTokenRow | null> {
+    const tokens = await this.getManager(manager).query<
+      PasswordResetTokenRow[]
+    >(
+      `
+        SELECT password_reset_token_id   AS "passwordResetTokenId",
+               auth_id                   AS "authId",
+               password_reset_token_hash AS "passwordResetTokenHash",
+               expires_at                AS "expiresAt",
+               used_at                   AS "usedAt"
+        FROM prism_password_reset_tokens_l
+        WHERE password_reset_token_hash = $1
+          AND used_at IS NULL
+          AND expires_at > $2
+        ORDER BY created_at DESC
+        LIMIT 1
+      `,
+      [passwordResetTokenHash, now],
+    );
+
+    return tokens[0] ?? null;
+  }
+
+  async markPasswordResetTokenAsUsed(
+    passwordResetTokenId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        UPDATE prism_password_reset_tokens_l
+        SET used_at = NOW()
+        WHERE password_reset_token_id = $1
+          AND used_at IS NULL
+      `,
+      [passwordResetTokenId],
     );
   }
 

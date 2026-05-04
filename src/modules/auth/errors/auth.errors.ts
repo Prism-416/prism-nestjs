@@ -28,6 +28,21 @@ export class InvalidEmailVerificationTokenError extends UnauthorizedDomainError 
   }
 }
 
+export class InvalidPasswordResetTokenError extends UnauthorizedDomainError {
+  constructor() {
+    super(
+      'Invalid or expired password reset token.',
+      'INVALID_PASSWORD_RESET_TOKEN',
+    );
+  }
+}
+
+export class InvalidCurrentPasswordError extends UnauthorizedDomainError {
+  constructor() {
+    super('Invalid current password.', 'INVALID_CURRENT_PASSWORD');
+  }
+}
+
 export class InvalidRefreshTokenError extends UnauthorizedDomainError {
   constructor() {
     super('Invalid refresh token.', 'INVALID_REFRESH_TOKEN');
