@@ -46,6 +46,40 @@ export class CreateSprintDto {
   status?: SprintStatus;
 }
 
+export class UpdateSprintMetadataDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  name?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
+  @IsDateString()
+  startsAt?: string;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
+  @IsDateString()
+  endsAt?: string;
+
+  @ApiPropertyOptional({ enum: SPRINT_STATUSES })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsIn(SPRINT_STATUSES)
+  status?: SprintStatus;
+}
+
 export class SprintResponseDto {
   @ApiProperty()
   sprintId!: string;

@@ -82,6 +82,80 @@ export class SprintRepository {
     return sprints[0];
   }
 
+  async findSprintById(
+    projectId: string,
+    sprintId: string,
+    manager?: EntityManager,
+  ): Promise<SprintRow | null> {
+    const sprints = await this.getManager(manager).query<SprintRow[]>(
+      `
+        SELECT
+          sprint_id AS "sprintId",
+          project_id AS "projectId",
+          sprint_name AS "name",
+          description,
+          starts_at AS "startsAt",
+          ends_at AS "endsAt",
+          status,
+          created_at AS "createdAt"
+        FROM prism_sprints_l
+        WHERE project_id = $1
+          AND sprint_id = $2
+        LIMIT 1
+      `,
+      [projectId, sprintId],
+    );
+
+    return sprints[0] ?? null;
+  }
+
+  async updateSprintMetadata(
+    params: {
+      projectId: string;
+      sprintId: string;
+      name: string;
+      description: string | null;
+      startsAt: Date;
+      endsAt: Date;
+      status: SprintStatus;
+    },
+    manager?: EntityManager,
+  ): Promise<SprintRow | null> {
+    const sprints = await this.getManager(manager).query<SprintRow[]>(
+      `
+        UPDATE prism_sprints_l
+        SET
+          sprint_name = $3,
+          description = $4,
+          starts_at = $5,
+          ends_at = $6,
+          status = $7
+        WHERE project_id = $1
+          AND sprint_id = $2
+        RETURNING
+          sprint_id AS "sprintId",
+          project_id AS "projectId",
+          sprint_name AS "name",
+          description,
+          starts_at AS "startsAt",
+          ends_at AS "endsAt",
+          status,
+          created_at AS "createdAt"
+      `,
+      [
+        params.projectId,
+        params.sprintId,
+        params.name,
+        params.description,
+        params.startsAt,
+        params.endsAt,
+        params.status,
+      ],
+    );
+
+    return sprints[0] ?? null;
+  }
+
   private getManager(manager?: EntityManager): DataSource | EntityManager {
     return manager ?? this.dataSource;
   }
