@@ -314,6 +314,7 @@ CREATE TABLE IF NOT EXISTS prism_sprint_work_item_map
     item_id    UUID        NOT NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     PRIMARY KEY (sprint_id, item_id),
+    CONSTRAINT uq_sprint_work_item_map_project_item UNIQUE (project_id, item_id),
     CONSTRAINT fk_sprint_work_item_map_sprint
         FOREIGN KEY (project_id, sprint_id)
             REFERENCES prism_sprints_l (project_id, sprint_id) ON DELETE CASCADE,
@@ -321,6 +322,3 @@ CREATE TABLE IF NOT EXISTS prism_sprint_work_item_map
         FOREIGN KEY (project_id, item_id)
             REFERENCES prism_work_items_l (project_id, item_id) ON DELETE CASCADE
 );
-
-CREATE INDEX IF NOT EXISTS idx_sprint_work_item_map_project_item_id
-    ON prism_sprint_work_item_map (project_id, item_id);
