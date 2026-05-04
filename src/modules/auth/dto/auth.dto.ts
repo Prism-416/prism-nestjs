@@ -188,6 +188,9 @@ export class AuthMeUserDto {
 
   @ApiProperty()
   username!: string;
+
+  @ApiProperty()
+  isOAuthUser!: boolean;
 }
 
 export class AuthMeResponseDto {

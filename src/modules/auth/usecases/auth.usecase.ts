@@ -88,6 +88,8 @@ export class AuthUseCase {
     if (!user) {
       throw new InvalidAccessTokenUserError();
     }
+    const oauthAccounts =
+      await this.repo.findOAuthConnectedAccountsByUserId(userId);
 
     return {
       user: {
@@ -95,6 +97,7 @@ export class AuthUseCase {
         email: user.email,
         fullName: user.fullName,
         username: user.username,
+        isOAuthUser: oauthAccounts.length > 0,
       },
     };
   }
