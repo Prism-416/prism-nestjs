@@ -152,6 +152,30 @@ export class GithubOAuthAuthorizeResponseDto {
   expiresAt: Date;
 }
 
+export class OAuthAccountLinkResponseDto {
+  @ApiProperty({ enum: ['google', 'github'] })
+  provider!: 'google' | 'github';
+
+  @ApiProperty()
+  linked!: boolean;
+}
+
+export class OAuthConnectedAccountDto {
+  @ApiProperty({ enum: ['google', 'github'] })
+  provider!: 'google' | 'github';
+
+  @ApiProperty()
+  email!: string;
+
+  @ApiProperty()
+  isVerified!: boolean;
+}
+
+export class OAuthConnectedAccountsResponseDto {
+  @ApiProperty({ type: [OAuthConnectedAccountDto] })
+  accounts!: OAuthConnectedAccountDto[];
+}
+
 export class AuthMeUserDto {
   @ApiProperty()
   userId!: string;
@@ -164,6 +188,9 @@ export class AuthMeUserDto {
 
   @ApiProperty()
   username!: string;
+
+  @ApiProperty()
+  isOAuthUser!: boolean;
 }
 
 export class AuthMeResponseDto {

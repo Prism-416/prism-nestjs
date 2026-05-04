@@ -8,6 +8,8 @@ import {
   ChangePasswordResponseDto,
   AuthMeResponseDto,
   AuthTokenPairResponseDto,
+  OAuthAccountLinkResponseDto,
+  OAuthConnectedAccountsResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
   RequestPasswordResetDto,
@@ -20,10 +22,13 @@ import {
 } from '@/modules/auth/dto';
 import {
   EmailNotVerifiedError,
+  EmailAlreadyExistsError,
   InvalidCurrentPasswordError,
   InvalidAccessTokenUserError,
   InvalidCredentialsError,
   InvalidRefreshTokenError,
+  OAuthAccountAlreadyLinkedError,
+  OAuthProviderAlreadyConnectedError,
 } from '@/modules/auth/errors';
 import { AuthRepository } from '@/modules/auth/repository';
 import {
@@ -35,7 +40,11 @@ import {
   OAuthRegistrationService,
   PasswordResetService,
 } from '@/modules/auth/services';
-import { GithubProfile, GoogleProfile } from '@/modules/auth/types';
+import {
+  GithubProfile,
+  GoogleProfile,
+  OAuthProvider,
+} from '@/modules/auth/types';
 import { buildUsernameSeeds, normalizeUsername } from '@/modules/auth/utils';
 
 @Injectable()
@@ -79,6 +88,8 @@ export class AuthUseCase {
     if (!user) {
       throw new InvalidAccessTokenUserError();
     }
+    const oauthAccounts =
+      await this.repo.findOAuthConnectedAccountsByUserId(userId);
 
     return {
       user: {
@@ -86,7 +97,21 @@ export class AuthUseCase {
         email: user.email,
         fullName: user.fullName,
         username: user.username,
+        isOAuthUser: oauthAccounts.length > 0,
       },
+    };
+  }
+
+  async getOAuthAccounts(
+    userId: string,
+  ): Promise<OAuthConnectedAccountsResponseDto> {
+    const user = await this.repo.findUserById(userId);
+    if (!user) {
+      throw new InvalidAccessTokenUserError();
+    }
+
+    return {
+      accounts: await this.repo.findOAuthConnectedAccountsByUserId(userId),
     };
   }
 
@@ -112,6 +137,12 @@ export class AuthUseCase {
     });
   }
 
+  createGithubLinkAuthorizationRequest(): GithubAuthorizationRequestResult {
+    return this.github.createAuthorizationRequest({
+      appRedirectUrl: this.getRequiredPageUrl('GITHUB_OAUTH_LINK_PAGE_URL'),
+    });
+  }
+
   async signInWithGithub(
     dto: SignInWithGithubDto,
     cookieHeader?: string,
@@ -128,6 +159,39 @@ export class AuthUseCase {
       email: githubProfile.email,
       fullName: githubProfile.fullName,
       usernameSeeds: this.buildGithubUsernameSeeds(githubProfile),
+    });
+  }
+
+  async linkGoogleAccount(
+    userId: string,
+    dto: SignInWithGoogleDto,
+  ): Promise<OAuthAccountLinkResponseDto> {
+    const googleProfile = await this.oauthIdentity.verifyGoogleIdentity(
+      dto.idToken,
+    );
+
+    return await this.linkOAuthAccount(userId, {
+      provider: 'google',
+      providerUserId: googleProfile.subject,
+      email: googleProfile.email,
+    });
+  }
+
+  async linkGithubAccount(
+    userId: string,
+    dto: SignInWithGithubDto,
+    cookieHeader?: string,
+  ): Promise<OAuthAccountLinkResponseDto> {
+    const githubProfile = await this.oauthIdentity.verifyGithubIdentity({
+      code: dto.code,
+      state: dto.state,
+      cookieHeader,
+    });
+
+    return await this.linkOAuthAccount(userId, {
+      provider: 'github',
+      providerUserId: githubProfile.subject,
+      email: githubProfile.email,
     });
   }
 
@@ -253,13 +317,77 @@ export class AuthUseCase {
     });
   }
 
-  private getRequiredPageUrl(key: 'GITHUB_OAUTH_SIGNIN_PAGE_URL'): string {
+  private getRequiredPageUrl(
+    key: 'GITHUB_OAUTH_SIGNIN_PAGE_URL' | 'GITHUB_OAUTH_LINK_PAGE_URL',
+  ): string {
     const value = this.configService.get<string>(key)?.trim();
     if (!value) {
       throw new InternalServerErrorException(`${key} is not configured`);
     }
 
     return value;
+  }
+
+  private async linkOAuthAccount(
+    userId: string,
+    params: {
+      provider: OAuthProvider;
+      providerUserId: string;
+      email: string;
+    },
+  ): Promise<OAuthAccountLinkResponseDto> {
+    return await this.uow.run(async (manager) => {
+      const user = await this.repo.findUserById(userId, manager);
+      if (!user) {
+        throw new InvalidAccessTokenUserError();
+      }
+
+      const linkedUser = await this.repo.findUserByProvider(
+        params.provider,
+        params.providerUserId,
+        manager,
+      );
+
+      if (linkedUser) {
+        if (linkedUser.userId !== userId) {
+          throw new OAuthAccountAlreadyLinkedError();
+        }
+
+        return {
+          provider: params.provider,
+          linked: true,
+        };
+      }
+
+      const emailUser = await this.repo.findUserByEmail(params.email, manager);
+      if (emailUser && emailUser.userId !== userId) {
+        throw new EmailAlreadyExistsError();
+      }
+
+      const existingProviderAuth =
+        await this.repo.findOAuthAuthByUserAndProvider(
+          userId,
+          params.provider,
+          manager,
+        );
+      if (existingProviderAuth) {
+        throw new OAuthProviderAlreadyConnectedError();
+      }
+
+      const auth = await this.repo.createOAuthAuth(
+        userId,
+        params.provider,
+        params.providerUserId,
+        params.email,
+        manager,
+      );
+      await this.repo.markUserAuthVerified(auth.authId, manager);
+
+      return {
+        provider: params.provider,
+        linked: true,
+      };
+    });
   }
 
   private buildGoogleUsernameSeeds(profile: GoogleProfile): string[] {

@@ -90,3 +90,21 @@ export class UnverifiedGithubEmailError extends UnauthorizedDomainError {
     super('GitHub account email is not verified.', 'UNVERIFIED_GITHUB_EMAIL');
   }
 }
+
+export class OAuthAccountAlreadyLinkedError extends DuplicateError {
+  constructor() {
+    super(
+      'OAuth account is already linked to another user.',
+      'OAUTH_ACCOUNT_ALREADY_LINKED',
+    );
+  }
+}
+
+export class OAuthProviderAlreadyConnectedError extends DuplicateError {
+  constructor() {
+    super(
+      'OAuth provider is already connected to this user.',
+      'OAUTH_PROVIDER_ALREADY_CONNECTED',
+    );
+  }
+}

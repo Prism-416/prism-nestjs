@@ -7,6 +7,9 @@ import {
   CreatedUserRow,
   EmailAuthCredentialRow,
   EmailVerificationTokenRow,
+  OAuthAuthRow,
+  OAuthConnectedAccountRow,
+  OAuthProvider,
   PasswordResetTokenRow,
   RefreshTokenRow,
   UserCredentialRow,
@@ -84,7 +87,7 @@ export class AuthRepository {
 
   async createOAuthAuth(
     userId: string,
-    provider: Exclude<AuthProvider, 'email'>,
+    provider: OAuthProvider,
     providerUserId: string,
     email: string,
     manager?: EntityManager,
@@ -498,6 +501,52 @@ export class AuthRepository {
     );
 
     return users[0] ?? null;
+  }
+
+  async findOAuthAuthByUserAndProvider(
+    userId: string,
+    provider: OAuthProvider,
+    manager?: EntityManager,
+  ): Promise<OAuthAuthRow | null> {
+    const auths = await this.getManager(manager).query<OAuthAuthRow[]>(
+      `
+        SELECT auth_id          AS "authId",
+               user_id          AS "userId",
+               provider,
+               provider_user_id AS "providerUserId",
+               email,
+               is_verified      AS "isVerified"
+        FROM prism_user_auths_l
+        WHERE user_id = $1
+          AND provider = $2
+        LIMIT 1
+      `,
+      [userId, provider],
+    );
+
+    return auths[0] ?? null;
+  }
+
+  async findOAuthConnectedAccountsByUserId(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<OAuthConnectedAccountRow[]> {
+    return await this.getManager(manager).query<OAuthConnectedAccountRow[]>(
+      `
+        SELECT provider,
+               email,
+               is_verified AS "isVerified"
+        FROM prism_user_auths_l
+        WHERE user_id = $1
+          AND provider IN ('google', 'github')
+        ORDER BY CASE provider
+                   WHEN 'google' THEN 1
+                   WHEN 'github' THEN 2
+                   ELSE 3
+                 END
+      `,
+      [userId],
+    );
   }
 
   async findUserByUsername(

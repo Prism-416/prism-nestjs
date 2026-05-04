@@ -36,6 +36,8 @@ import {
   AuthTokenResponseDto,
   GithubOAuthCallbackQueryDto,
   GithubOAuthAuthorizeResponseDto,
+  OAuthAccountLinkResponseDto,
+  OAuthConnectedAccountsResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
   RequestPasswordResetDto,
@@ -69,6 +71,16 @@ export class AuthController {
   @ApiDataResponse(AuthMeResponseDto)
   async getMe(@CurrentUser() user: JwtPayload): Promise<AuthMeResponseDto> {
     return await this.usecase.getMe(String(user.sub));
+  }
+
+  @Get('oauth/accounts')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve connected OAuth accounts' })
+  @ApiDataResponse(OAuthConnectedAccountsResponseDto)
+  async getOAuthAccounts(
+    @CurrentUser() user: JwtPayload,
+  ): Promise<OAuthConnectedAccountsResponseDto> {
+    return await this.usecase.getOAuthAccounts(String(user.sub));
   }
 
   @Post('email-verification')
@@ -134,6 +146,28 @@ export class AuthController {
     };
   }
 
+  @Get('oauth/github/link/authorize')
+  @Authenticated()
+  @ApiOperation({ summary: 'Create GitHub Account Link Authorization URL' })
+  @ApiDataResponse(GithubOAuthAuthorizeResponseDto, { status: HttpStatus.OK })
+  createGithubLinkAuthorizationUrl(
+    @Res({ passthrough: true }) res: Response,
+  ): GithubOAuthAuthorizeResponseDto {
+    const authorization = this.usecase.createGithubLinkAuthorizationRequest();
+
+    res.cookie(
+      authorization.transactionCookie.name,
+      authorization.transactionCookie.value,
+      authorization.transactionCookie.options,
+    );
+
+    return {
+      authorizationUrl: authorization.authorizationUrl,
+      state: authorization.state,
+      expiresAt: authorization.expiresAt,
+    };
+  }
+
   @Get('oauth/github/callback')
   @ApiOperation({ summary: 'Handle GitHub OAuth Callback' })
   @UseInterceptors(GitHubOAuthCallbackInterceptor)
@@ -154,6 +188,18 @@ export class AuthController {
     return await this.usecase.signInWithGoogle(dto);
   }
 
+  @Post('oauth/google/link')
+  @Authenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Link Google account to current user' })
+  @ApiDataResponse(OAuthAccountLinkResponseDto, { status: HttpStatus.OK })
+  async linkGoogleAccount(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SignInWithGoogleDto,
+  ): Promise<OAuthAccountLinkResponseDto> {
+    return await this.usecase.linkGoogleAccount(String(user.sub), dto);
+  }
+
   @Post('oauth/github')
   @ApiOperation({
     summary: 'Sign In or Sign Up with GitHub Authorization Code',
@@ -165,6 +211,26 @@ export class AuthController {
     @Headers('cookie') cookieHeader: string | undefined,
   ): Promise<AuthTokenResponseDto> {
     return await this.usecase.signInWithGithub(dto, cookieHeader);
+  }
+
+  @Post('oauth/github/link')
+  @Authenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Link GitHub account to current user',
+  })
+  @ApiDataResponse(OAuthAccountLinkResponseDto, { status: HttpStatus.OK })
+  @UseInterceptors(GitHubOAuthCookieInterceptor)
+  async linkGithubAccount(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: SignInWithGithubDto,
+    @Headers('cookie') cookieHeader: string | undefined,
+  ): Promise<OAuthAccountLinkResponseDto> {
+    return await this.usecase.linkGithubAccount(
+      String(user.sub),
+      dto,
+      cookieHeader,
+    );
   }
 
   @Post('refresh')
