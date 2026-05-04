@@ -30,12 +30,18 @@ import {
   GitHubOAuthCookieInterceptor,
 } from '@/modules/auth/interceptors';
 import {
+  ChangePasswordDto,
+  ChangePasswordResponseDto,
   AuthMeResponseDto,
   AuthTokenResponseDto,
   GithubOAuthCallbackQueryDto,
   GithubOAuthAuthorizeResponseDto,
   RequestEmailVerificationDto,
   RequestEmailVerificationResponseDto,
+  RequestPasswordResetDto,
+  RequestPasswordResetResponseDto,
+  ResetPasswordDto,
+  ResetPasswordResponseDto,
   SignInWithEmailDto,
   SignInWithGithubDto,
   SignInWithGoogleDto,
@@ -72,6 +78,39 @@ export class AuthController {
   })
   async requestEmailVerification(@Body() dto: RequestEmailVerificationDto) {
     return await this.usecase.requestEmailVerification(dto);
+  }
+
+  @Post('password-reset')
+  @ApiOperation({ summary: 'Request Password Reset' })
+  @ApiDataResponse(RequestPasswordResetResponseDto, {
+    status: HttpStatus.CREATED,
+  })
+  async requestPasswordReset(
+    @Body() dto: RequestPasswordResetDto,
+  ): Promise<RequestPasswordResetResponseDto> {
+    return await this.usecase.requestPasswordReset(dto);
+  }
+
+  @Post('password-reset/confirm')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Reset Password with Email Token' })
+  @ApiDataResponse(ResetPasswordResponseDto, { status: HttpStatus.OK })
+  async resetPassword(
+    @Body() dto: ResetPasswordDto,
+  ): Promise<ResetPasswordResponseDto> {
+    return await this.usecase.resetPassword(dto);
+  }
+
+  @Post('password/change')
+  @Authenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Change Password' })
+  @ApiDataResponse(ChangePasswordResponseDto, { status: HttpStatus.OK })
+  async changePassword(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: ChangePasswordDto,
+  ): Promise<ChangePasswordResponseDto> {
+    return await this.usecase.changePassword(String(user.sub), dto);
   }
 
   @Get('oauth/github/authorize')

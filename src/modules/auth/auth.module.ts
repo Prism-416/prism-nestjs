@@ -13,6 +13,7 @@ import {
   OAuthIdentityService,
   OAuthRegistrationService,
   GoogleTokenVerifierService,
+  PasswordResetService,
 } from '@/modules/auth/services';
 import {
   AuthUseCase,
@@ -30,6 +31,7 @@ import { WorkspaceModule } from '@/modules/workspace/workspace.module';
     AuthRegistrationService,
     AuthSessionService,
     EmailVerificationService,
+    PasswordResetService,
     GoogleTokenVerifierService,
     GithubTokenVerifierService,
     OAuthIdentityService,
@@ -42,6 +44,7 @@ import { WorkspaceModule } from '@/modules/workspace/workspace.module';
     AuthRegistrationService,
     AuthSessionService,
     EmailVerificationService,
+    PasswordResetService,
     GoogleTokenVerifierService,
     GithubTokenVerifierService,
     OAuthIdentityService,

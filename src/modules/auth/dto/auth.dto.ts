@@ -61,6 +61,50 @@ export class VerifyEmailResponseDto {
   verified: boolean;
 }
 
+export class RequestPasswordResetDto {
+  @IsEmail()
+  email!: string;
+}
+
+export class RequestPasswordResetResponseDto {
+  @ApiProperty()
+  requested: boolean;
+}
+
+export class ResetPasswordDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(200)
+  token!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  newPassword!: string;
+}
+
+export class ResetPasswordResponseDto {
+  @ApiProperty()
+  reset: boolean;
+}
+
+export class ChangePasswordDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(72)
+  currentPassword!: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(72)
+  newPassword!: string;
+}
+
+export class ChangePasswordResponseDto {
+  @ApiProperty()
+  changed: boolean;
+}
+
 export class SignInWithGoogleDto {
   @IsString()
   idToken!: string;
