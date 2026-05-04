@@ -16,6 +16,12 @@ export class SprintAlreadyExistsError extends DuplicateError {
   }
 }
 
+export class SprintNotFoundError extends NotExistsError {
+  constructor() {
+    super('Sprint not found.', 'SPRINT_NOT_FOUND');
+  }
+}
+
 export class SprintPeriodInvalidError extends DomainError {
   constructor() {
     super('Sprint period is invalid.', 'SPRINT_PERIOD_INVALID', 400);
