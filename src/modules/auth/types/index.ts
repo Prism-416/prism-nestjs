@@ -15,6 +15,7 @@ export type UserRow = {
 
 export type UserProfileRow = Omit<UserCredentialRow, 'password'>;
 export type AuthProvider = 'email' | 'google' | 'github';
+export type OAuthProvider = Exclude<AuthProvider, 'email'>;
 export type CreatedUserRow = UserProfileRow & {
   createdAt: Date;
 };
@@ -50,6 +51,20 @@ export type PasswordResetTokenRow = {
   expiresAt: Date;
   usedAt: Date | null;
 };
+
+export type OAuthAuthRow = {
+  authId: string;
+  userId: string;
+  provider: OAuthProvider;
+  providerUserId: string;
+  email: string;
+  isVerified: boolean;
+};
+
+export type OAuthConnectedAccountRow = Pick<
+  OAuthAuthRow,
+  'provider' | 'email' | 'isVerified'
+>;
 
 export type GoogleProfile = {
   subject: string;
