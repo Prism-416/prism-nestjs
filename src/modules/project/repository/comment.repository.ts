@@ -4,6 +4,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   CommentRow,
   CreateCommentParams,
+  DeleteCommentParams,
   SearchCommentsParams,
   SearchCommentsResult,
   UpdateCommentParams,
@@ -74,6 +75,27 @@ export class CommentRepository {
     );
 
     return comments[0] ?? null;
+  }
+
+  async deleteWorkItemComment(
+    params: DeleteCommentParams,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const comments = await this.getManager(manager).query<
+      Array<{ commentId: string }>
+    >(
+      `
+        DELETE FROM prism_work_item_comments_l
+        WHERE project_id = $1
+          AND item_id = $2
+          AND comment_id = $3
+          AND author_user_id = $4
+        RETURNING comment_id AS "commentId"
+      `,
+      [params.projectId, params.itemId, params.commentId, params.authorUserId],
+    );
+
+    return comments.length > 0;
   }
 
   async searchWorkItemComments(
