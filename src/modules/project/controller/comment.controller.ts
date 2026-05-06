@@ -4,6 +4,7 @@ import {
   Get,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -38,6 +39,26 @@ export class CommentController {
       String(user.sub),
       projectId,
       itemId,
+      dto,
+    );
+  }
+
+  @Patch(':commentId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Update work item comment' })
+  @ApiDataResponse(CommentResponseDto)
+  async updateWorkItemComment(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: CreateCommentDto,
+  ): Promise<CommentResponseDto> {
+    return this.usecase.updateWorkItemComment(
+      String(user.sub),
+      projectId,
+      itemId,
+      commentId,
       dto,
     );
   }
