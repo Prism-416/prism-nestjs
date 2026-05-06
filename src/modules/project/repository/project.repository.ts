@@ -460,6 +460,32 @@ export class ProjectRepository {
     );
   }
 
+  async findProjectMemberById(
+    workspaceId: string,
+    projectId: string,
+    memberId: string,
+    manager?: EntityManager,
+  ): Promise<ProjectMemberRow | null> {
+    const members = await this.getManager(manager).query<ProjectMemberRow[]>(
+      `
+        SELECT
+          member_id AS "memberId",
+          workspace_id AS "workspaceId",
+          project_id AS "projectId",
+          user_id AS "userId",
+          assigned_at AS "assignedAt"
+        FROM prism_project_members_l
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND member_id = $3
+        LIMIT 1
+      `,
+      [workspaceId, projectId, memberId],
+    );
+
+    return members[0] ?? null;
+  }
+
   async deleteProjectMemberById(
     workspaceId: string,
     projectId: string,

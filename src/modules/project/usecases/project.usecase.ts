@@ -17,6 +17,7 @@ import {
   ProjectMemberWorkspaceMemberNotFoundError,
   ProjectNotFoundError,
   ProjectSlugAlreadyExistsError,
+  ProjectMemberSelfRemovalError,
 } from '@/modules/project/errors';
 import { ProjectRepository } from '@/modules/project/repository';
 import { generateProjectSlug } from '@/modules/project/utils';
@@ -189,22 +190,40 @@ export class ProjectUseCase {
     projectId: string,
     memberId: string,
   ): Promise<void> {
-    const project = await this.repo.findProjectByIdAndAdminUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new ProjectNotFoundError();
-    }
+    await this.uow.run(async (manager) => {
+      const project = await this.repo.findProjectByIdAndAdminUserId(
+        projectId,
+        userId,
+        manager,
+      );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
 
-    const deleted = await this.repo.deleteProjectMemberById(
-      project.workspaceId,
-      project.projectId,
-      memberId,
-    );
-    if (!deleted) {
-      throw new ProjectMemberNotFoundError();
-    }
+      const member = await this.repo.findProjectMemberById(
+        project.workspaceId,
+        project.projectId,
+        memberId,
+        manager,
+      );
+      if (!member) {
+        throw new ProjectMemberNotFoundError();
+      }
+
+      if (member.userId === userId) {
+        throw new ProjectMemberSelfRemovalError();
+      }
+
+      const deleted = await this.repo.deleteProjectMemberById(
+        project.workspaceId,
+        project.projectId,
+        memberId,
+        manager,
+      );
+      if (!deleted) {
+        throw new ProjectMemberNotFoundError();
+      }
+    });
   }
 
   async upsertProjectMembers(

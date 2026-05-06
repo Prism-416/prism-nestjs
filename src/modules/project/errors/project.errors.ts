@@ -1,4 +1,4 @@
-import { DuplicateError, NotExistsError } from '@/core/errors';
+import { DomainError, DuplicateError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
 const PROJECT_SLUG_UNIQUE_CONSTRAINTS = new Set([
@@ -30,6 +30,16 @@ export class ProjectMemberWorkspaceMemberNotFoundError extends NotExistsError {
 export class ProjectMemberNotFoundError extends NotExistsError {
   constructor() {
     super('Project member not found.', 'PROJECT_MEMBER_NOT_FOUND');
+  }
+}
+
+export class ProjectMemberSelfRemovalError extends DomainError {
+  constructor() {
+    super(
+      'Project member cannot remove themselves.',
+      'PROJECT_MEMBER_SELF_REMOVAL',
+      400,
+    );
   }
 }
 
