@@ -1,14 +1,16 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Patch,
   Post,
   Query,
 } from '@nestjs/common';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
@@ -60,6 +62,25 @@ export class CommentController {
       itemId,
       commentId,
       dto,
+    );
+  }
+
+  @Delete(':commentId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete work item comment' })
+  @ApiNoContentResponse({ description: 'Successfully deleted comment' })
+  async deleteWorkItemComment(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+    @Param('commentId') commentId: string,
+  ): Promise<void> {
+    await this.usecase.deleteWorkItemComment(
+      String(user.sub),
+      projectId,
+      itemId,
+      commentId,
     );
   }
 

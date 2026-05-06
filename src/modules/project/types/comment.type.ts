@@ -22,8 +22,19 @@ export type CreateCommentParams = {
   body: string;
 };
 
-export type UpdateCommentParams = CreateCommentParams & {
+export type UpdateCommentParams = {
+  projectId: string;
+  itemId: string;
   commentId: string;
+  authorUserId: string;
+  body: string;
+};
+
+export type DeleteCommentParams = {
+  projectId: string;
+  itemId: string;
+  commentId: string;
+  authorUserId: string;
 };
 
 export type SearchCommentsResult = {

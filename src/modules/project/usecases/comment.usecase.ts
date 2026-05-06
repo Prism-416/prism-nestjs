@@ -109,6 +109,47 @@ export class CommentUseCase {
     });
   }
 
+  async deleteWorkItemComment(
+    userId: string,
+    projectId: string,
+    itemId: string,
+    commentId: string,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const project =
+        await this.projectRepository.findProjectByIdAndMemberUserId(
+          projectId,
+          userId,
+          manager,
+        );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      const workItem = await this.workItemRepository.findWorkItemById(
+        project.projectId,
+        itemId,
+        manager,
+      );
+      if (!workItem) {
+        throw new WorkItemNotFoundError();
+      }
+
+      const deleted = await this.commentRepository.deleteWorkItemComment(
+        {
+          projectId: project.projectId,
+          itemId,
+          commentId,
+          authorUserId: userId,
+        },
+        manager,
+      );
+      if (!deleted) {
+        throw new CommentNotFoundError();
+      }
+    });
+  }
+
   async searchWorkItemComments(
     userId: string,
     projectId: string,
