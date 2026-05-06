@@ -239,6 +239,26 @@ CREATE INDEX IF NOT EXISTS idx_work_items_project_parent_id
 CREATE INDEX IF NOT EXISTS idx_work_items_project_status
     ON prism_work_items_l (project_id, status);
 
+CREATE TABLE IF NOT EXISTS prism_work_item_comments_l
+(
+    comment_id     UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    project_id     UUID        NOT NULL,
+    item_id        UUID        NOT NULL,
+    author_user_id UUID        NOT NULL REFERENCES prism_users_l (user_id) ON DELETE RESTRICT,
+    body           TEXT        NOT NULL,
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ,
+    CONSTRAINT fk_work_item_comments_item
+        FOREIGN KEY (project_id, item_id)
+            REFERENCES prism_work_items_l (project_id, item_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_work_item_comments_item_created
+    ON prism_work_item_comments_l (project_id, item_id, created_at, comment_id);
+
+CREATE INDEX IF NOT EXISTS idx_work_item_comments_author_user_id
+    ON prism_work_item_comments_l (author_user_id);
+
 CREATE TABLE IF NOT EXISTS prism_work_item_member_map
 (
     project_id  UUID        NOT NULL,
