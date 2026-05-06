@@ -16,6 +16,13 @@ export type SearchCommentsParams = {
   offset: number;
 };
 
+export type CreateCommentParams = {
+  projectId: string;
+  itemId: string;
+  authorUserId: string;
+  body: string;
+};
+
 export type SearchCommentsResult = {
   comments: CommentRow[];
   total: number;
