@@ -3,7 +3,6 @@ export type CommentRow = {
   projectId: string;
   itemId: string;
   authorUserId: string;
-  authorUsername: string;
   body: string;
   createdAt: Date;
   updatedAt: Date | null;
@@ -21,6 +20,10 @@ export type CreateCommentParams = {
   itemId: string;
   authorUserId: string;
   body: string;
+};
+
+export type UpdateCommentParams = CreateCommentParams & {
+  commentId: string;
 };
 
 export type SearchCommentsResult = {

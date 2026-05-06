@@ -51,9 +51,6 @@ export class CommentResponseDto {
   authorUserId!: string;
 
   @ApiProperty()
-  authorUsername!: string;
-
-  @ApiProperty()
   body!: string;
 
   @ApiProperty()

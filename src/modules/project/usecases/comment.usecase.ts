@@ -7,6 +7,7 @@ import {
   SearchCommentsResponseDto,
 } from '@/modules/project/dto';
 import {
+  CommentNotFoundError,
   ProjectNotFoundError,
   WorkItemNotFoundError,
 } from '@/modules/project/errors';
@@ -60,6 +61,51 @@ export class CommentUseCase {
         },
         manager,
       );
+    });
+  }
+
+  async updateWorkItemComment(
+    userId: string,
+    projectId: string,
+    itemId: string,
+    commentId: string,
+    dto: CreateCommentDto,
+  ): Promise<CommentResponseDto> {
+    return this.uow.run(async (manager) => {
+      const project =
+        await this.projectRepository.findProjectByIdAndMemberUserId(
+          projectId,
+          userId,
+          manager,
+        );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      const workItem = await this.workItemRepository.findWorkItemById(
+        project.projectId,
+        itemId,
+        manager,
+      );
+      if (!workItem) {
+        throw new WorkItemNotFoundError();
+      }
+
+      const comment = await this.commentRepository.updateWorkItemComment(
+        {
+          projectId: project.projectId,
+          itemId,
+          commentId,
+          authorUserId: userId,
+          body: dto.body,
+        },
+        manager,
+      );
+      if (!comment) {
+        throw new CommentNotFoundError();
+      }
+
+      return comment;
     });
   }
 
