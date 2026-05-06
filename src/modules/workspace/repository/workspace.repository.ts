@@ -349,8 +349,12 @@ export class WorkspaceRepository {
                           ON w.workspace_id = p.workspace_id
                INNER JOIN prism_workspace_members_l wm
                           ON wm.workspace_id = p.workspace_id
-        WHERE wm.user_id = $1
-          AND w.deleted_at IS NULL
+                         AND wm.user_id = $1
+               INNER JOIN prism_project_members_l pm
+                          ON pm.workspace_id = p.workspace_id
+                         AND pm.project_id = p.project_id
+                         AND pm.user_id = $1
+        WHERE w.deleted_at IS NULL
           AND w.status = 'active'
           AND w.slug = $2
         ORDER BY p.created_at DESC
