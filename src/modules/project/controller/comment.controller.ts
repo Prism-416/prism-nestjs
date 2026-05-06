@@ -1,9 +1,19 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
+  CommentResponseDto,
+  CreateCommentDto,
   SearchCommentsQueryDto,
   SearchCommentsResponseDto,
 } from '@/modules/project/dto';
@@ -13,6 +23,24 @@ import { CommentUseCase } from '@/modules/project/usecases';
 @Controller(':projectId/work-items/:itemId/comments')
 export class CommentController {
   constructor(private readonly usecase: CommentUseCase) {}
+
+  @Post()
+  @Authenticated()
+  @ApiOperation({ summary: 'Create work item comment' })
+  @ApiDataResponse(CommentResponseDto, { status: HttpStatus.CREATED })
+  async createWorkItemComment(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: CreateCommentDto,
+  ): Promise<CommentResponseDto> {
+    return this.usecase.createWorkItemComment(
+      String(user.sub),
+      projectId,
+      itemId,
+      dto,
+    );
+  }
 
   @Get()
   @Authenticated()

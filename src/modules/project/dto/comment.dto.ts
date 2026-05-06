@@ -1,6 +1,24 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+import { normalizeTrimmedString } from '@/modules/project/utils';
+
+export class CreateCommentDto {
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  body!: string;
+}
 
 export class SearchCommentsQueryDto {
   @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
