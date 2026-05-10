@@ -11,6 +11,7 @@ import { DataResponseInterceptor } from '@/core/response';
 import { envValidationSchema } from '@/core/config/env.validation';
 import { buildTypeOrmOptions } from '@/core/database/typeorm.options';
 import { AuthModule } from '@/modules/auth/auth.module';
+import { DocumentModule } from '@/modules/document/document.module';
 import { OnboardingModule } from '@/modules/onboarding/onboarding.module';
 import { ProjectModule } from '@/modules/project/project.module';
 import { SprintModule } from '@/modules/sprint/sprint.module';
@@ -41,6 +42,11 @@ const featureRegistrations: FeatureRegistration[] = [
   },
   {
     module: ProjectModule,
+    path: 'projects',
+    requiresDb: true,
+  },
+  {
+    module: DocumentModule,
     path: 'projects',
     requiresDb: true,
   },
