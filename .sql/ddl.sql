@@ -210,6 +210,30 @@ CREATE TABLE IF NOT EXISTS prism_project_member_job_map
 CREATE INDEX IF NOT EXISTS idx_project_member_job_map_member_id
     ON prism_project_member_job_map (member_id);
 
+CREATE TABLE IF NOT EXISTS prism_documents_l
+(
+    document_id         UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    project_id          UUID         NOT NULL REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    title               VARCHAR(100) NOT NULL,
+    description         VARCHAR(1000),
+    file_name           VARCHAR(255) NOT NULL,
+    content_type        VARCHAR(255) NOT NULL,
+    size_bytes          BIGINT       NOT NULL,
+    storage_object_name TEXT         NOT NULL,
+    storage_etag        VARCHAR(255),
+    storage_version_id  VARCHAR(255),
+    created_by          UUID         NOT NULL REFERENCES prism_users_l (user_id) ON DELETE RESTRICT,
+    updated_by          UUID         NOT NULL REFERENCES prism_users_l (user_id) ON DELETE RESTRICT,
+    created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    CONSTRAINT uq_documents_project_document UNIQUE (project_id, document_id),
+    CONSTRAINT uq_documents_storage_object_name UNIQUE (storage_object_name),
+    CONSTRAINT ck_documents_size_bytes_positive CHECK (size_bytes > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_documents_project_created_at
+    ON prism_documents_l (project_id, created_at DESC);
+
 CREATE TABLE IF NOT EXISTS prism_work_items_l
 (
     item_id           UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
