@@ -2,6 +2,7 @@ import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
@@ -9,6 +10,25 @@ import {
   Min,
 } from 'class-validator';
 import { normalizeOptionalTrimmedString } from '@/modules/document/utils';
+
+export class UploadDocumentDto {
+  @ApiPropertyOptional({
+    description: 'Defaults to the uploaded file name when omitted.',
+  })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  title?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string;
+}
 
 export class SearchDocumentsQueryDto {
   @ApiPropertyOptional({

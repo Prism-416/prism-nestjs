@@ -18,6 +18,27 @@ export type DocumentProjectRow = {
   projectId: string;
 };
 
+export type DocumentUploadFile = {
+  originalname: string;
+  mimetype: string;
+  size: number;
+  buffer: Buffer;
+};
+
+export type CreateDocumentParams = {
+  documentId: string;
+  projectId: string;
+  title: string;
+  description?: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  storageObjectName: string;
+  storageETag?: string;
+  storageVersionId?: string;
+  createdBy: string;
+};
+
 export type SearchDocumentsParams = {
   projectId: string;
   query?: string;

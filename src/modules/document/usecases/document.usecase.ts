@@ -1,18 +1,33 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { OciObjectStorageService } from '@/core/object-storage';
 import {
   DocumentSummaryResponseDto,
   SearchDocumentsQueryDto,
   SearchDocumentsResponseDto,
+  UploadDocumentDto,
 } from '@/modules/document/dto';
 import {
+  DocumentFileEmptyError,
+  DocumentFileRequiredError,
   DocumentNotFoundError,
   DocumentProjectNotFoundError,
 } from '@/modules/document/errors';
 import { DocumentRepository } from '@/modules/document/repository';
+import { DocumentUploadFile } from '@/modules/document/types';
+import {
+  buildDocumentObjectName,
+  sanitizeDocumentFileName,
+} from '@/modules/document/utils';
 
 @Injectable()
 export class DocumentUseCase {
-  constructor(private readonly repo: DocumentRepository) {}
+  private readonly logger = new Logger(DocumentUseCase.name);
+
+  constructor(
+    private readonly repo: DocumentRepository,
+    private readonly objectStorageService: OciObjectStorageService,
+  ) {}
 
   async searchDocuments(
     userId: string,
@@ -57,5 +72,82 @@ export class DocumentUseCase {
     }
 
     return document;
+  }
+
+  async uploadDocument(
+    userId: string,
+    projectId: string,
+    dto: UploadDocumentDto,
+    file?: DocumentUploadFile,
+  ): Promise<DocumentSummaryResponseDto> {
+    if (!file) {
+      throw new DocumentFileRequiredError();
+    }
+
+    if (file.size <= 0) {
+      throw new DocumentFileEmptyError();
+    }
+
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new DocumentProjectNotFoundError();
+    }
+
+    const documentId = randomUUID();
+    const fileName = sanitizeDocumentFileName(file.originalname);
+    const objectName = buildDocumentObjectName({
+      projectId: project.projectId,
+      documentId,
+      fileName,
+    });
+    const contentType = file.mimetype || 'application/octet-stream';
+    const putResult = await this.objectStorageService.putObject({
+      objectName,
+      body: file.buffer,
+      contentLength: file.size,
+      contentType,
+      metadata: {
+        projectId: project.projectId,
+        documentId,
+        uploadedBy: userId,
+      },
+    });
+
+    try {
+      return await this.repo.createDocument({
+        documentId,
+        projectId: project.projectId,
+        title: dto.title ?? fileName,
+        description: dto.description,
+        fileName,
+        contentType,
+        sizeBytes: file.size,
+        storageObjectName: objectName,
+        storageETag: putResult.eTag,
+        storageVersionId: putResult.versionId,
+        createdBy: userId,
+      });
+    } catch (error) {
+      await this.cleanupUploadedObject(objectName, putResult.versionId);
+      throw error;
+    }
+  }
+
+  private async cleanupUploadedObject(
+    objectName: string,
+    versionId?: string,
+  ): Promise<void> {
+    try {
+      await this.objectStorageService.deleteObject({ objectName, versionId });
+    } catch (cleanupError) {
+      this.logger.warn(
+        cleanupError instanceof Error
+          ? cleanupError.message
+          : 'Failed to cleanup uploaded document object.',
+      );
+    }
   }
 }
