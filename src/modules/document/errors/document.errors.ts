@@ -5,3 +5,9 @@ export class DocumentProjectNotFoundError extends NotExistsError {
     super('Project not found.', 'PROJECT_NOT_FOUND');
   }
 }
+
+export class DocumentNotFoundError extends NotExistsError {
+  constructor() {
+    super('Document not found.', 'DOCUMENT_NOT_FOUND');
+  }
+}
