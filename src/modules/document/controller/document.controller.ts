@@ -4,6 +4,7 @@ import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
+  DocumentSummaryResponseDto,
   SearchDocumentsQueryDto,
   SearchDocumentsResponseDto,
 } from '@/modules/document/dto';
@@ -24,5 +25,17 @@ export class DocumentController {
     @Query() query: SearchDocumentsQueryDto,
   ): Promise<SearchDocumentsResponseDto> {
     return this.usecase.searchDocuments(String(user.sub), projectId, query);
+  }
+
+  @Get(':documentId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve project document metadata' })
+  @ApiDataResponse(DocumentSummaryResponseDto)
+  async getDocument(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('documentId') documentId: string,
+  ): Promise<DocumentSummaryResponseDto> {
+    return this.usecase.getDocument(String(user.sub), projectId, documentId);
   }
 }

@@ -152,6 +152,38 @@ export class DocumentRepository {
     };
   }
 
+  async findDocumentById(
+    projectId: string,
+    documentId: string,
+    manager?: EntityManager,
+  ): Promise<DocumentRow | null> {
+    const documents = await this.getManager(manager).query<DocumentDbRow[]>(
+      `
+        SELECT
+          document_id AS "documentId",
+          project_id AS "projectId",
+          title,
+          description,
+          file_name AS "fileName",
+          content_type AS "contentType",
+          size_bytes AS "sizeBytes",
+          storage_etag AS "storageETag",
+          storage_version_id AS "storageVersionId",
+          created_by AS "createdBy",
+          updated_by AS "updatedBy",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM prism_documents_l
+        WHERE project_id = $1
+          AND document_id = $2
+        LIMIT 1
+      `,
+      [projectId, documentId],
+    );
+
+    return documents[0] ? this.mapDocumentRow(documents[0]) : null;
+  }
+
   private mapDocumentRow(row: DocumentDbRow): DocumentRow {
     return {
       ...row,

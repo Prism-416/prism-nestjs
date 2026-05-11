@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {
+  DocumentSummaryResponseDto,
   SearchDocumentsQueryDto,
   SearchDocumentsResponseDto,
 } from '@/modules/document/dto';
-import { DocumentProjectNotFoundError } from '@/modules/document/errors';
+import {
+  DocumentNotFoundError,
+  DocumentProjectNotFoundError,
+} from '@/modules/document/errors';
 import { DocumentRepository } from '@/modules/document/repository';
 
 @Injectable()
@@ -29,5 +33,29 @@ export class DocumentUseCase {
       limit: query.limit ?? 50,
       offset: query.offset ?? 0,
     });
+  }
+
+  async getDocument(
+    userId: string,
+    projectId: string,
+    documentId: string,
+  ): Promise<DocumentSummaryResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new DocumentProjectNotFoundError();
+    }
+
+    const document = await this.repo.findDocumentById(
+      project.projectId,
+      documentId,
+    );
+    if (!document) {
+      throw new DocumentNotFoundError();
+    }
+
+    return document;
   }
 }
