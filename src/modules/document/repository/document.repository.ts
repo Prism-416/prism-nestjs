@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  CreateDocumentParams,
   DocumentProjectRow,
   DocumentRow,
   SearchDocumentsParams,
@@ -182,6 +183,73 @@ export class DocumentRepository {
     );
 
     return documents[0] ? this.mapDocumentRow(documents[0]) : null;
+  }
+
+  async createDocument(
+    params: CreateDocumentParams,
+    manager?: EntityManager,
+  ): Promise<DocumentRow> {
+    const documents = await this.getManager(manager).query<DocumentDbRow[]>(
+      `
+        INSERT INTO prism_documents_l (
+          document_id,
+          project_id,
+          title,
+          description,
+          file_name,
+          content_type,
+          size_bytes,
+          storage_object_name,
+          storage_etag,
+          storage_version_id,
+          created_by,
+          updated_by
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $11
+        )
+        RETURNING
+          document_id AS "documentId",
+          project_id AS "projectId",
+          title,
+          description,
+          file_name AS "fileName",
+          content_type AS "contentType",
+          size_bytes AS "sizeBytes",
+          storage_etag AS "storageETag",
+          storage_version_id AS "storageVersionId",
+          created_by AS "createdBy",
+          updated_by AS "updatedBy",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [
+        params.documentId,
+        params.projectId,
+        params.title,
+        params.description ?? null,
+        params.fileName,
+        params.contentType,
+        params.sizeBytes,
+        params.storageObjectName,
+        params.storageETag ?? null,
+        params.storageVersionId ?? null,
+        params.createdBy,
+      ],
+    );
+
+    return this.mapDocumentRow(documents[0]);
   }
 
   private mapDocumentRow(row: DocumentDbRow): DocumentRow {

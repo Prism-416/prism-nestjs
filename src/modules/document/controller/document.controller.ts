@@ -1,13 +1,28 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
+import { MAX_DOCUMENT_FILE_SIZE_BYTES } from '@/modules/document/constants';
+import { ApiDocumentUploadBody } from '@/modules/document/controller/document-upload-body.decorator';
 import {
   DocumentSummaryResponseDto,
   SearchDocumentsQueryDto,
   SearchDocumentsResponseDto,
+  UploadDocumentDto,
 } from '@/modules/document/dto';
+import type { DocumentUploadFile } from '@/modules/document/types';
 import { DocumentUseCase } from '@/modules/document/usecases';
 
 @ApiTags('Project Document')
@@ -25,6 +40,25 @@ export class DocumentController {
     @Query() query: SearchDocumentsQueryDto,
   ): Promise<SearchDocumentsResponseDto> {
     return this.usecase.searchDocuments(String(user.sub), projectId, query);
+  }
+
+  @Post()
+  @Authenticated()
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: MAX_DOCUMENT_FILE_SIZE_BYTES },
+    }),
+  )
+  @ApiOperation({ summary: 'Upload project document' })
+  @ApiDocumentUploadBody()
+  @ApiDataResponse(DocumentSummaryResponseDto, { status: HttpStatus.CREATED })
+  async uploadDocument(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: UploadDocumentDto,
+    @UploadedFile() file?: DocumentUploadFile,
+  ): Promise<DocumentSummaryResponseDto> {
+    return this.usecase.uploadDocument(String(user.sub), projectId, dto, file);
   }
 
   @Get(':documentId')
