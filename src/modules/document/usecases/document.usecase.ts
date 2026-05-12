@@ -131,22 +131,53 @@ export class DocumentUseCase {
         createdBy: userId,
       });
     } catch (error) {
-      await this.cleanupUploadedObject(objectName, putResult.versionId);
+      await this.cleanupObject(
+        objectName,
+        putResult.versionId,
+        'Failed to cleanup uploaded document object.',
+      );
       throw error;
     }
   }
 
-  private async cleanupUploadedObject(
+  async deleteDocument(
+    userId: string,
+    projectId: string,
+    documentId: string,
+  ): Promise<void> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new DocumentProjectNotFoundError();
+    }
+
+    const deletedDocument = await this.repo.deleteDocument(
+      project.projectId,
+      documentId,
+    );
+    if (!deletedDocument) {
+      throw new DocumentNotFoundError();
+    }
+
+    await this.cleanupObject(
+      deletedDocument.storageObjectName,
+      deletedDocument.storageVersionId ?? undefined,
+      'Failed to cleanup deleted document object.',
+    );
+  }
+
+  private async cleanupObject(
     objectName: string,
-    versionId?: string,
+    versionId: string | undefined,
+    fallbackMessage: string,
   ): Promise<void> {
     try {
       await this.objectStorageService.deleteObject({ objectName, versionId });
     } catch (cleanupError) {
       this.logger.warn(
-        cleanupError instanceof Error
-          ? cleanupError.message
-          : 'Failed to cleanup uploaded document object.',
+        cleanupError instanceof Error ? cleanupError.message : fallbackMessage,
       );
     }
   }

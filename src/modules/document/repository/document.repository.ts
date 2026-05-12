@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   CreateDocumentParams,
+  DeletedDocumentRow,
   DocumentProjectRow,
   DocumentRow,
   SearchDocumentsParams,
@@ -250,6 +251,28 @@ export class DocumentRepository {
     );
 
     return this.mapDocumentRow(documents[0]);
+  }
+
+  async deleteDocument(
+    projectId: string,
+    documentId: string,
+    manager?: EntityManager,
+  ): Promise<DeletedDocumentRow | null> {
+    const documents = await this.getManager(manager).query<
+      DeletedDocumentRow[]
+    >(
+      `
+        DELETE FROM prism_documents_l
+        WHERE project_id = $1
+          AND document_id = $2
+        RETURNING
+          storage_object_name AS "storageObjectName",
+          storage_version_id AS "storageVersionId"
+      `,
+      [projectId, documentId],
+    );
+
+    return documents[0] ?? null;
   }
 
   private mapDocumentRow(row: DocumentDbRow): DocumentRow {
