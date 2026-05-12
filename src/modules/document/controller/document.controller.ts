@@ -1,7 +1,9 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Post,
@@ -10,7 +12,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
@@ -71,5 +73,18 @@ export class DocumentController {
     @Param('documentId') documentId: string,
   ): Promise<DocumentSummaryResponseDto> {
     return this.usecase.getDocument(String(user.sub), projectId, documentId);
+  }
+
+  @Delete(':documentId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete project document' })
+  @ApiNoContentResponse({ description: 'Successfully deleted document' })
+  async deleteDocument(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('documentId') documentId: string,
+  ): Promise<void> {
+    await this.usecase.deleteDocument(String(user.sub), projectId, documentId);
   }
 }

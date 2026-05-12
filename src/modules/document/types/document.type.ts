@@ -18,6 +18,11 @@ export type DocumentProjectRow = {
   projectId: string;
 };
 
+export type DeletedDocumentRow = {
+  storageObjectName: string;
+  storageVersionId: string | null;
+};
+
 export type DocumentUploadFile = {
   originalname: string;
   mimetype: string;
