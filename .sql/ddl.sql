@@ -12,6 +12,19 @@ CREATE TABLE IF NOT EXISTS prism_users_l
     UNIQUE (username)
 );
 
+CREATE TABLE IF NOT EXISTS prism_user_preferences_l
+(
+    user_id                     UUID PRIMARY KEY REFERENCES prism_users_l (user_id) ON DELETE CASCADE,
+    theme                       VARCHAR(20) NOT NULL DEFAULT 'system',
+    locale                      VARCHAR(20) NOT NULL DEFAULT 'en-US',
+    timezone                    VARCHAR(64) NOT NULL DEFAULT 'UTC',
+    email_notifications_enabled BOOLEAN     NOT NULL DEFAULT TRUE,
+    updated_at                  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (theme IN ('system', 'light', 'dark')),
+    CHECK (LENGTH(TRIM(locale)) > 0),
+    CHECK (LENGTH(TRIM(timezone)) > 0)
+);
+
 CREATE TABLE IF NOT EXISTS prism_user_auths_l
 (
     auth_id          UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
