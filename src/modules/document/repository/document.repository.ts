@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   CreateDocumentParams,
+  DocumentDownloadRow,
   DocumentProjectRow,
   DocumentRow,
   SearchDocumentsParams,
@@ -10,6 +11,10 @@ import {
 } from '@/modules/document/types';
 
 type DocumentDbRow = Omit<DocumentRow, 'sizeBytes'> & {
+  sizeBytes: string | number;
+};
+
+type DocumentDownloadDbRow = Omit<DocumentDownloadRow, 'sizeBytes'> & {
   sizeBytes: string | number;
 };
 
@@ -185,6 +190,33 @@ export class DocumentRepository {
     return documents[0] ? this.mapDocumentRow(documents[0]) : null;
   }
 
+  async findDocumentDownloadById(
+    projectId: string,
+    documentId: string,
+    manager?: EntityManager,
+  ): Promise<DocumentDownloadRow | null> {
+    const documents = await this.getManager(manager).query<
+      DocumentDownloadDbRow[]
+    >(
+      `
+        SELECT
+          file_name AS "fileName",
+          content_type AS "contentType",
+          size_bytes AS "sizeBytes",
+          storage_object_name AS "storageObjectName",
+          storage_etag AS "storageETag",
+          storage_version_id AS "storageVersionId"
+        FROM prism_documents_l
+        WHERE project_id = $1
+          AND document_id = $2
+        LIMIT 1
+      `,
+      [projectId, documentId],
+    );
+
+    return documents[0] ? this.mapDocumentDownloadRow(documents[0]) : null;
+  }
+
   async createDocument(
     params: CreateDocumentParams,
     manager?: EntityManager,
@@ -253,6 +285,15 @@ export class DocumentRepository {
   }
 
   private mapDocumentRow(row: DocumentDbRow): DocumentRow {
+    return {
+      ...row,
+      sizeBytes: Number(row.sizeBytes),
+    };
+  }
+
+  private mapDocumentDownloadRow(
+    row: DocumentDownloadDbRow,
+  ): DocumentDownloadRow {
     return {
       ...row,
       sizeBytes: Number(row.sizeBytes),

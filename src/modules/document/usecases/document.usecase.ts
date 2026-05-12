@@ -1,5 +1,11 @@
-import { Injectable, Logger } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
+import { Readable } from 'node:stream';
+import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { OciObjectStorageService } from '@/core/object-storage';
 import {
   DocumentSummaryResponseDto,
@@ -14,7 +20,10 @@ import {
   DocumentProjectNotFoundError,
 } from '@/modules/document/errors';
 import { DocumentRepository } from '@/modules/document/repository';
-import { DocumentUploadFile } from '@/modules/document/types';
+import {
+  DocumentDownloadResult,
+  DocumentUploadFile,
+} from '@/modules/document/types';
 import {
   buildDocumentObjectName,
   sanitizeDocumentFileName,
@@ -72,6 +81,42 @@ export class DocumentUseCase {
     }
 
     return document;
+  }
+
+  async downloadDocument(
+    userId: string,
+    projectId: string,
+    documentId: string,
+  ): Promise<DocumentDownloadResult> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new DocumentProjectNotFoundError();
+    }
+
+    const document = await this.repo.findDocumentDownloadById(
+      project.projectId,
+      documentId,
+    );
+    if (!document) {
+      throw new DocumentNotFoundError();
+    }
+
+    const object = await this.objectStorageService.getObject({
+      objectName: document.storageObjectName,
+      versionId: document.storageVersionId ?? undefined,
+    });
+
+    return {
+      fileName: document.fileName,
+      contentType: object.contentType || document.contentType,
+      contentLength: object.contentLength || document.sizeBytes,
+      eTag: object.eTag || document.storageETag || undefined,
+      lastModified: object.lastModified,
+      body: this.toReadable(object.body),
+    };
   }
 
   async uploadDocument(
@@ -149,5 +194,17 @@ export class DocumentUseCase {
           : 'Failed to cleanup uploaded document object.',
       );
     }
+  }
+
+  private toReadable(body: Readable | ReadableStream | null): Readable {
+    if (!body) {
+      throw new InternalServerErrorException('Document object body is empty.');
+    }
+
+    if (body instanceof Readable) {
+      return body;
+    }
+
+    return Readable.fromWeb(body as NodeReadableStream<Uint8Array>);
   }
 }

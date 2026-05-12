@@ -1,3 +1,5 @@
+import type { Readable } from 'node:stream';
+
 export type DocumentRow = {
   documentId: string;
   projectId: string;
@@ -23,6 +25,24 @@ export type DocumentUploadFile = {
   mimetype: string;
   size: number;
   buffer: Buffer;
+};
+
+export type DocumentDownloadRow = {
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  storageObjectName: string;
+  storageETag: string | null;
+  storageVersionId: string | null;
+};
+
+export type DocumentDownloadResult = {
+  fileName: string;
+  contentType: string;
+  contentLength: number;
+  eTag?: string;
+  lastModified?: Date;
+  body: Readable;
 };
 
 export type CreateDocumentParams = {
