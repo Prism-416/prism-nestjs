@@ -61,6 +61,25 @@ export class AuthRepository {
     return users[0];
   }
 
+  async createDefaultUserPreferences(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        INSERT INTO prism_user_preferences_l (
+          user_id,
+          theme,
+          locale,
+          timezone,
+          email_notifications_enabled
+        )
+        VALUES ($1, 'system', 'en-US', 'UTC', TRUE)
+      `,
+      [userId],
+    );
+  }
+
   async createEmailAuth(
     userId: string,
     email: string,

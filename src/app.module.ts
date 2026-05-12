@@ -15,6 +15,7 @@ import { DocumentModule } from '@/modules/document/document.module';
 import { OnboardingModule } from '@/modules/onboarding/onboarding.module';
 import { ProjectModule } from '@/modules/project/project.module';
 import { SprintModule } from '@/modules/sprint/sprint.module';
+import { UserModule } from '@/modules/user/user.module';
 import { WorkspaceModule } from '@/modules/workspace/workspace.module';
 
 const dbEnabled = (process.env.DB_ENABLED ?? 'false').toLowerCase() === 'true';
@@ -33,6 +34,11 @@ const featureRegistrations: FeatureRegistration[] = [
   },
   {
     module: OnboardingModule,
+    requiresDb: true,
+  },
+  {
+    module: UserModule,
+    path: 'users',
     requiresDb: true,
   },
   {
