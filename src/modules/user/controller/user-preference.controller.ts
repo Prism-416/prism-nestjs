@@ -1,9 +1,12 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Get, Patch } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth/jwt-token.service';
 import { ApiDataResponse } from '@/core/response';
-import { UserPreferencesResponseDto } from '@/modules/user/dto';
+import {
+  UpdateUserPreferencesDto,
+  UserPreferencesResponseDto,
+} from '@/modules/user/dto';
 import { UserPreferenceUseCase } from '@/modules/user/usecases';
 
 @ApiTags('User')
@@ -19,5 +22,16 @@ export class UserPreferenceController {
     @CurrentUser() user: JwtPayload,
   ): Promise<UserPreferencesResponseDto> {
     return this.usecase.getPreferences(String(user.sub));
+  }
+
+  @Patch()
+  @Authenticated()
+  @ApiOperation({ summary: 'Update current user preferences' })
+  @ApiDataResponse(UserPreferencesResponseDto)
+  async updatePreferences(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateUserPreferencesDto,
+  ): Promise<UserPreferencesResponseDto> {
+    return this.usecase.updatePreferences(String(user.sub), dto);
   }
 }
