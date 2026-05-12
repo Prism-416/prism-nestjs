@@ -93,6 +93,7 @@ export class AuthRegistrationService {
       passwordHash,
       manager,
     );
+    await this.repo.createDefaultUserPreferences(user.userId, manager);
 
     return {
       user,
@@ -141,6 +142,7 @@ export class AuthRegistrationService {
       params.email,
       manager,
     );
+    await this.repo.createDefaultUserPreferences(user.userId, manager);
 
     await this.repo.markUserAuthVerified(auth.authId, manager);
 
