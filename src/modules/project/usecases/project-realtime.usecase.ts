@@ -6,7 +6,7 @@ import { ProjectRepository } from '@/modules/project/repository';
 export class ProjectRealtimeUseCase {
   constructor(private readonly repo: ProjectRepository) {}
 
-  async connectProjectClient(userId: string, projectId: string): Promise<void> {
+  async joinProject(userId: string, projectId: string): Promise<void> {
     const project = await this.repo.findProjectByIdAndMemberUserId(
       projectId,
       userId,

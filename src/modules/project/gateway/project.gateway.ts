@@ -1,19 +1,24 @@
-import { Logger, UnauthorizedException } from '@nestjs/common';
+import { Logger, UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
 import {
+  ConnectedSocket,
+  MessageBody,
   OnGatewayConnection,
   OnGatewayDisconnect,
+  SubscribeMessage,
   WebSocketGateway,
 } from '@nestjs/websockets';
-import type { Socket } from 'socket.io';
-import { DomainError } from '@/core/errors';
-import { JwtTokenService } from '@/core/auth';
-import type { JwtPayload } from '@/core/auth';
+import {
+  AuthenticatedSocket,
+  WebSocketAuthService,
+  WebSocketExceptionFilter,
+} from '@/core/websocket';
+import {
+  PROJECT_REALTIME_EVENTS,
+  PROJECT_REALTIME_NAMESPACE,
+} from '@/modules/project/constants';
+import { JoinProjectDto, ProjectJoinedPayloadDto } from '@/modules/project/dto';
 import { ProjectRealtimeUseCase } from '@/modules/project/usecases';
-
-const PROJECT_NAMESPACE_PATTERN =
-  /^\/projects\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
-const PROJECT_JOINED_EVENT = 'project.joined';
-const WEBSOCKET_EXCEPTION_EVENT = 'exception';
+import { buildProjectRoom } from '@/modules/project/utils';
 
 const resolveSocketCorsOrigin = (): string[] | true => {
   const origins = (process.env.CORS_ORIGIN ?? '')
@@ -24,26 +29,31 @@ const resolveSocketCorsOrigin = (): string[] | true => {
   return origins.length > 0 ? origins : true;
 };
 
-type ProjectSocketData = {
-  user?: JwtPayload;
-  projectId?: string;
+type ProjectServerToClientEvents = {
+  [PROJECT_REALTIME_EVENTS.PROJECT_JOINED]: (
+    payload: ProjectJoinedPayloadDto,
+  ) => void;
 };
 
-type ProjectSocket = Socket<
-  Record<string, never>,
-  {
-    [PROJECT_JOINED_EVENT]: (payload: { projectId: string }) => void;
-    [WEBSOCKET_EXCEPTION_EVENT]: (payload: {
-      code: string;
-      message: string;
-    }) => void;
-  },
-  Record<string, never>,
-  ProjectSocketData
+type ProjectClientToServerEvents = {
+  [PROJECT_REALTIME_EVENTS.PROJECT_JOIN]: (payload: JoinProjectDto) => void;
+};
+
+type ProjectSocket = AuthenticatedSocket<
+  ProjectClientToServerEvents,
+  ProjectServerToClientEvents
 >;
 
+@UseFilters(WebSocketExceptionFilter)
+@UsePipes(
+  new ValidationPipe({
+    whitelist: true,
+    transform: true,
+    forbidUnknownValues: true,
+  }),
+)
 @WebSocketGateway({
-  namespace: PROJECT_NAMESPACE_PATTERN,
+  namespace: PROJECT_REALTIME_NAMESPACE,
   cors: {
     origin: resolveSocketCorsOrigin(),
     credentials: true,
@@ -57,86 +67,40 @@ export class ProjectGateway
   private readonly logger = new Logger(ProjectGateway.name);
 
   constructor(
-    private readonly jwtTokenService: JwtTokenService,
+    private readonly webSocketAuthService: WebSocketAuthService,
+    private readonly exceptionFilter: WebSocketExceptionFilter,
     private readonly realtimeUseCase: ProjectRealtimeUseCase,
   ) {}
 
-  async handleConnection(client: ProjectSocket): Promise<void> {
+  handleConnection(client: ProjectSocket): void {
     try {
-      const projectId = this.extractProjectId(client);
-      const token = this.extractAccessToken(client);
-      const user = this.jwtTokenService.verifyAccessToken(token);
-
-      await this.realtimeUseCase.connectProjectClient(user.sub, projectId);
-
-      client.data.user = user;
-      client.data.projectId = projectId;
-      await client.join(this.buildProjectRoom(projectId));
-      client.emit(PROJECT_JOINED_EVENT, { projectId });
+      this.webSocketAuthService.authenticate(client);
     } catch (error) {
-      this.rejectClient(client, error);
+      this.exceptionFilter.emitException(client, error, true);
     }
   }
 
   handleDisconnect(client: ProjectSocket): void {
-    if (!client.data.projectId || !client.data.user) {
+    if (!client.data.user) {
       return;
     }
 
     this.logger.debug(
-      `Project socket disconnected user=${client.data.user.sub} project=${client.data.projectId}`,
+      `Project socket disconnected user=${client.data.user.sub}`,
     );
   }
 
-  private extractProjectId(client: ProjectSocket): string {
-    const match = client.nsp.name.match(PROJECT_NAMESPACE_PATTERN);
-    if (!match?.[1]) {
-      throw new UnauthorizedException('Invalid project websocket namespace');
-    }
+  @SubscribeMessage(PROJECT_REALTIME_EVENTS.PROJECT_JOIN)
+  async joinProject(
+    @ConnectedSocket() client: ProjectSocket,
+    @MessageBody() dto: JoinProjectDto,
+  ): Promise<void> {
+    const user = this.webSocketAuthService.getAuthenticatedUser(client);
 
-    return match[1];
-  }
-
-  private extractAccessToken(client: ProjectSocket): string {
-    const auth = client.handshake.auth as { token?: unknown };
-    const authToken = auth.token;
-    if (typeof authToken === 'string') {
-      return this.normalizeAccessToken(authToken);
-    }
-
-    const authorization = client.handshake.headers.authorization;
-    if (typeof authorization === 'string') {
-      return this.normalizeAccessToken(authorization);
-    }
-
-    throw new UnauthorizedException('Missing websocket access token');
-  }
-
-  private normalizeAccessToken(value: string): string {
-    const trimmed = value.trim();
-    if (!trimmed) {
-      throw new UnauthorizedException('Missing websocket access token');
-    }
-
-    const [scheme, token] = trimmed.split(' ');
-    if (scheme?.toLowerCase() === 'bearer' && token) {
-      return token;
-    }
-
-    return trimmed;
-  }
-
-  private buildProjectRoom(projectId: string): string {
-    return `project:${projectId}`;
-  }
-
-  private rejectClient(client: ProjectSocket, error: unknown): void {
-    const payload =
-      error instanceof DomainError
-        ? { code: error.code, message: error.message }
-        : { code: 'WEBSOCKET_UNAUTHORIZED', message: 'Unauthorized.' };
-
-    client.emit(WEBSOCKET_EXCEPTION_EVENT, payload);
-    client.disconnect(true);
+    await this.realtimeUseCase.joinProject(user.sub, dto.projectId);
+    await client.join(buildProjectRoom(dto.projectId));
+    client.emit(PROJECT_REALTIME_EVENTS.PROJECT_JOINED, {
+      projectId: dto.projectId,
+    });
   }
 }

@@ -11,6 +11,10 @@ import { OciEmailModule } from '@/core/email';
 import { OciObjectStorageModule } from '@/core/object-storage';
 import { OciQueueModule } from '@/core/queue';
 import { PasswordService } from '@/core/security';
+import {
+  WebSocketAuthService,
+  WebSocketExceptionFilter,
+} from '@/core/websocket';
 
 @Global()
 @Module({
@@ -27,6 +31,8 @@ import { PasswordService } from '@/core/security';
     RefreshTokenCookieInterceptor,
     PasswordService,
     UnitOfWork,
+    WebSocketAuthService,
+    WebSocketExceptionFilter,
   ],
   exports: [
     OciEmailModule,
@@ -38,6 +44,8 @@ import { PasswordService } from '@/core/security';
     RefreshTokenCookieInterceptor,
     PasswordService,
     UnitOfWork,
+    WebSocketAuthService,
+    WebSocketExceptionFilter,
   ],
 })
 export class CoreModule {}
