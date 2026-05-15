@@ -2,11 +2,13 @@ import { Logger, UseFilters, UsePipes, ValidationPipe } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
+  OnGatewayInit,
   OnGatewayConnection,
   OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
 } from '@nestjs/websockets';
+import type { Server } from 'socket.io';
 import {
   AuthenticatedSocket,
   WebSocketAuthService,
@@ -19,9 +21,12 @@ import {
 import {
   JoinProjectDto,
   LeaveProjectDto,
+  ProjectDeletedPayloadDto,
   ProjectJoinedPayloadDto,
   ProjectLeftPayloadDto,
+  ProjectUpdatedPayloadDto,
 } from '@/modules/project/dto';
+import { ProjectRealtimePublisherService } from '@/modules/project/services';
 import { ProjectRealtimeSubscriptionUseCase } from '@/modules/project/usecases';
 import { buildProjectRoom } from '@/modules/project/utils';
 
@@ -40,6 +45,12 @@ type ProjectServerToClientEvents = {
   ) => void;
   [PROJECT_REALTIME_EVENTS.PROJECT_LEFT]: (
     payload: ProjectLeftPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.PROJECT_UPDATED]: (
+    payload: ProjectUpdatedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.PROJECT_DELETED]: (
+    payload: ProjectDeletedPayloadDto,
   ) => void;
 };
 
@@ -70,6 +81,7 @@ type ProjectSocket = AuthenticatedSocket<
 })
 export class ProjectGateway
   implements
+    OnGatewayInit<Server>,
     OnGatewayConnection<ProjectSocket>,
     OnGatewayDisconnect<ProjectSocket>
 {
@@ -78,8 +90,13 @@ export class ProjectGateway
   constructor(
     private readonly webSocketAuthService: WebSocketAuthService,
     private readonly exceptionFilter: WebSocketExceptionFilter,
+    private readonly realtimePublisher: ProjectRealtimePublisherService,
     private readonly subscriptionUseCase: ProjectRealtimeSubscriptionUseCase,
   ) {}
+
+  afterInit(server: Server): void {
+    this.realtimePublisher.bindServer(server);
+  }
 
   handleConnection(client: ProjectSocket): void {
     try {

@@ -10,6 +10,7 @@ import {
   ProjectRepository,
   WorkItemRepository,
 } from '@/modules/project/repository';
+import { ProjectRealtimePublisherService } from '@/modules/project/services';
 import {
   CommentUseCase,
   ProjectRealtimeSubscriptionUseCase,
@@ -25,6 +26,7 @@ import {
     WorkItemRepository,
     CommentUseCase,
     ProjectGateway,
+    ProjectRealtimePublisherService,
     ProjectRealtimeSubscriptionUseCase,
     ProjectUseCase,
     WorkItemUseCase,
