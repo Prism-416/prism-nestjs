@@ -20,6 +20,7 @@ import {
   ProjectMemberSelfRemovalError,
 } from '@/modules/project/errors';
 import { ProjectRepository } from '@/modules/project/repository';
+import { ProjectRealtimePublisherService } from '@/modules/project/services';
 import { generateProjectSlug } from '@/modules/project/utils';
 import { WorkspaceNotFoundError } from '@/modules/workspace/errors';
 
@@ -28,6 +29,7 @@ export class ProjectUseCase {
   constructor(
     private readonly repo: ProjectRepository,
     private readonly uow: UnitOfWork,
+    private readonly realtimePublisher: ProjectRealtimePublisherService,
   ) {}
 
   async getProjects(
@@ -166,13 +168,17 @@ export class ProjectUseCase {
       throw new ProjectNotFoundError();
     }
 
-    return this.repo.updateProject({
+    const updatedProject = await this.repo.updateProject({
       projectId,
       name: dto.name ?? project.name,
       description: dto.description ?? project.description,
       timezone: dto.timezone ?? project.timezone,
       locale: dto.locale ?? project.locale,
     });
+
+    this.realtimePublisher.publishProjectUpdated(updatedProject);
+
+    return updatedProject;
   }
 
   async deleteProject(userId: string, projectId: string): Promise<void> {
@@ -183,6 +189,8 @@ export class ProjectUseCase {
     if (!deleted) {
       throw new ProjectNotFoundError();
     }
+
+    this.realtimePublisher.publishProjectDeleted({ projectId });
   }
 
   async removeProjectMember(
