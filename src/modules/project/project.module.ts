@@ -12,7 +12,7 @@ import {
 } from '@/modules/project/repository';
 import {
   CommentUseCase,
-  ProjectRealtimeUseCase,
+  ProjectRealtimeSubscriptionUseCase,
   ProjectUseCase,
   WorkItemUseCase,
 } from '@/modules/project/usecases';
@@ -25,7 +25,7 @@ import {
     WorkItemRepository,
     CommentUseCase,
     ProjectGateway,
-    ProjectRealtimeUseCase,
+    ProjectRealtimeSubscriptionUseCase,
     ProjectUseCase,
     WorkItemUseCase,
   ],

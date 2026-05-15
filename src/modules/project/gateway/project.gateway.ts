@@ -16,8 +16,13 @@ import {
   PROJECT_REALTIME_EVENTS,
   PROJECT_REALTIME_NAMESPACE,
 } from '@/modules/project/constants';
-import { JoinProjectDto, ProjectJoinedPayloadDto } from '@/modules/project/dto';
-import { ProjectRealtimeUseCase } from '@/modules/project/usecases';
+import {
+  JoinProjectDto,
+  LeaveProjectDto,
+  ProjectJoinedPayloadDto,
+  ProjectLeftPayloadDto,
+} from '@/modules/project/dto';
+import { ProjectRealtimeSubscriptionUseCase } from '@/modules/project/usecases';
 import { buildProjectRoom } from '@/modules/project/utils';
 
 const resolveSocketCorsOrigin = (): string[] | true => {
@@ -33,10 +38,14 @@ type ProjectServerToClientEvents = {
   [PROJECT_REALTIME_EVENTS.PROJECT_JOINED]: (
     payload: ProjectJoinedPayloadDto,
   ) => void;
+  [PROJECT_REALTIME_EVENTS.PROJECT_LEFT]: (
+    payload: ProjectLeftPayloadDto,
+  ) => void;
 };
 
 type ProjectClientToServerEvents = {
   [PROJECT_REALTIME_EVENTS.PROJECT_JOIN]: (payload: JoinProjectDto) => void;
+  [PROJECT_REALTIME_EVENTS.PROJECT_LEAVE]: (payload: LeaveProjectDto) => void;
 };
 
 type ProjectSocket = AuthenticatedSocket<
@@ -69,7 +78,7 @@ export class ProjectGateway
   constructor(
     private readonly webSocketAuthService: WebSocketAuthService,
     private readonly exceptionFilter: WebSocketExceptionFilter,
-    private readonly realtimeUseCase: ProjectRealtimeUseCase,
+    private readonly subscriptionUseCase: ProjectRealtimeSubscriptionUseCase,
   ) {}
 
   handleConnection(client: ProjectSocket): void {
@@ -97,9 +106,22 @@ export class ProjectGateway
   ): Promise<void> {
     const user = this.webSocketAuthService.getAuthenticatedUser(client);
 
-    await this.realtimeUseCase.joinProject(user.sub, dto.projectId);
+    await this.subscriptionUseCase.joinProject(user.sub, dto.projectId);
     await client.join(buildProjectRoom(dto.projectId));
     client.emit(PROJECT_REALTIME_EVENTS.PROJECT_JOINED, {
+      projectId: dto.projectId,
+    });
+  }
+
+  @SubscribeMessage(PROJECT_REALTIME_EVENTS.PROJECT_LEAVE)
+  async leaveProject(
+    @ConnectedSocket() client: ProjectSocket,
+    @MessageBody() dto: LeaveProjectDto,
+  ): Promise<void> {
+    this.webSocketAuthService.getAuthenticatedUser(client);
+
+    await client.leave(buildProjectRoom(dto.projectId));
+    client.emit(PROJECT_REALTIME_EVENTS.PROJECT_LEFT, {
       projectId: dto.projectId,
     });
   }

@@ -3,7 +3,7 @@ import { ProjectNotFoundError } from '@/modules/project/errors';
 import { ProjectRepository } from '@/modules/project/repository';
 
 @Injectable()
-export class ProjectRealtimeUseCase {
+export class ProjectRealtimeSubscriptionUseCase {
   constructor(private readonly repo: ProjectRepository) {}
 
   async joinProject(userId: string, projectId: string): Promise<void> {

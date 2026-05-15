@@ -5,6 +5,15 @@ export class JoinProjectDto {
   projectId!: string;
 }
 
+export class LeaveProjectDto {
+  @IsUUID()
+  projectId!: string;
+}
+
 export class ProjectJoinedPayloadDto {
+  projectId!: string;
+}
+
+export class ProjectLeftPayloadDto {
   projectId!: string;
 }
