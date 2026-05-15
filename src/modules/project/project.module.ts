@@ -4,6 +4,7 @@ import {
   ProjectController,
   WorkItemController,
 } from '@/modules/project/controller';
+import { ProjectGateway } from '@/modules/project/gateway';
 import {
   CommentRepository,
   ProjectRepository,
@@ -11,6 +12,7 @@ import {
 } from '@/modules/project/repository';
 import {
   CommentUseCase,
+  ProjectRealtimeSubscriptionUseCase,
   ProjectUseCase,
   WorkItemUseCase,
 } from '@/modules/project/usecases';
@@ -22,6 +24,8 @@ import {
     ProjectRepository,
     WorkItemRepository,
     CommentUseCase,
+    ProjectGateway,
+    ProjectRealtimeSubscriptionUseCase,
     ProjectUseCase,
     WorkItemUseCase,
   ],
