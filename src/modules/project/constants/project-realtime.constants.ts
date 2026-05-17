@@ -13,4 +13,6 @@ export const PROJECT_REALTIME_EVENTS = {
   COMMENT_CREATED: 'comment.created',
   COMMENT_UPDATED: 'comment.updated',
   COMMENT_DELETED: 'comment.deleted',
+  DOCUMENT_CREATED: 'document.created',
+  DOCUMENT_DELETED: 'document.deleted',
 } as const;

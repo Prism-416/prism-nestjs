@@ -19,6 +19,7 @@ import {
   buildDocumentObjectName,
   sanitizeDocumentFileName,
 } from '@/modules/document/utils';
+import { ProjectRealtimePublisherService } from '@/modules/project/services';
 
 @Injectable()
 export class DocumentUseCase {
@@ -27,6 +28,7 @@ export class DocumentUseCase {
   constructor(
     private readonly repo: DocumentRepository,
     private readonly objectStorageService: OciObjectStorageService,
+    private readonly realtimePublisher: ProjectRealtimePublisherService,
   ) {}
 
   async searchDocuments(
@@ -116,8 +118,10 @@ export class DocumentUseCase {
       },
     });
 
+    let document: DocumentSummaryResponseDto;
+
     try {
-      return await this.repo.createDocument({
+      document = await this.repo.createDocument({
         documentId,
         projectId: project.projectId,
         title: dto.title ?? fileName,
@@ -138,6 +142,10 @@ export class DocumentUseCase {
       );
       throw error;
     }
+
+    this.realtimePublisher.publishDocumentCreated(document);
+
+    return document;
   }
 
   async deleteDocument(
@@ -166,6 +174,11 @@ export class DocumentUseCase {
       deletedDocument.storageVersionId ?? undefined,
       'Failed to cleanup deleted document object.',
     );
+
+    this.realtimePublisher.publishDocumentDeleted({
+      projectId: project.projectId,
+      documentId,
+    });
   }
 
   private async cleanupObject(

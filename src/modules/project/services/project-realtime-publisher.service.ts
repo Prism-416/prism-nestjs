@@ -5,6 +5,8 @@ import {
   CommentCreatedPayloadDto,
   CommentDeletedPayloadDto,
   CommentUpdatedPayloadDto,
+  DocumentCreatedPayloadDto,
+  DocumentDeletedPayloadDto,
   ProjectDeletedPayloadDto,
   ProjectUpdatedPayloadDto,
   WorkItemCreatedPayloadDto,
@@ -81,6 +83,22 @@ export class ProjectRealtimePublisherService {
     this.emitToProject(
       payload.projectId,
       PROJECT_REALTIME_EVENTS.COMMENT_DELETED,
+      payload,
+    );
+  }
+
+  publishDocumentCreated(payload: DocumentCreatedPayloadDto): void {
+    this.emitToProject(
+      payload.projectId,
+      PROJECT_REALTIME_EVENTS.DOCUMENT_CREATED,
+      payload,
+    );
+  }
+
+  publishDocumentDeleted(payload: DocumentDeletedPayloadDto): void {
+    this.emitToProject(
+      payload.projectId,
+      PROJECT_REALTIME_EVENTS.DOCUMENT_DELETED,
       payload,
     );
   }
