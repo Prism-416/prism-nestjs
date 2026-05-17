@@ -48,3 +48,29 @@ export class CommentDeletedPayloadDto {
 
   commentId!: string;
 }
+
+export class DocumentCreatedPayloadDto {
+  documentId!: string;
+
+  projectId!: string;
+
+  title!: string;
+
+  description!: string | null;
+
+  fileName!: string;
+
+  contentType!: string;
+
+  sizeBytes!: number;
+
+  createdBy!: string;
+
+  createdAt!: Date;
+}
+
+export class DocumentDeletedPayloadDto {
+  projectId!: string;
+
+  documentId!: string;
+}

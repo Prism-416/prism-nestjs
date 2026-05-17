@@ -31,5 +31,6 @@ import {
     ProjectUseCase,
     WorkItemUseCase,
   ],
+  exports: [ProjectRealtimePublisherService],
 })
 export class ProjectModule {}

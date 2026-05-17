@@ -22,6 +22,8 @@ import {
   CommentCreatedPayloadDto,
   CommentDeletedPayloadDto,
   CommentUpdatedPayloadDto,
+  DocumentCreatedPayloadDto,
+  DocumentDeletedPayloadDto,
   JoinProjectDto,
   LeaveProjectDto,
   ProjectDeletedPayloadDto,
@@ -75,6 +77,12 @@ type ProjectServerToClientEvents = {
   ) => void;
   [PROJECT_REALTIME_EVENTS.COMMENT_DELETED]: (
     payload: CommentDeletedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.DOCUMENT_CREATED]: (
+    payload: DocumentCreatedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.DOCUMENT_DELETED]: (
+    payload: DocumentDeletedPayloadDto,
   ) => void;
 };
 
