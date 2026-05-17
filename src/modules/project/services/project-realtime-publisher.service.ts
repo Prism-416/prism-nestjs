@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import type { Server } from 'socket.io';
 import { PROJECT_REALTIME_EVENTS } from '@/modules/project/constants';
 import {
+  CommentCreatedPayloadDto,
+  CommentDeletedPayloadDto,
+  CommentUpdatedPayloadDto,
   ProjectDeletedPayloadDto,
   ProjectUpdatedPayloadDto,
   WorkItemCreatedPayloadDto,
@@ -54,6 +57,30 @@ export class ProjectRealtimePublisherService {
     this.emitToProject(
       payload.projectId,
       PROJECT_REALTIME_EVENTS.WORK_ITEM_DELETED,
+      payload,
+    );
+  }
+
+  publishCommentCreated(payload: CommentCreatedPayloadDto): void {
+    this.emitToProject(
+      payload.projectId,
+      PROJECT_REALTIME_EVENTS.COMMENT_CREATED,
+      payload,
+    );
+  }
+
+  publishCommentUpdated(payload: CommentUpdatedPayloadDto): void {
+    this.emitToProject(
+      payload.projectId,
+      PROJECT_REALTIME_EVENTS.COMMENT_UPDATED,
+      payload,
+    );
+  }
+
+  publishCommentDeleted(payload: CommentDeletedPayloadDto): void {
+    this.emitToProject(
+      payload.projectId,
+      PROJECT_REALTIME_EVENTS.COMMENT_DELETED,
       payload,
     );
   }

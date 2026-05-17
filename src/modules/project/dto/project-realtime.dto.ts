@@ -1,4 +1,5 @@
 import { IsUUID } from 'class-validator';
+import { CommentResponseDto } from '@/modules/project/dto/comment.dto';
 import { ProjectResponseDto } from '@/modules/project/dto/project.dto';
 import { WorkItemResponseDto } from '@/modules/project/dto/work-item.dto';
 
@@ -34,4 +35,16 @@ export class WorkItemDeletedPayloadDto {
   projectId!: string;
 
   itemId!: string;
+}
+
+export class CommentCreatedPayloadDto extends CommentResponseDto {}
+
+export class CommentUpdatedPayloadDto extends CommentResponseDto {}
+
+export class CommentDeletedPayloadDto {
+  projectId!: string;
+
+  itemId!: string;
+
+  commentId!: string;
 }
