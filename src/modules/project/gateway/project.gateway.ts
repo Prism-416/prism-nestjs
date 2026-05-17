@@ -19,6 +19,9 @@ import {
   PROJECT_REALTIME_NAMESPACE,
 } from '@/modules/project/constants';
 import {
+  CommentCreatedPayloadDto,
+  CommentDeletedPayloadDto,
+  CommentUpdatedPayloadDto,
   JoinProjectDto,
   LeaveProjectDto,
   ProjectDeletedPayloadDto,
@@ -63,6 +66,15 @@ type ProjectServerToClientEvents = {
   ) => void;
   [PROJECT_REALTIME_EVENTS.WORK_ITEM_DELETED]: (
     payload: WorkItemDeletedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.COMMENT_CREATED]: (
+    payload: CommentCreatedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.COMMENT_UPDATED]: (
+    payload: CommentUpdatedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.COMMENT_DELETED]: (
+    payload: CommentDeletedPayloadDto,
   ) => void;
 };
 

@@ -16,6 +16,7 @@ import {
   ProjectRepository,
   WorkItemRepository,
 } from '@/modules/project/repository';
+import { ProjectRealtimePublisherService } from '@/modules/project/services';
 
 @Injectable()
 export class CommentUseCase {
@@ -24,6 +25,7 @@ export class CommentUseCase {
     private readonly workItemRepository: WorkItemRepository,
     private readonly commentRepository: CommentRepository,
     private readonly uow: UnitOfWork,
+    private readonly realtimePublisher: ProjectRealtimePublisherService,
   ) {}
 
   async createWorkItemComment(
@@ -32,7 +34,7 @@ export class CommentUseCase {
     itemId: string,
     dto: CreateCommentDto,
   ): Promise<CommentResponseDto> {
-    return this.uow.run(async (manager) => {
+    const comment = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -62,6 +64,10 @@ export class CommentUseCase {
         manager,
       );
     });
+
+    this.realtimePublisher.publishCommentCreated(comment);
+
+    return comment;
   }
 
   async updateWorkItemComment(
@@ -71,7 +77,7 @@ export class CommentUseCase {
     commentId: string,
     dto: CreateCommentDto,
   ): Promise<CommentResponseDto> {
-    return this.uow.run(async (manager) => {
+    const comment = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -107,6 +113,10 @@ export class CommentUseCase {
 
       return comment;
     });
+
+    this.realtimePublisher.publishCommentUpdated(comment);
+
+    return comment;
   }
 
   async deleteWorkItemComment(
@@ -115,7 +125,7 @@ export class CommentUseCase {
     itemId: string,
     commentId: string,
   ): Promise<void> {
-    return this.uow.run(async (manager) => {
+    const deletedComment = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -147,7 +157,15 @@ export class CommentUseCase {
       if (!deleted) {
         throw new CommentNotFoundError();
       }
+
+      return {
+        projectId: project.projectId,
+        itemId,
+        commentId,
+      };
     });
+
+    this.realtimePublisher.publishCommentDeleted(deletedComment);
   }
 
   async searchWorkItemComments(
