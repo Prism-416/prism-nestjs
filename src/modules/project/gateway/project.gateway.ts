@@ -25,6 +25,9 @@ import {
   ProjectJoinedPayloadDto,
   ProjectLeftPayloadDto,
   ProjectUpdatedPayloadDto,
+  WorkItemCreatedPayloadDto,
+  WorkItemDeletedPayloadDto,
+  WorkItemUpdatedPayloadDto,
 } from '@/modules/project/dto';
 import { ProjectRealtimePublisherService } from '@/modules/project/services';
 import { ProjectRealtimeSubscriptionUseCase } from '@/modules/project/usecases';
@@ -51,6 +54,15 @@ type ProjectServerToClientEvents = {
   ) => void;
   [PROJECT_REALTIME_EVENTS.PROJECT_DELETED]: (
     payload: ProjectDeletedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.WORK_ITEM_CREATED]: (
+    payload: WorkItemCreatedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.WORK_ITEM_UPDATED]: (
+    payload: WorkItemUpdatedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.WORK_ITEM_DELETED]: (
+    payload: WorkItemDeletedPayloadDto,
   ) => void;
 };
 
