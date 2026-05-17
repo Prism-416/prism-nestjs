@@ -23,6 +23,7 @@ import {
   ProjectRepository,
   WorkItemRepository,
 } from '@/modules/project/repository';
+import { ProjectRealtimePublisherService } from '@/modules/project/services';
 
 @Injectable()
 export class WorkItemUseCase {
@@ -30,6 +31,7 @@ export class WorkItemUseCase {
     private readonly projectRepository: ProjectRepository,
     private readonly workItemRepository: WorkItemRepository,
     private readonly uow: UnitOfWork,
+    private readonly realtimePublisher: ProjectRealtimePublisherService,
   ) {}
 
   async getWorkItem(
@@ -115,7 +117,7 @@ export class WorkItemUseCase {
     projectId: string,
     dto: CreateWorkItemDto,
   ): Promise<WorkItemResponseDto> {
-    return this.uow.run(async (manager) => {
+    const createdWorkItem = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -193,6 +195,10 @@ export class WorkItemUseCase {
         throw error;
       }
     });
+
+    this.realtimePublisher.publishWorkItemCreated(createdWorkItem);
+
+    return createdWorkItem;
   }
 
   async updateWorkItem(
@@ -201,7 +207,7 @@ export class WorkItemUseCase {
     itemId: string,
     dto: UpdateWorkItemDto,
   ): Promise<WorkItemResponseDto> {
-    return this.uow.run(async (manager) => {
+    const updatedWorkItem = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -314,6 +320,10 @@ export class WorkItemUseCase {
 
       return updatedWorkItem;
     });
+
+    this.realtimePublisher.publishWorkItemUpdated(updatedWorkItem);
+
+    return updatedWorkItem;
   }
 
   async deleteWorkItem(
@@ -321,7 +331,7 @@ export class WorkItemUseCase {
     projectId: string,
     itemId: string,
   ): Promise<void> {
-    return this.uow.run(async (manager) => {
+    await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -341,5 +351,7 @@ export class WorkItemUseCase {
         throw new WorkItemNotFoundError();
       }
     });
+
+    this.realtimePublisher.publishWorkItemDeleted({ projectId, itemId });
   }
 }

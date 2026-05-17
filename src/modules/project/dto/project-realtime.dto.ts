@@ -1,5 +1,6 @@
 import { IsUUID } from 'class-validator';
 import { ProjectResponseDto } from '@/modules/project/dto/project.dto';
+import { WorkItemResponseDto } from '@/modules/project/dto/work-item.dto';
 
 export class JoinProjectDto {
   @IsUUID()
@@ -23,4 +24,14 @@ export class ProjectUpdatedPayloadDto extends ProjectResponseDto {}
 
 export class ProjectDeletedPayloadDto {
   projectId!: string;
+}
+
+export class WorkItemCreatedPayloadDto extends WorkItemResponseDto {}
+
+export class WorkItemUpdatedPayloadDto extends WorkItemResponseDto {}
+
+export class WorkItemDeletedPayloadDto {
+  projectId!: string;
+
+  itemId!: string;
 }
