@@ -3,6 +3,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
@@ -18,7 +19,46 @@ import type {
   AgentRunStatus,
   AgentRunTriggerType,
 } from '@/modules/agent/types';
-import { normalizeOptionalTrimmedString } from '@/modules/agent/utils';
+import {
+  normalizeOptionalTrimmedString,
+  normalizeTrimmedString,
+} from '@/modules/agent/utils';
+
+export class CreateAgentRunDto {
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  agentType!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(5000)
+  objective!: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  workItemId?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  parentRunId?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  systemPromptVersion?: string;
+}
 
 export class SearchAgentRunsQueryDto {
   @ApiPropertyOptional({ enum: AGENT_RUN_STATUSES })

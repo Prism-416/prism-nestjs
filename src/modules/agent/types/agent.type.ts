@@ -22,6 +22,10 @@ export type AgentProjectRow = {
   projectId: string;
 };
 
+export type AgentWorkItemRow = {
+  itemId: string;
+};
+
 export type AgentRunRow = {
   runId: string;
   projectId: string;
@@ -45,6 +49,16 @@ export type SearchAgentRunsParams = {
   workItemId?: string;
   limit: number;
   offset: number;
+};
+
+export type CreateAgentRunParams = {
+  projectId: string;
+  triggeredByUserId: string;
+  workItemId?: string;
+  parentRunId?: string;
+  agentType: string;
+  objective: string;
+  systemPromptVersion?: string;
 };
 
 export type SearchAgentRunsResult = {

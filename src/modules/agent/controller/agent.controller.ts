@@ -1,10 +1,19 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpStatus,
+  Param,
+  Post,
+  Query,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
   AgentRunResponseDto,
+  CreateAgentRunDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
 } from '@/modules/agent/dto';
@@ -25,6 +34,18 @@ export class AgentController {
     @Query() query: SearchAgentRunsQueryDto,
   ): Promise<SearchAgentRunsResponseDto> {
     return this.usecase.searchAgentRuns(String(user.sub), projectId, query);
+  }
+
+  @Post()
+  @Authenticated()
+  @ApiOperation({ summary: 'Create manual agent run' })
+  @ApiDataResponse(AgentRunResponseDto, { status: HttpStatus.CREATED })
+  async createAgentRun(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateAgentRunDto,
+  ): Promise<AgentRunResponseDto> {
+    return this.usecase.createAgentRun(String(user.sub), projectId, dto);
   }
 
   @Get(':runId')
