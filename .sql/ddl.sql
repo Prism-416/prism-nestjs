@@ -225,7 +225,7 @@ CREATE INDEX IF NOT EXISTS idx_project_member_job_map_member_id
 
 CREATE TABLE IF NOT EXISTS prism_documents_l
 (
-    document_id         UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    document_id         UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
     project_id          UUID         NOT NULL REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
     title               VARCHAR(100) NOT NULL,
     description         VARCHAR(1000),
@@ -378,4 +378,111 @@ CREATE TABLE IF NOT EXISTS prism_sprint_work_item_map
     CONSTRAINT fk_sprint_work_item_map_item
         FOREIGN KEY (project_id, item_id)
             REFERENCES prism_work_items_l (project_id, item_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS prism_agent_runs_l
+(
+    run_id                UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    project_id            UUID        NOT NULL
+        REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    triggered_by_user_id  UUID
+                                      REFERENCES prism_users_l (user_id) ON DELETE SET NULL,
+    work_item_id          UUID
+                                      REFERENCES prism_work_items_l (item_id) ON DELETE SET NULL,
+    parent_run_id         UUID
+        REFERENCES prism_agent_runs_l (run_id) ON DELETE CASCADE,
+    agent_type            VARCHAR(50) NOT NULL,
+    trigger_type          VARCHAR(30) NOT NULL,
+    status                VARCHAR(20) NOT NULL DEFAULT 'queued',
+    objective             TEXT        NOT NULL,
+    system_prompt_version VARCHAR(100),
+    started_at            TIMESTAMPTZ,
+    completed_at          TIMESTAMPTZ,
+    created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (
+        trigger_type IN (
+                         'manual',
+                         'event',
+                         'scheduled',
+                         'webhook',
+                         'recursive'
+            )
+        ),
+    CHECK (
+        status IN (
+                   'queued',
+                   'running',
+                   'waiting',
+                   'completed',
+                   'failed',
+                   'cancelled'
+            )
+        )
+);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runs_project_status
+    ON prism_agent_runs_l (project_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runs_work_item
+    ON prism_agent_runs_l (work_item_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_runs_parent
+    ON prism_agent_runs_l (parent_run_id);
+
+CREATE TABLE IF NOT EXISTS prism_agent_steps_l
+(
+    step_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_id UUID NOT NULL
+        REFERENCES prism_agent_runs_l(run_id) ON DELETE CASCADE,
+    step_order INT NOT NULL,
+    step_type VARCHAR(30) NOT NULL,
+    status VARCHAR(20) NOT NULL DEFAULT 'pending',
+    title VARCHAR(100) NOT NULL,
+    input_object_name TEXT,
+    output_object_name TEXT,
+    input_summary TEXT,
+    output_summary TEXT,
+    error_message TEXT,
+    started_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (run_id, step_order)
+);
+
+CREATE TABLE IF NOT EXISTS prism_agent_actions_l
+(
+    action_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    run_id UUID NOT NULL
+        REFERENCES prism_agent_runs_l(run_id) ON DELETE CASCADE,
+    step_id UUID
+                REFERENCES prism_agent_steps_l(step_id) ON DELETE SET NULL,
+    project_id UUID NOT NULL
+        REFERENCES prism_projects_l(project_id) ON DELETE CASCADE,
+    action_type VARCHAR(50) NOT NULL,
+    target_type VARCHAR(50) NOT NULL,
+    target_id UUID,
+    status VARCHAR(20) NOT NULL DEFAULT 'proposed',
+    reasoning_summary TEXT,
+    payload_object_name TEXT,
+    result_object_name TEXT,
+    requires_approval BOOLEAN NOT NULL DEFAULT TRUE,
+    approved_by_user_id UUID
+        REFERENCES prism_users_l(user_id) ON DELETE SET NULL,
+    approved_at TIMESTAMPTZ,
+    executed_at TIMESTAMPTZ,
+    error_message TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS prism_agent_action_events_l
+(
+    event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    action_id UUID NOT NULL
+        REFERENCES prism_agent_actions_l(action_id) ON DELETE CASCADE,
+    actor_user_id UUID
+                   REFERENCES prism_users_l(user_id) ON DELETE SET NULL,
+    event_type VARCHAR(30) NOT NULL,
+    message TEXT,
+    event_object_name TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
