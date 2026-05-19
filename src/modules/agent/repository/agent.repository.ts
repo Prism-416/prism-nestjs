@@ -4,6 +4,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   AgentProjectRow,
   AgentRunRow,
+  AgentStepRow,
   AgentWorkItemRow,
   CancelAgentRunParams,
   CreateAgentRunParams,
@@ -252,6 +253,40 @@ export class AgentRepository {
     );
 
     return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
+  }
+
+  async findAgentStepsByRunId(
+    projectId: string,
+    runId: string,
+    manager?: EntityManager,
+  ): Promise<AgentStepRow[]> {
+    return this.getManager(manager).query<AgentStepRow[]>(
+      `
+        SELECT
+          s.step_id AS "stepId",
+          s.run_id AS "runId",
+          s.step_order AS "stepOrder",
+          s.step_type AS "stepType",
+          s.status,
+          s.title,
+          s.input_object_name AS "inputObjectName",
+          s.output_object_name AS "outputObjectName",
+          s.input_summary AS "inputSummary",
+          s.output_summary AS "outputSummary",
+          s.error_message AS "errorMessage",
+          s.started_at AS "startedAt",
+          s.completed_at AS "completedAt",
+          s.created_at AS "createdAt"
+        FROM prism_agent_steps_l s
+               INNER JOIN prism_agent_runs_l r
+                          ON r.run_id = s.run_id
+        WHERE r.project_id = $1
+          AND s.run_id = $2
+        ORDER BY s.step_order ASC,
+                 s.step_id ASC
+      `,
+      [projectId, runId],
+    );
   }
 
   async findWorkItemById(
