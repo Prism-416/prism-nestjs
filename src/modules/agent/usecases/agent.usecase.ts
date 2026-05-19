@@ -12,6 +12,7 @@ import {
 import {
   AgentActionNotFoundError,
   AgentActionNotApprovableError,
+  AgentActionNotCancellableError,
   AgentParentRunNotFoundError,
   AgentProjectNotFoundError,
   AgentRunNotCancellableError,
@@ -27,6 +28,7 @@ const AGENT_RUN_CANCELLABLE_STATUSES: AgentRunStatus[] = [
   'waiting',
 ];
 const AGENT_ACTION_APPROVABLE_STATUSES = ['proposed'];
+const AGENT_ACTION_CANCELLABLE_STATUSES = ['proposed', 'approved'];
 
 @Injectable()
 export class AgentUseCase {
@@ -274,6 +276,62 @@ export class AgentUseCase {
       );
 
       return approvedAction;
+    });
+  }
+
+  async cancelAgentAction(
+    userId: string,
+    projectId: string,
+    actionId: string,
+  ): Promise<AgentActionResponseDto> {
+    return this.uow.run(async (manager) => {
+      const project = await this.repo.findProjectByIdAndMemberUserId(
+        projectId,
+        userId,
+        manager,
+      );
+      if (!project) {
+        throw new AgentProjectNotFoundError();
+      }
+
+      const action = await this.repo.findAgentActionById(
+        project.projectId,
+        actionId,
+        manager,
+      );
+      if (!action) {
+        throw new AgentActionNotFoundError();
+      }
+
+      if (
+        action.executedAt !== null ||
+        !AGENT_ACTION_CANCELLABLE_STATUSES.includes(action.status)
+      ) {
+        throw new AgentActionNotCancellableError();
+      }
+
+      const cancelledAction = await this.repo.cancelAgentAction(
+        {
+          projectId: project.projectId,
+          actionId,
+          cancellableStatuses: AGENT_ACTION_CANCELLABLE_STATUSES,
+        },
+        manager,
+      );
+      if (!cancelledAction) {
+        throw new AgentActionNotCancellableError();
+      }
+
+      await this.repo.createAgentActionEvent(
+        {
+          actionId: cancelledAction.actionId,
+          actorUserId: userId,
+          eventType: 'cancelled',
+        },
+        manager,
+      );
+
+      return cancelledAction;
     });
   }
 

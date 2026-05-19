@@ -38,6 +38,23 @@ export class AgentActionController {
     );
   }
 
+  @Post(':actionId/cancel')
+  @Authenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel agent action' })
+  @ApiDataResponse(AgentActionResponseDto)
+  async cancelAgentAction(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('actionId') actionId: string,
+  ): Promise<AgentActionResponseDto> {
+    return this.usecase.cancelAgentAction(
+      String(user.sub),
+      projectId,
+      actionId,
+    );
+  }
+
   @Get(':actionId')
   @Authenticated()
   @ApiOperation({ summary: 'Retrieve agent action metadata' })

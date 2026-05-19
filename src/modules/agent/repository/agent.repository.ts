@@ -9,6 +9,7 @@ import {
   AgentStepRow,
   AgentWorkItemRow,
   ApproveAgentActionParams,
+  CancelAgentActionParams,
   CancelAgentRunParams,
   CreateAgentActionEventParams,
   CreateAgentRunParams,
@@ -407,6 +408,43 @@ export class AgentRepository {
         params.approvedByUserId,
         params.approvableStatuses,
       ],
+    );
+
+    return actions[0] ?? null;
+  }
+
+  async cancelAgentAction(
+    params: CancelAgentActionParams,
+    manager?: EntityManager,
+  ): Promise<AgentActionRow | null> {
+    const actions = await this.getManager(manager).query<AgentActionRow[]>(
+      `
+        UPDATE prism_agent_actions_l
+        SET status = 'cancelled'
+        WHERE project_id = $1
+          AND action_id = $2
+          AND status = ANY($3::text[])
+          AND executed_at IS NULL
+        RETURNING
+          action_id AS "actionId",
+          run_id AS "runId",
+          step_id AS "stepId",
+          project_id AS "projectId",
+          action_type AS "actionType",
+          target_type AS "targetType",
+          target_id AS "targetId",
+          status,
+          reasoning_summary AS "reasoningSummary",
+          payload_object_name AS "payloadObjectName",
+          result_object_name AS "resultObjectName",
+          requires_approval AS "requiresApproval",
+          approved_by_user_id AS "approvedByUserId",
+          approved_at AS "approvedAt",
+          executed_at AS "executedAt",
+          error_message AS "errorMessage",
+          created_at AS "createdAt"
+      `,
+      [params.projectId, params.actionId, params.cancellableStatuses],
     );
 
     return actions[0] ?? null;

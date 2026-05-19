@@ -74,6 +74,12 @@ export type ApproveAgentActionParams = {
   approvableStatuses: string[];
 };
 
+export type CancelAgentActionParams = {
+  projectId: string;
+  actionId: string;
+  cancellableStatuses: string[];
+};
+
 export type CreateAgentActionEventParams = {
   actionId: string;
   actorUserId?: string;
