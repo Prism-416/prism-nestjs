@@ -9,6 +9,7 @@ import {
   SearchAgentRunsResponseDto,
 } from '@/modules/agent/dto';
 import {
+  AgentActionNotFoundError,
   AgentParentRunNotFoundError,
   AgentProjectNotFoundError,
   AgentRunNotCancellableError,
@@ -190,6 +191,30 @@ export class AgentUseCase {
     }
 
     return this.repo.findAgentActionsByRunId(project.projectId, run.runId);
+  }
+
+  async getAgentAction(
+    userId: string,
+    projectId: string,
+    actionId: string,
+  ): Promise<AgentActionResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new AgentProjectNotFoundError();
+    }
+
+    const action = await this.repo.findAgentActionById(
+      project.projectId,
+      actionId,
+    );
+    if (!action) {
+      throw new AgentActionNotFoundError();
+    }
+
+    return action;
   }
 
   async getAgentRun(

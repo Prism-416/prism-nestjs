@@ -328,6 +328,42 @@ export class AgentRepository {
     );
   }
 
+  async findAgentActionById(
+    projectId: string,
+    actionId: string,
+    manager?: EntityManager,
+  ): Promise<AgentActionRow | null> {
+    const actions = await this.getManager(manager).query<AgentActionRow[]>(
+      `
+        SELECT
+          a.action_id AS "actionId",
+          a.run_id AS "runId",
+          a.step_id AS "stepId",
+          a.project_id AS "projectId",
+          a.action_type AS "actionType",
+          a.target_type AS "targetType",
+          a.target_id AS "targetId",
+          a.status,
+          a.reasoning_summary AS "reasoningSummary",
+          a.payload_object_name AS "payloadObjectName",
+          a.result_object_name AS "resultObjectName",
+          a.requires_approval AS "requiresApproval",
+          a.approved_by_user_id AS "approvedByUserId",
+          a.approved_at AS "approvedAt",
+          a.executed_at AS "executedAt",
+          a.error_message AS "errorMessage",
+          a.created_at AS "createdAt"
+        FROM prism_agent_actions_l a
+        WHERE a.project_id = $1
+          AND a.action_id = $2
+        LIMIT 1
+      `,
+      [projectId, actionId],
+    );
+
+    return actions[0] ?? null;
+  }
+
   async findWorkItemById(
     projectId: string,
     workItemId: string,
