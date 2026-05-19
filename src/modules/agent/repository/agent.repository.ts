@@ -4,7 +4,9 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   AgentProjectRow,
   AgentRunRow,
+  AgentStepRow,
   AgentWorkItemRow,
+  CancelAgentRunParams,
   CreateAgentRunParams,
   SearchAgentRunsParams,
   SearchAgentRunsResult,
@@ -217,6 +219,74 @@ export class AgentRepository {
     );
 
     return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
+  }
+
+  async cancelAgentRun(
+    params: CancelAgentRunParams,
+    manager?: EntityManager,
+  ): Promise<AgentRunRow | null> {
+    const runs = await this.getManager(manager).query<AgentRunDbRow[]>(
+      `
+        UPDATE prism_agent_runs_l
+        SET
+          status = 'cancelled',
+          completed_at = NOW()
+        WHERE project_id = $1
+          AND run_id = $2
+          AND status = ANY($3::text[])
+        RETURNING
+          run_id AS "runId",
+          project_id AS "projectId",
+          triggered_by_user_id AS "triggeredByUserId",
+          work_item_id AS "workItemId",
+          parent_run_id AS "parentRunId",
+          agent_type AS "agentType",
+          trigger_type AS "triggerType",
+          status,
+          objective,
+          system_prompt_version AS "systemPromptVersion",
+          started_at AS "startedAt",
+          completed_at AS "completedAt",
+          created_at AS "createdAt"
+      `,
+      [params.projectId, params.runId, params.cancellableStatuses],
+    );
+
+    return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
+  }
+
+  async findAgentStepsByRunId(
+    projectId: string,
+    runId: string,
+    manager?: EntityManager,
+  ): Promise<AgentStepRow[]> {
+    return this.getManager(manager).query<AgentStepRow[]>(
+      `
+        SELECT
+          s.step_id AS "stepId",
+          s.run_id AS "runId",
+          s.step_order AS "stepOrder",
+          s.step_type AS "stepType",
+          s.status,
+          s.title,
+          s.input_object_name AS "inputObjectName",
+          s.output_object_name AS "outputObjectName",
+          s.input_summary AS "inputSummary",
+          s.output_summary AS "outputSummary",
+          s.error_message AS "errorMessage",
+          s.started_at AS "startedAt",
+          s.completed_at AS "completedAt",
+          s.created_at AS "createdAt"
+        FROM prism_agent_steps_l s
+               INNER JOIN prism_agent_runs_l r
+                          ON r.run_id = s.run_id
+        WHERE r.project_id = $1
+          AND s.run_id = $2
+        ORDER BY s.step_order ASC,
+                 s.step_id ASC
+      `,
+      [projectId, runId],
+    );
   }
 
   async findWorkItemById(

@@ -12,6 +12,12 @@ export class AgentRunNotFoundError extends NotExistsError {
   }
 }
 
+export class AgentRunNotCancellableError extends DomainError {
+  constructor() {
+    super('Agent run cannot be cancelled.', 'AGENT_RUN_NOT_CANCELLABLE', 400);
+  }
+}
+
 export class AgentWorkItemNotFoundError extends NotExistsError {
   constructor() {
     super('Work item not found.', 'AGENT_WORK_ITEM_NOT_FOUND');

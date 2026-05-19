@@ -138,6 +138,50 @@ export class AgentRunResponseDto {
   createdAt!: Date;
 }
 
+export class AgentStepResponseDto {
+  @ApiProperty()
+  stepId!: string;
+
+  @ApiProperty()
+  runId!: string;
+
+  @ApiProperty()
+  stepOrder!: number;
+
+  @ApiProperty()
+  stepType!: string;
+
+  @ApiProperty()
+  status!: string;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ nullable: true })
+  inputObjectName!: string | null;
+
+  @ApiProperty({ nullable: true })
+  outputObjectName!: string | null;
+
+  @ApiProperty({ nullable: true })
+  inputSummary!: string | null;
+
+  @ApiProperty({ nullable: true })
+  outputSummary!: string | null;
+
+  @ApiProperty({ nullable: true })
+  errorMessage!: string | null;
+
+  @ApiProperty({ nullable: true })
+  startedAt!: Date | null;
+
+  @ApiProperty({ nullable: true })
+  completedAt!: Date | null;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
 export class SearchAgentRunsResponseDto {
   @ApiProperty({ type: [AgentRunResponseDto] })
   items!: AgentRunResponseDto[];

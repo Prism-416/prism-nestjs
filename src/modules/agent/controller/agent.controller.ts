@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Post,
@@ -13,6 +14,7 @@ import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
   AgentRunResponseDto,
+  AgentStepResponseDto,
   CreateAgentRunDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
@@ -46,6 +48,31 @@ export class AgentController {
     @Body() dto: CreateAgentRunDto,
   ): Promise<AgentRunResponseDto> {
     return this.usecase.createAgentRun(String(user.sub), projectId, dto);
+  }
+
+  @Post(':runId/cancel')
+  @Authenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel agent run' })
+  @ApiDataResponse(AgentRunResponseDto)
+  async cancelAgentRun(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('runId') runId: string,
+  ): Promise<AgentRunResponseDto> {
+    return this.usecase.cancelAgentRun(String(user.sub), projectId, runId);
+  }
+
+  @Get(':runId/steps')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve agent run steps' })
+  @ApiDataResponse(AgentStepResponseDto, { isArray: true })
+  async getAgentRunSteps(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('runId') runId: string,
+  ): Promise<AgentStepResponseDto[]> {
+    return this.usecase.getAgentRunSteps(String(user.sub), projectId, runId);
   }
 
   @Get(':runId')
