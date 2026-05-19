@@ -182,6 +182,59 @@ export class AgentStepResponseDto {
   createdAt!: Date;
 }
 
+export class AgentActionResponseDto {
+  @ApiProperty()
+  actionId!: string;
+
+  @ApiProperty()
+  runId!: string;
+
+  @ApiProperty({ nullable: true })
+  stepId!: string | null;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  actionType!: string;
+
+  @ApiProperty()
+  targetType!: string;
+
+  @ApiProperty({ nullable: true })
+  targetId!: string | null;
+
+  @ApiProperty()
+  status!: string;
+
+  @ApiProperty({ nullable: true })
+  reasoningSummary!: string | null;
+
+  @ApiProperty({ nullable: true })
+  payloadObjectName!: string | null;
+
+  @ApiProperty({ nullable: true })
+  resultObjectName!: string | null;
+
+  @ApiProperty()
+  requiresApproval!: boolean;
+
+  @ApiProperty({ nullable: true })
+  approvedByUserId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  approvedAt!: Date | null;
+
+  @ApiProperty({ nullable: true })
+  executedAt!: Date | null;
+
+  @ApiProperty({ nullable: true })
+  errorMessage!: string | null;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
 export class SearchAgentRunsResponseDto {
   @ApiProperty({ type: [AgentRunResponseDto] })
   items!: AgentRunResponseDto[];
