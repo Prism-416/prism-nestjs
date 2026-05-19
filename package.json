@@ -1,10 +1,9 @@
 {
-  "name": "nestjs-template",
+  "name": "prism-nestjs",
   "version": "0.0.1",
-  "description": "Reusable NestJS backend template with PostgreSQL, TypeORM, and Swagger.",
-  "author": "Template Team",
+  "description": "Nest.js Server for Prizmatic",
+  "author": "Team Prizmatic",
   "private": true,
-  "license": "MIT",
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
