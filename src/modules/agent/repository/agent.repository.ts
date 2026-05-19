@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  AgentActionEventRow,
   AgentActionRow,
   AgentProjectRow,
   AgentRunRow,
@@ -362,6 +363,29 @@ export class AgentRepository {
     );
 
     return actions[0] ?? null;
+  }
+
+  async findAgentActionEventsByActionId(
+    actionId: string,
+    manager?: EntityManager,
+  ): Promise<AgentActionEventRow[]> {
+    return this.getManager(manager).query<AgentActionEventRow[]>(
+      `
+        SELECT
+          event_id AS "eventId",
+          action_id AS "actionId",
+          actor_user_id AS "actorUserId",
+          event_type AS "eventType",
+          message,
+          event_object_name AS "eventObjectName",
+          created_at AS "createdAt"
+        FROM prism_agent_action_events_l
+        WHERE action_id = $1
+        ORDER BY created_at ASC,
+                 event_id ASC
+      `,
+      [actionId],
+    );
   }
 
   async findWorkItemById(

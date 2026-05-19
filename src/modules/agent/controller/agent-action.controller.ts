@@ -3,7 +3,10 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
-import { AgentActionResponseDto } from '@/modules/agent/dto';
+import {
+  AgentActionEventResponseDto,
+  AgentActionResponseDto,
+} from '@/modules/agent/dto';
 import { AgentUseCase } from '@/modules/agent/usecases';
 
 @ApiTags('Project Agent')
@@ -21,5 +24,21 @@ export class AgentActionController {
     @Param('actionId') actionId: string,
   ): Promise<AgentActionResponseDto> {
     return this.usecase.getAgentAction(String(user.sub), projectId, actionId);
+  }
+
+  @Get(':actionId/events')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve agent action events' })
+  @ApiDataResponse(AgentActionEventResponseDto, { isArray: true })
+  async getAgentActionEvents(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('actionId') actionId: string,
+  ): Promise<AgentActionEventResponseDto[]> {
+    return this.usecase.getAgentActionEvents(
+      String(user.sub),
+      projectId,
+      actionId,
+    );
   }
 }
