@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
 import {
+  AgentActionResponseDto,
   AgentRunResponseDto,
   AgentStepResponseDto,
   CreateAgentRunDto,
@@ -168,6 +169,27 @@ export class AgentUseCase {
     }
 
     return this.repo.findAgentStepsByRunId(project.projectId, run.runId);
+  }
+
+  async getAgentRunActions(
+    userId: string,
+    projectId: string,
+    runId: string,
+  ): Promise<AgentActionResponseDto[]> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new AgentProjectNotFoundError();
+    }
+
+    const run = await this.repo.findAgentRunById(project.projectId, runId);
+    if (!run) {
+      throw new AgentRunNotFoundError();
+    }
+
+    return this.repo.findAgentActionsByRunId(project.projectId, run.runId);
   }
 
   async getAgentRun(

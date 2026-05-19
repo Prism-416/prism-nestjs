@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  AgentActionRow,
   AgentProjectRow,
   AgentRunRow,
   AgentStepRow,
@@ -284,6 +285,44 @@ export class AgentRepository {
           AND s.run_id = $2
         ORDER BY s.step_order ASC,
                  s.step_id ASC
+      `,
+      [projectId, runId],
+    );
+  }
+
+  async findAgentActionsByRunId(
+    projectId: string,
+    runId: string,
+    manager?: EntityManager,
+  ): Promise<AgentActionRow[]> {
+    return this.getManager(manager).query<AgentActionRow[]>(
+      `
+        SELECT
+          a.action_id AS "actionId",
+          a.run_id AS "runId",
+          a.step_id AS "stepId",
+          a.project_id AS "projectId",
+          a.action_type AS "actionType",
+          a.target_type AS "targetType",
+          a.target_id AS "targetId",
+          a.status,
+          a.reasoning_summary AS "reasoningSummary",
+          a.payload_object_name AS "payloadObjectName",
+          a.result_object_name AS "resultObjectName",
+          a.requires_approval AS "requiresApproval",
+          a.approved_by_user_id AS "approvedByUserId",
+          a.approved_at AS "approvedAt",
+          a.executed_at AS "executedAt",
+          a.error_message AS "errorMessage",
+          a.created_at AS "createdAt"
+        FROM prism_agent_actions_l a
+               INNER JOIN prism_agent_runs_l r
+                          ON r.run_id = a.run_id
+                         AND r.project_id = a.project_id
+        WHERE r.project_id = $1
+          AND a.run_id = $2
+        ORDER BY a.created_at ASC,
+                 a.action_id ASC
       `,
       [projectId, runId],
     );

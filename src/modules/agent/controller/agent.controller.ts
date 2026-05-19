@@ -13,6 +13,7 @@ import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
+  AgentActionResponseDto,
   AgentRunResponseDto,
   AgentStepResponseDto,
   CreateAgentRunDto,
@@ -73,6 +74,18 @@ export class AgentController {
     @Param('runId') runId: string,
   ): Promise<AgentStepResponseDto[]> {
     return this.usecase.getAgentRunSteps(String(user.sub), projectId, runId);
+  }
+
+  @Get(':runId/actions')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve agent run actions' })
+  @ApiDataResponse(AgentActionResponseDto, { isArray: true })
+  async getAgentRunActions(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('runId') runId: string,
+  ): Promise<AgentActionResponseDto[]> {
+    return this.usecase.getAgentRunActions(String(user.sub), projectId, runId);
   }
 
   @Get(':runId')
