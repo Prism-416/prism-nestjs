@@ -10,6 +10,7 @@ import { CoreModule } from '@/core/core.module';
 import { DataResponseInterceptor } from '@/core/response';
 import { envValidationSchema } from '@/core/config/env.validation';
 import { buildTypeOrmOptions } from '@/core/database/typeorm.options';
+import { AgentModule } from '@/modules/agent/agent.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { DocumentModule } from '@/modules/document/document.module';
 import { OnboardingModule } from '@/modules/onboarding/onboarding.module';
@@ -48,6 +49,11 @@ const featureRegistrations: FeatureRegistration[] = [
   },
   {
     module: ProjectModule,
+    path: 'projects',
+    requiresDb: true,
+  },
+  {
+    module: AgentModule,
     path: 'projects',
     requiresDb: true,
   },
