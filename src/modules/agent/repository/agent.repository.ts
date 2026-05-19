@@ -8,7 +8,9 @@ import {
   AgentRunRow,
   AgentStepRow,
   AgentWorkItemRow,
+  ApproveAgentActionParams,
   CancelAgentRunParams,
+  CreateAgentActionEventParams,
   CreateAgentRunParams,
   SearchAgentRunsParams,
   SearchAgentRunsResult,
@@ -365,6 +367,51 @@ export class AgentRepository {
     return actions[0] ?? null;
   }
 
+  async approveAgentAction(
+    params: ApproveAgentActionParams,
+    manager?: EntityManager,
+  ): Promise<AgentActionRow | null> {
+    const actions = await this.getManager(manager).query<AgentActionRow[]>(
+      `
+        UPDATE prism_agent_actions_l
+        SET
+          status = 'approved',
+          approved_by_user_id = $3,
+          approved_at = NOW()
+        WHERE project_id = $1
+          AND action_id = $2
+          AND requires_approval = TRUE
+          AND status = ANY($4::text[])
+        RETURNING
+          action_id AS "actionId",
+          run_id AS "runId",
+          step_id AS "stepId",
+          project_id AS "projectId",
+          action_type AS "actionType",
+          target_type AS "targetType",
+          target_id AS "targetId",
+          status,
+          reasoning_summary AS "reasoningSummary",
+          payload_object_name AS "payloadObjectName",
+          result_object_name AS "resultObjectName",
+          requires_approval AS "requiresApproval",
+          approved_by_user_id AS "approvedByUserId",
+          approved_at AS "approvedAt",
+          executed_at AS "executedAt",
+          error_message AS "errorMessage",
+          created_at AS "createdAt"
+      `,
+      [
+        params.projectId,
+        params.actionId,
+        params.approvedByUserId,
+        params.approvableStatuses,
+      ],
+    );
+
+    return actions[0] ?? null;
+  }
+
   async findAgentActionEventsByActionId(
     actionId: string,
     manager?: EntityManager,
@@ -386,6 +433,41 @@ export class AgentRepository {
       `,
       [actionId],
     );
+  }
+
+  async createAgentActionEvent(
+    params: CreateAgentActionEventParams,
+    manager?: EntityManager,
+  ): Promise<AgentActionEventRow> {
+    const events = await this.getManager(manager).query<AgentActionEventRow[]>(
+      `
+        INSERT INTO prism_agent_action_events_l (
+          action_id,
+          actor_user_id,
+          event_type,
+          message,
+          event_object_name
+        )
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING
+          event_id AS "eventId",
+          action_id AS "actionId",
+          actor_user_id AS "actorUserId",
+          event_type AS "eventType",
+          message,
+          event_object_name AS "eventObjectName",
+          created_at AS "createdAt"
+      `,
+      [
+        params.actionId,
+        params.actorUserId ?? null,
+        params.eventType,
+        params.message ?? null,
+        params.eventObjectName ?? null,
+      ],
+    );
+
+    return events[0];
   }
 
   async findWorkItemById(

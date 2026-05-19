@@ -11,6 +11,7 @@ import {
 } from '@/modules/agent/dto';
 import {
   AgentActionNotFoundError,
+  AgentActionNotApprovableError,
   AgentParentRunNotFoundError,
   AgentProjectNotFoundError,
   AgentRunNotCancellableError,
@@ -25,6 +26,7 @@ const AGENT_RUN_CANCELLABLE_STATUSES: AgentRunStatus[] = [
   'running',
   'waiting',
 ];
+const AGENT_ACTION_APPROVABLE_STATUSES = ['proposed'];
 
 @Injectable()
 export class AgentUseCase {
@@ -216,6 +218,63 @@ export class AgentUseCase {
     }
 
     return action;
+  }
+
+  async approveAgentAction(
+    userId: string,
+    projectId: string,
+    actionId: string,
+  ): Promise<AgentActionResponseDto> {
+    return this.uow.run(async (manager) => {
+      const project = await this.repo.findProjectByIdAndMemberUserId(
+        projectId,
+        userId,
+        manager,
+      );
+      if (!project) {
+        throw new AgentProjectNotFoundError();
+      }
+
+      const action = await this.repo.findAgentActionById(
+        project.projectId,
+        actionId,
+        manager,
+      );
+      if (!action) {
+        throw new AgentActionNotFoundError();
+      }
+
+      if (
+        !action.requiresApproval ||
+        !AGENT_ACTION_APPROVABLE_STATUSES.includes(action.status)
+      ) {
+        throw new AgentActionNotApprovableError();
+      }
+
+      const approvedAction = await this.repo.approveAgentAction(
+        {
+          projectId: project.projectId,
+          actionId,
+          approvedByUserId: userId,
+          approvableStatuses: AGENT_ACTION_APPROVABLE_STATUSES,
+        },
+        manager,
+      );
+      if (!approvedAction) {
+        throw new AgentActionNotApprovableError();
+      }
+
+      await this.repo.createAgentActionEvent(
+        {
+          actionId: approvedAction.actionId,
+          actorUserId: userId,
+          eventType: 'approved',
+        },
+        manager,
+      );
+
+      return approvedAction;
+    });
   }
 
   async getAgentActionEvents(

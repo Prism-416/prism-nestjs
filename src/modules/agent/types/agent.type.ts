@@ -67,6 +67,21 @@ export type CancelAgentRunParams = {
   cancellableStatuses: AgentRunStatus[];
 };
 
+export type ApproveAgentActionParams = {
+  projectId: string;
+  actionId: string;
+  approvedByUserId: string;
+  approvableStatuses: string[];
+};
+
+export type CreateAgentActionEventParams = {
+  actionId: string;
+  actorUserId?: string;
+  eventType: string;
+  message?: string;
+  eventObjectName?: string;
+};
+
 export type SearchAgentRunsResult = {
   items: AgentRunRow[];
   total: number;

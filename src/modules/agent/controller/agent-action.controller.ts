@@ -1,4 +1,11 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
@@ -13,6 +20,23 @@ import { AgentUseCase } from '@/modules/agent/usecases';
 @Controller(':projectId/agent-actions')
 export class AgentActionController {
   constructor(private readonly usecase: AgentUseCase) {}
+
+  @Post(':actionId/approve')
+  @Authenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Approve agent action' })
+  @ApiDataResponse(AgentActionResponseDto)
+  async approveAgentAction(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('actionId') actionId: string,
+  ): Promise<AgentActionResponseDto> {
+    return this.usecase.approveAgentAction(
+      String(user.sub),
+      projectId,
+      actionId,
+    );
+  }
 
   @Get(':actionId')
   @Authenticated()
