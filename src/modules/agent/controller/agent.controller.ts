@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   HttpStatus,
   Param,
   Post,
@@ -46,6 +47,19 @@ export class AgentController {
     @Body() dto: CreateAgentRunDto,
   ): Promise<AgentRunResponseDto> {
     return this.usecase.createAgentRun(String(user.sub), projectId, dto);
+  }
+
+  @Post(':runId/cancel')
+  @Authenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Cancel agent run' })
+  @ApiDataResponse(AgentRunResponseDto)
+  async cancelAgentRun(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('runId') runId: string,
+  ): Promise<AgentRunResponseDto> {
+    return this.usecase.cancelAgentRun(String(user.sub), projectId, runId);
   }
 
   @Get(':runId')

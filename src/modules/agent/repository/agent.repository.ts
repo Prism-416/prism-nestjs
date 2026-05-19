@@ -5,6 +5,7 @@ import {
   AgentProjectRow,
   AgentRunRow,
   AgentWorkItemRow,
+  CancelAgentRunParams,
   CreateAgentRunParams,
   SearchAgentRunsParams,
   SearchAgentRunsResult,
@@ -214,6 +215,40 @@ export class AgentRepository {
         LIMIT 1
       `,
       [projectId, runId],
+    );
+
+    return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
+  }
+
+  async cancelAgentRun(
+    params: CancelAgentRunParams,
+    manager?: EntityManager,
+  ): Promise<AgentRunRow | null> {
+    const runs = await this.getManager(manager).query<AgentRunDbRow[]>(
+      `
+        UPDATE prism_agent_runs_l
+        SET
+          status = 'cancelled',
+          completed_at = NOW()
+        WHERE project_id = $1
+          AND run_id = $2
+          AND status = ANY($3::text[])
+        RETURNING
+          run_id AS "runId",
+          project_id AS "projectId",
+          triggered_by_user_id AS "triggeredByUserId",
+          work_item_id AS "workItemId",
+          parent_run_id AS "parentRunId",
+          agent_type AS "agentType",
+          trigger_type AS "triggerType",
+          status,
+          objective,
+          system_prompt_version AS "systemPromptVersion",
+          started_at AS "startedAt",
+          completed_at AS "completedAt",
+          created_at AS "createdAt"
+      `,
+      [params.projectId, params.runId, params.cancellableStatuses],
     );
 
     return runs[0] ? this.mapAgentRunRow(runs[0]) : null;

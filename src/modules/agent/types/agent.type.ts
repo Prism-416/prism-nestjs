@@ -61,6 +61,12 @@ export type CreateAgentRunParams = {
   systemPromptVersion?: string;
 };
 
+export type CancelAgentRunParams = {
+  projectId: string;
+  runId: string;
+  cancellableStatuses: AgentRunStatus[];
+};
+
 export type SearchAgentRunsResult = {
   items: AgentRunRow[];
   total: number;

@@ -9,10 +9,18 @@ import {
 import {
   AgentParentRunNotFoundError,
   AgentProjectNotFoundError,
+  AgentRunNotCancellableError,
   AgentRunNotFoundError,
   AgentWorkItemNotFoundError,
 } from '@/modules/agent/errors';
 import { AgentRepository } from '@/modules/agent/repository';
+import { AgentRunStatus } from '@/modules/agent/types';
+
+const AGENT_RUN_CANCELLABLE_STATUSES: AgentRunStatus[] = [
+  'queued',
+  'running',
+  'waiting',
+];
 
 @Injectable()
 export class AgentUseCase {
@@ -93,6 +101,50 @@ export class AgentUseCase {
         },
         manager,
       );
+    });
+  }
+
+  async cancelAgentRun(
+    userId: string,
+    projectId: string,
+    runId: string,
+  ): Promise<AgentRunResponseDto> {
+    return this.uow.run(async (manager) => {
+      const project = await this.repo.findProjectByIdAndMemberUserId(
+        projectId,
+        userId,
+        manager,
+      );
+      if (!project) {
+        throw new AgentProjectNotFoundError();
+      }
+
+      const run = await this.repo.findAgentRunById(
+        project.projectId,
+        runId,
+        manager,
+      );
+      if (!run) {
+        throw new AgentRunNotFoundError();
+      }
+
+      if (!AGENT_RUN_CANCELLABLE_STATUSES.includes(run.status)) {
+        throw new AgentRunNotCancellableError();
+      }
+
+      const cancelledRun = await this.repo.cancelAgentRun(
+        {
+          projectId: project.projectId,
+          runId,
+          cancellableStatuses: AGENT_RUN_CANCELLABLE_STATUSES,
+        },
+        manager,
+      );
+      if (!cancelledRun) {
+        throw new AgentRunNotCancellableError();
+      }
+
+      return cancelledRun;
     });
   }
 
