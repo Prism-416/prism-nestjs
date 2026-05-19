@@ -4,6 +4,7 @@ import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
+  AgentRunResponseDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
 } from '@/modules/agent/dto';
@@ -24,5 +25,17 @@ export class AgentController {
     @Query() query: SearchAgentRunsQueryDto,
   ): Promise<SearchAgentRunsResponseDto> {
     return this.usecase.searchAgentRuns(String(user.sub), projectId, query);
+  }
+
+  @Get(':runId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve agent run metadata' })
+  @ApiDataResponse(AgentRunResponseDto)
+  async getAgentRun(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('runId') runId: string,
+  ): Promise<AgentRunResponseDto> {
+    return this.usecase.getAgentRun(String(user.sub), projectId, runId);
   }
 }

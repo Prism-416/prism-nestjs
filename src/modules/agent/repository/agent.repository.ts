@@ -8,6 +8,22 @@ import {
   SearchAgentRunsResult,
 } from '@/modules/agent/types';
 
+type AgentRunDbRow = {
+  runId: string;
+  projectId: string;
+  triggeredByUserId: string | null;
+  workItemId: string | null;
+  parentRunId: string | null;
+  agentType: string;
+  triggerType: AgentRunRow['triggerType'];
+  status: AgentRunRow['status'];
+  objective: string;
+  systemPromptVersion: string | null;
+  startedAt: Date | null;
+  completedAt: Date | null;
+  createdAt: Date;
+};
+
 @Injectable()
 export class AgentRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
@@ -43,21 +59,8 @@ export class AgentRepository {
     manager?: EntityManager,
   ): Promise<SearchAgentRunsResult> {
     type SearchAgentRunDbRow = {
-      runId: string | null;
-      projectId: string | null;
-      triggeredByUserId: string | null;
-      workItemId: string | null;
-      parentRunId: string | null;
-      agentType: string | null;
-      triggerType: AgentRunRow['triggerType'] | null;
-      status: AgentRunRow['status'] | null;
-      objective: string | null;
-      systemPromptVersion: string | null;
-      startedAt: Date | null;
-      completedAt: Date | null;
-      createdAt: Date | null;
-      total: number;
-    };
+      [Key in keyof AgentRunDbRow]: AgentRunDbRow[Key] | null;
+    } & { total: number };
 
     const rows = await this.getManager(manager).query<SearchAgentRunDbRow[]>(
       `
@@ -127,27 +130,62 @@ export class AgentRepository {
     return {
       items: rows
         .filter(
-          (row): row is SearchAgentRunDbRow & { runId: string } =>
-            row.runId !== null,
+          (row): row is AgentRunDbRow & { total: number } => row.runId !== null,
         )
-        .map((row) => ({
-          runId: row.runId,
-          projectId: row.projectId as string,
-          triggeredByUserId: row.triggeredByUserId,
-          workItemId: row.workItemId,
-          parentRunId: row.parentRunId,
-          agentType: row.agentType as string,
-          triggerType: row.triggerType as AgentRunRow['triggerType'],
-          status: row.status as AgentRunRow['status'],
-          objective: row.objective as string,
-          systemPromptVersion: row.systemPromptVersion,
-          startedAt: row.startedAt,
-          completedAt: row.completedAt,
-          createdAt: row.createdAt as Date,
-        })),
+        .map((row) => this.mapAgentRunRow(row)),
       total: rows[0]?.total ?? 0,
       limit: params.limit,
       offset: params.offset,
+    };
+  }
+
+  async findAgentRunById(
+    projectId: string,
+    runId: string,
+    manager?: EntityManager,
+  ): Promise<AgentRunRow | null> {
+    const runs = await this.getManager(manager).query<AgentRunDbRow[]>(
+      `
+        SELECT
+          run_id AS "runId",
+          project_id AS "projectId",
+          triggered_by_user_id AS "triggeredByUserId",
+          work_item_id AS "workItemId",
+          parent_run_id AS "parentRunId",
+          agent_type AS "agentType",
+          trigger_type AS "triggerType",
+          status,
+          objective,
+          system_prompt_version AS "systemPromptVersion",
+          started_at AS "startedAt",
+          completed_at AS "completedAt",
+          created_at AS "createdAt"
+        FROM prism_agent_runs_l
+        WHERE project_id = $1
+          AND run_id = $2
+        LIMIT 1
+      `,
+      [projectId, runId],
+    );
+
+    return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
+  }
+
+  private mapAgentRunRow(row: AgentRunDbRow): AgentRunRow {
+    return {
+      runId: row.runId,
+      projectId: row.projectId,
+      triggeredByUserId: row.triggeredByUserId,
+      workItemId: row.workItemId,
+      parentRunId: row.parentRunId,
+      agentType: row.agentType,
+      triggerType: row.triggerType,
+      status: row.status,
+      objective: row.objective,
+      systemPromptVersion: row.systemPromptVersion,
+      startedAt: row.startedAt,
+      completedAt: row.completedAt,
+      createdAt: row.createdAt,
     };
   }
 

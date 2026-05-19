@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import {
+  AgentRunResponseDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
 } from '@/modules/agent/dto';
-import { AgentProjectNotFoundError } from '@/modules/agent/errors';
+import {
+  AgentProjectNotFoundError,
+  AgentRunNotFoundError,
+} from '@/modules/agent/errors';
 import { AgentRepository } from '@/modules/agent/repository';
 
 @Injectable()
@@ -31,5 +35,26 @@ export class AgentUseCase {
       limit: query.limit ?? 50,
       offset: query.offset ?? 0,
     });
+  }
+
+  async getAgentRun(
+    userId: string,
+    projectId: string,
+    runId: string,
+  ): Promise<AgentRunResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new AgentProjectNotFoundError();
+    }
+
+    const run = await this.repo.findAgentRunById(project.projectId, runId);
+    if (!run) {
+      throw new AgentRunNotFoundError();
+    }
+
+    return run;
   }
 }
