@@ -45,3 +45,13 @@ export class AgentActionNotApprovableError extends DomainError {
     );
   }
 }
+
+export class AgentActionNotCancellableError extends DomainError {
+  constructor() {
+    super(
+      'Agent action cannot be cancelled.',
+      'AGENT_ACTION_NOT_CANCELLABLE',
+      400,
+    );
+  }
+}
