@@ -38,6 +38,22 @@ export type AgentRunRow = {
   createdAt: Date;
 };
 
+export type SearchAgentRunsParams = {
+  projectId: string;
+  status?: AgentRunStatus;
+  agentType?: string;
+  workItemId?: string;
+  limit: number;
+  offset: number;
+};
+
+export type SearchAgentRunsResult = {
+  items: AgentRunRow[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
 export type AgentStepRow = {
   stepId: string;
   runId: string;
