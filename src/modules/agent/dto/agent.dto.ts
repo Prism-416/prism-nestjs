@@ -235,6 +235,29 @@ export class AgentActionResponseDto {
   createdAt!: Date;
 }
 
+export class AgentActionEventResponseDto {
+  @ApiProperty()
+  eventId!: string;
+
+  @ApiProperty()
+  actionId!: string;
+
+  @ApiProperty({ nullable: true })
+  actorUserId!: string | null;
+
+  @ApiProperty()
+  eventType!: string;
+
+  @ApiProperty({ nullable: true })
+  message!: string | null;
+
+  @ApiProperty({ nullable: true })
+  eventObjectName!: string | null;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
 export class SearchAgentRunsResponseDto {
   @ApiProperty({ type: [AgentRunResponseDto] })
   items!: AgentRunResponseDto[];
