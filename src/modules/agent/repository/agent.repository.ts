@@ -4,6 +4,8 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   AgentProjectRow,
   AgentRunRow,
+  AgentWorkItemRow,
+  CreateAgentRunParams,
   SearchAgentRunsParams,
   SearchAgentRunsResult,
 } from '@/modules/agent/types';
@@ -139,6 +141,52 @@ export class AgentRepository {
     };
   }
 
+  async createAgentRun(
+    params: CreateAgentRunParams,
+    manager?: EntityManager,
+  ): Promise<AgentRunRow> {
+    const runs = await this.getManager(manager).query<AgentRunDbRow[]>(
+      `
+        INSERT INTO prism_agent_runs_l (
+          project_id,
+          triggered_by_user_id,
+          work_item_id,
+          parent_run_id,
+          agent_type,
+          trigger_type,
+          objective,
+          system_prompt_version
+        )
+        VALUES ($1, $2, $3, $4, $5, 'manual', $6, $7)
+        RETURNING
+          run_id AS "runId",
+          project_id AS "projectId",
+          triggered_by_user_id AS "triggeredByUserId",
+          work_item_id AS "workItemId",
+          parent_run_id AS "parentRunId",
+          agent_type AS "agentType",
+          trigger_type AS "triggerType",
+          status,
+          objective,
+          system_prompt_version AS "systemPromptVersion",
+          started_at AS "startedAt",
+          completed_at AS "completedAt",
+          created_at AS "createdAt"
+      `,
+      [
+        params.projectId,
+        params.triggeredByUserId,
+        params.workItemId ?? null,
+        params.parentRunId ?? null,
+        params.agentType,
+        params.objective,
+        params.systemPromptVersion ?? null,
+      ],
+    );
+
+    return this.mapAgentRunRow(runs[0]);
+  }
+
   async findAgentRunById(
     projectId: string,
     runId: string,
@@ -169,6 +217,26 @@ export class AgentRepository {
     );
 
     return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
+  }
+
+  async findWorkItemById(
+    projectId: string,
+    workItemId: string,
+    manager?: EntityManager,
+  ): Promise<AgentWorkItemRow | null> {
+    const workItems = await this.getManager(manager).query<AgentWorkItemRow[]>(
+      `
+        SELECT
+          item_id AS "itemId"
+        FROM prism_work_items_l
+        WHERE project_id = $1
+          AND item_id = $2
+        LIMIT 1
+      `,
+      [projectId, workItemId],
+    );
+
+    return workItems[0] ?? null;
   }
 
   private mapAgentRunRow(row: AgentRunDbRow): AgentRunRow {

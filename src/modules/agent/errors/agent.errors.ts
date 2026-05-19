@@ -12,6 +12,18 @@ export class AgentRunNotFoundError extends NotExistsError {
   }
 }
 
+export class AgentWorkItemNotFoundError extends NotExistsError {
+  constructor() {
+    super('Work item not found.', 'AGENT_WORK_ITEM_NOT_FOUND');
+  }
+}
+
+export class AgentParentRunNotFoundError extends NotExistsError {
+  constructor() {
+    super('Parent agent run not found.', 'AGENT_PARENT_RUN_NOT_FOUND');
+  }
+}
+
 export class AgentActionNotFoundError extends NotExistsError {
   constructor() {
     super('Agent action not found.', 'AGENT_ACTION_NOT_FOUND');

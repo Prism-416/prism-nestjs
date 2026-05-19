@@ -1,18 +1,25 @@
 import { Injectable } from '@nestjs/common';
+import { UnitOfWork } from '@/core/database';
 import {
   AgentRunResponseDto,
+  CreateAgentRunDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
 } from '@/modules/agent/dto';
 import {
+  AgentParentRunNotFoundError,
   AgentProjectNotFoundError,
   AgentRunNotFoundError,
+  AgentWorkItemNotFoundError,
 } from '@/modules/agent/errors';
 import { AgentRepository } from '@/modules/agent/repository';
 
 @Injectable()
 export class AgentUseCase {
-  constructor(private readonly repo: AgentRepository) {}
+  constructor(
+    private readonly repo: AgentRepository,
+    private readonly uow: UnitOfWork,
+  ) {}
 
   async searchAgentRuns(
     userId: string,
@@ -34,6 +41,58 @@ export class AgentUseCase {
       workItemId: query.workItemId,
       limit: query.limit ?? 50,
       offset: query.offset ?? 0,
+    });
+  }
+
+  async createAgentRun(
+    userId: string,
+    projectId: string,
+    dto: CreateAgentRunDto,
+  ): Promise<AgentRunResponseDto> {
+    return this.uow.run(async (manager) => {
+      const project = await this.repo.findProjectByIdAndMemberUserId(
+        projectId,
+        userId,
+        manager,
+      );
+      if (!project) {
+        throw new AgentProjectNotFoundError();
+      }
+
+      if (dto.workItemId !== undefined) {
+        const workItem = await this.repo.findWorkItemById(
+          project.projectId,
+          dto.workItemId,
+          manager,
+        );
+        if (!workItem) {
+          throw new AgentWorkItemNotFoundError();
+        }
+      }
+
+      if (dto.parentRunId !== undefined) {
+        const parentRun = await this.repo.findAgentRunById(
+          project.projectId,
+          dto.parentRunId,
+          manager,
+        );
+        if (!parentRun) {
+          throw new AgentParentRunNotFoundError();
+        }
+      }
+
+      return this.repo.createAgentRun(
+        {
+          projectId: project.projectId,
+          triggeredByUserId: userId,
+          workItemId: dto.workItemId,
+          parentRunId: dto.parentRunId,
+          agentType: dto.agentType,
+          objective: dto.objective,
+          systemPromptVersion: dto.systemPromptVersion,
+        },
+        manager,
+      );
     });
   }
 
