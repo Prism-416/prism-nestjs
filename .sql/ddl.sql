@@ -400,7 +400,7 @@ CREATE TABLE IF NOT EXISTS prism_agent_runs_l
     started_at            TIMESTAMPTZ,
     completed_at          TIMESTAMPTZ,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CHECK (
+    CONSTRAINT ck_agent_runs_trigger_type CHECK (
         trigger_type IN (
                          'manual',
                          'event',
@@ -409,7 +409,7 @@ CREATE TABLE IF NOT EXISTS prism_agent_runs_l
                          'recursive'
             )
         ),
-    CHECK (
+    CONSTRAINT ck_agent_runs_status CHECK (
         status IN (
                    'queued',
                    'running',
@@ -603,7 +603,7 @@ CREATE TABLE IF NOT EXISTS prism_agent_memories_l
     content      TEXT        NOT NULL,
     content_hash TEXT        NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CHECK (
+    CONSTRAINT ck_agent_memories_memory_type CHECK (
         memory_type IN (
                         'agent_decision',
                         'agent_summary',
@@ -659,7 +659,7 @@ CREATE TABLE IF NOT EXISTS prism_embedding_jobs_l
     started_at       TIMESTAMPTZ,
     completed_at     TIMESTAMPTZ,
     created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-    CHECK (
+    CONSTRAINT ck_embedding_jobs_type CHECK (
         job_type IN (
                      'document',
                      'document_chunk',
@@ -668,7 +668,7 @@ CREATE TABLE IF NOT EXISTS prism_embedding_jobs_l
                      'agent_memory'
             )
         ),
-    CHECK (
+    CONSTRAINT ck_embedding_jobs_status CHECK (
         status IN (
                    'queued',
                    'running',
@@ -685,6 +685,6 @@ CREATE INDEX IF NOT EXISTS idx_embedding_jobs_status_scheduled
 CREATE INDEX IF NOT EXISTS idx_embedding_jobs_project_type
     ON prism_embedding_jobs_l (project_id, job_type);
 
-CREATE INDEX idx_document_chunk_embeddings_hnsw
+CREATE INDEX IF NOT EXISTS idx_document_chunk_embeddings_hnsw
     ON prism_document_chunk_embeddings_l
         USING hnsw (embedding vector_cosine_ops);
