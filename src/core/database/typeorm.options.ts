@@ -48,7 +48,7 @@ export function buildDataSourceOptions(): DataSourceOptions {
     database: process.env.PG_DB ?? 'nestjs_template',
     schema,
     entities: [__dirname + '/../**/*.entity{.ts,.js}'],
-    migrations: [__dirname + '/../migrations/*{.ts,.js}'],
+    migrations: [__dirname + '/../../database/migrations/*{.ts,.js}'],
     synchronize: false,
     logging: process.env.NODE_ENV === 'development',
   };
