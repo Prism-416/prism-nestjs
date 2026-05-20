@@ -1,9 +1,13 @@
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -12,10 +16,13 @@ import {
   Min,
 } from 'class-validator';
 import {
+  AGENT_EMBEDDING_DIMENSIONS,
+  AGENT_MEMORY_TYPES,
   AGENT_RUN_STATUSES,
   AGENT_RUN_TRIGGER_TYPES,
 } from '@/modules/agent/types';
 import type {
+  AgentMemoryType,
   AgentRunStatus,
   AgentRunTriggerType,
 } from '@/modules/agent/types';
@@ -270,4 +277,142 @@ export class SearchAgentRunsResponseDto {
 
   @ApiProperty()
   offset!: number;
+}
+
+export class UpsertAgentMemoryDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  memoryId?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  runId?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  stepId?: string;
+
+  @ApiProperty({ enum: AGENT_MEMORY_TYPES })
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsIn(AGENT_MEMORY_TYPES)
+  memoryType!: AgentMemoryType;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  title?: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  content!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  contentHash!: string;
+}
+
+export class AgentMemoryResponseDto {
+  @ApiProperty()
+  memoryId!: string;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty({ nullable: true })
+  runId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  stepId!: string | null;
+
+  @ApiProperty({ enum: AGENT_MEMORY_TYPES })
+  memoryType!: AgentMemoryType;
+
+  @ApiProperty({ nullable: true })
+  title!: string | null;
+
+  @ApiProperty()
+  content!: string;
+
+  @ApiProperty()
+  contentHash!: string;
+
+  @ApiProperty()
+  createdAt!: Date;
+}
+
+export class UpsertAgentMemoryEmbeddingDto {
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  contentHash!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  model!: string;
+
+  @ApiPropertyOptional({
+    default: AGENT_EMBEDDING_DIMENSIONS,
+    minimum: AGENT_EMBEDDING_DIMENSIONS,
+    maximum: AGENT_EMBEDDING_DIMENSIONS,
+  })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(AGENT_EMBEDDING_DIMENSIONS)
+  @Max(AGENT_EMBEDDING_DIMENSIONS)
+  dimensions?: number;
+
+  @ApiProperty({
+    type: [Number],
+    minItems: AGENT_EMBEDDING_DIMENSIONS,
+    maxItems: AGENT_EMBEDDING_DIMENSIONS,
+  })
+  @IsArray()
+  @ArrayMinSize(AGENT_EMBEDDING_DIMENSIONS)
+  @ArrayMaxSize(AGENT_EMBEDDING_DIMENSIONS)
+  @IsNumber({ allowInfinity: false, allowNaN: false }, { each: true })
+  embedding!: number[];
+}
+
+export class AgentMemoryEmbeddingResponseDto {
+  @ApiProperty()
+  memoryId!: string;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  model!: string;
+
+  @ApiProperty()
+  dimensions!: number;
+
+  @ApiProperty()
+  contentHash!: string;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty()
+  embeddedAt!: Date;
 }

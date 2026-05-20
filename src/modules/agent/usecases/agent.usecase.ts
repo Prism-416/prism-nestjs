@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
 import {
+  AgentMemoryEmbeddingResponseDto,
+  AgentMemoryResponseDto,
   AgentActionEventResponseDto,
   AgentActionResponseDto,
   AgentRunResponseDto,
@@ -8,11 +10,16 @@ import {
   CreateAgentRunDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
+  UpsertAgentMemoryDto,
+  UpsertAgentMemoryEmbeddingDto,
 } from '@/modules/agent/dto';
 import {
   AgentActionNotFoundError,
   AgentActionNotApprovableError,
   AgentActionNotCancellableError,
+  AgentMemoryEmbeddingTargetMismatchError,
+  AgentMemoryNotFoundError,
+  AgentMemoryTargetMismatchError,
   AgentParentRunNotFoundError,
   AgentProjectNotFoundError,
   AgentRunNotCancellableError,
@@ -20,7 +27,10 @@ import {
   AgentWorkItemNotFoundError,
 } from '@/modules/agent/errors';
 import { AgentRepository } from '@/modules/agent/repository';
-import { AgentRunStatus } from '@/modules/agent/types';
+import {
+  AGENT_EMBEDDING_DIMENSIONS,
+  AgentRunStatus,
+} from '@/modules/agent/types';
 
 const AGENT_RUN_CANCELLABLE_STATUSES: AgentRunStatus[] = [
   'queued',
@@ -357,6 +367,73 @@ export class AgentUseCase {
     }
 
     return this.repo.findAgentActionEventsByActionId(action.actionId);
+  }
+
+  async upsertAgentMemory(
+    userId: string,
+    projectId: string,
+    dto: UpsertAgentMemoryDto,
+  ): Promise<AgentMemoryResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new AgentProjectNotFoundError();
+    }
+
+    const memory = await this.repo.upsertAgentMemory({
+      projectId: project.projectId,
+      memoryId: dto.memoryId,
+      runId: dto.runId,
+      stepId: dto.stepId,
+      memoryType: dto.memoryType,
+      title: dto.title,
+      content: dto.content,
+      contentHash: dto.contentHash,
+    });
+    if (!memory) {
+      throw new AgentMemoryTargetMismatchError();
+    }
+
+    return memory;
+  }
+
+  async upsertAgentMemoryEmbedding(
+    userId: string,
+    projectId: string,
+    memoryId: string,
+    dto: UpsertAgentMemoryEmbeddingDto,
+  ): Promise<AgentMemoryEmbeddingResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new AgentProjectNotFoundError();
+    }
+
+    const memory = await this.repo.findAgentMemoryById(
+      project.projectId,
+      memoryId,
+    );
+    if (!memory) {
+      throw new AgentMemoryNotFoundError();
+    }
+
+    const embedding = await this.repo.upsertAgentMemoryEmbedding({
+      projectId: project.projectId,
+      memoryId,
+      contentHash: dto.contentHash,
+      model: dto.model,
+      dimensions: dto.dimensions ?? AGENT_EMBEDDING_DIMENSIONS,
+      embedding: dto.embedding,
+    });
+    if (!embedding) {
+      throw new AgentMemoryEmbeddingTargetMismatchError();
+    }
+
+    return embedding;
   }
 
   async getAgentRun(
