@@ -83,6 +83,16 @@ export class InternalScopeInvalidError extends DomainError {
   }
 }
 
+export class InternalScopeRequiredError extends DomainError {
+  constructor() {
+    super(
+      'Internal API token does not include the required scope.',
+      'INTERNAL_SCOPE_REQUIRED',
+      403,
+    );
+  }
+}
+
 export function isServiceAccountNameUniqueViolation(error: unknown): boolean {
   return isUniqueViolation(error, SERVICE_ACCOUNT_NAME_UNIQUE_CONSTRAINT);
 }
