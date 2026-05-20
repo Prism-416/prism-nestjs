@@ -13,6 +13,7 @@ import { buildTypeOrmOptions } from '@/core/database/typeorm.options';
 import { AgentModule } from '@/modules/agent/agent.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { DocumentModule } from '@/modules/document/document.module';
+import { EmbeddingModule } from '@/modules/embedding/embedding.module';
 import { OnboardingModule } from '@/modules/onboarding/onboarding.module';
 import { ProjectModule } from '@/modules/project/project.module';
 import { SprintModule } from '@/modules/sprint/sprint.module';
@@ -59,6 +60,11 @@ const featureRegistrations: FeatureRegistration[] = [
   },
   {
     module: DocumentModule,
+    path: 'projects',
+    requiresDb: true,
+  },
+  {
+    module: EmbeddingModule,
     path: 'projects',
     requiresDb: true,
   },
