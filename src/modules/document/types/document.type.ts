@@ -14,6 +14,19 @@ export type DocumentRow = {
   updatedAt: Date;
 };
 
+export type DocumentChunkRow = {
+  chunkId: string;
+  documentId: string;
+  projectId: string;
+  chunkIndex: number;
+  headingPath: string[] | null;
+  contentHash: string;
+  tokenCount: number | null;
+  charCount: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
 export type DocumentProjectRow = {
   projectId: string;
 };
@@ -56,4 +69,19 @@ export type SearchDocumentsResult = {
   total: number;
   limit: number;
   offset: number;
+};
+
+export type UpsertDocumentChunkInput = {
+  chunkIndex: number;
+  headingPath?: string[];
+  content: string;
+  contentHash: string;
+  tokenCount?: number;
+  charCount?: number;
+};
+
+export type UpsertDocumentChunksParams = {
+  projectId: string;
+  documentId: string;
+  chunks: UpsertDocumentChunkInput[];
 };

@@ -1,6 +1,10 @@
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  ArrayUnique,
+  IsArray,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -8,8 +12,22 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { MAX_DOCUMENT_CHUNKS_PER_APPEND } from '@/modules/document/constants';
 import { normalizeOptionalTrimmedString } from '@/modules/document/utils';
+
+function normalizeOptionalTrimmedStringArray(value: unknown): unknown {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  if (!Array.isArray(value)) {
+    return value;
+  }
+
+  return value.map((item) => normalizeOptionalTrimmedString(item));
+}
 
 export class UploadDocumentDto {
   @ApiPropertyOptional({
@@ -109,4 +127,101 @@ export class SearchDocumentsResponseDto {
 
   @ApiProperty()
   offset!: number;
+}
+
+export class AppendDocumentChunkDto {
+  @ApiProperty({ minimum: 0 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  chunkIndex!: number;
+
+  @ApiPropertyOptional({ type: [String] })
+  @Transform(({ value }) => normalizeOptionalTrimmedStringArray(value))
+  @IsOptional()
+  @IsArray()
+  @ArrayUnique()
+  @IsString({ each: true })
+  @IsNotEmpty({ each: true })
+  @MaxLength(200, { each: true })
+  headingPath?: string[];
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  content!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  contentHash!: string;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  tokenCount?: number;
+
+  @ApiPropertyOptional({ minimum: 0 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  charCount?: number;
+}
+
+export class AppendDocumentChunksDto {
+  @ApiProperty({
+    type: [AppendDocumentChunkDto],
+    maxItems: MAX_DOCUMENT_CHUNKS_PER_APPEND,
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_DOCUMENT_CHUNKS_PER_APPEND)
+  @ValidateNested({ each: true })
+  @Type(() => AppendDocumentChunkDto)
+  chunks!: AppendDocumentChunkDto[];
+}
+
+export class DocumentChunkResponseDto {
+  @ApiProperty()
+  chunkId!: string;
+
+  @ApiProperty()
+  documentId!: string;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  chunkIndex!: number;
+
+  @ApiProperty({ type: [String], nullable: true })
+  headingPath!: string[] | null;
+
+  @ApiProperty()
+  contentHash!: string;
+
+  @ApiProperty({ nullable: true })
+  tokenCount!: number | null;
+
+  @ApiProperty({ nullable: true })
+  charCount!: number | null;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty()
+  updatedAt!: Date;
+}
+
+export class AppendDocumentChunksResponseDto {
+  @ApiProperty({ type: [DocumentChunkResponseDto] })
+  items!: DocumentChunkResponseDto[];
+
+  @ApiProperty()
+  count!: number;
 }
