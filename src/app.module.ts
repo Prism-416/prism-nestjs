@@ -14,6 +14,7 @@ import { AgentModule } from '@/modules/agent/agent.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { DocumentModule } from '@/modules/document/document.module';
 import { EmbeddingModule } from '@/modules/embedding/embedding.module';
+import { InternalModule } from '@/modules/internal';
 import { OnboardingModule } from '@/modules/onboarding/onboarding.module';
 import { ProjectModule } from '@/modules/project/project.module';
 import { SprintModule } from '@/modules/sprint/sprint.module';
@@ -66,6 +67,10 @@ const featureRegistrations: FeatureRegistration[] = [
   {
     module: EmbeddingModule,
     path: 'projects',
+    requiresDb: true,
+  },
+  {
+    module: InternalModule,
     requiresDb: true,
   },
   {
