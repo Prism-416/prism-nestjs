@@ -7,14 +7,20 @@ import {
   IsArray,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Max,
   MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
-import { MAX_DOCUMENT_CHUNKS_PER_APPEND } from '@/modules/document/constants';
+import {
+  DOCUMENT_EMBEDDING_DIMENSIONS,
+  MAX_DOCUMENT_CHUNK_EMBEDDINGS_PER_APPEND,
+  MAX_DOCUMENT_CHUNKS_PER_APPEND,
+} from '@/modules/document/constants';
 import { normalizeOptionalTrimmedString } from '@/modules/document/utils';
 
 function normalizeOptionalTrimmedStringArray(value: unknown): unknown {
@@ -221,6 +227,94 @@ export class DocumentChunkResponseDto {
 export class AppendDocumentChunksResponseDto {
   @ApiProperty({ type: [DocumentChunkResponseDto] })
   items!: DocumentChunkResponseDto[];
+
+  @ApiProperty()
+  count!: number;
+}
+
+export class AppendDocumentChunkEmbeddingDto {
+  @ApiProperty()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsUUID()
+  chunkId!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  contentHash!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  model!: string;
+
+  @ApiPropertyOptional({
+    default: DOCUMENT_EMBEDDING_DIMENSIONS,
+    minimum: DOCUMENT_EMBEDDING_DIMENSIONS,
+    maximum: DOCUMENT_EMBEDDING_DIMENSIONS,
+  })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(DOCUMENT_EMBEDDING_DIMENSIONS)
+  @Max(DOCUMENT_EMBEDDING_DIMENSIONS)
+  dimensions?: number;
+
+  @ApiProperty({
+    type: [Number],
+    minItems: DOCUMENT_EMBEDDING_DIMENSIONS,
+    maxItems: DOCUMENT_EMBEDDING_DIMENSIONS,
+  })
+  @IsArray()
+  @ArrayMinSize(DOCUMENT_EMBEDDING_DIMENSIONS)
+  @ArrayMaxSize(DOCUMENT_EMBEDDING_DIMENSIONS)
+  @IsNumber({ allowInfinity: false, allowNaN: false }, { each: true })
+  embedding!: number[];
+}
+
+export class AppendDocumentChunkEmbeddingsDto {
+  @ApiProperty({
+    type: [AppendDocumentChunkEmbeddingDto],
+    maxItems: MAX_DOCUMENT_CHUNK_EMBEDDINGS_PER_APPEND,
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(MAX_DOCUMENT_CHUNK_EMBEDDINGS_PER_APPEND)
+  @ValidateNested({ each: true })
+  @Type(() => AppendDocumentChunkEmbeddingDto)
+  embeddings!: AppendDocumentChunkEmbeddingDto[];
+}
+
+export class DocumentChunkEmbeddingResponseDto {
+  @ApiProperty()
+  chunkId!: string;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  model!: string;
+
+  @ApiProperty()
+  dimensions!: number;
+
+  @ApiProperty()
+  contentHash!: string;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty()
+  embeddedAt!: Date;
+}
+
+export class AppendDocumentChunkEmbeddingsResponseDto {
+  @ApiProperty({ type: [DocumentChunkEmbeddingResponseDto] })
+  items!: DocumentChunkEmbeddingResponseDto[];
 
   @ApiProperty()
   count!: number;

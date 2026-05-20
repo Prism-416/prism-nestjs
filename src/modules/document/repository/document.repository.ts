@@ -4,11 +4,13 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   CreateDocumentParams,
   DeletedDocumentRow,
+  DocumentChunkEmbeddingRow,
   DocumentChunkRow,
   DocumentProjectRow,
   DocumentRow,
   SearchDocumentsParams,
   SearchDocumentsResult,
+  UpsertDocumentChunkEmbeddingsParams,
   UpsertDocumentChunksParams,
 } from '@/modules/document/types';
 
@@ -336,6 +338,102 @@ export class DocumentRepository {
         ORDER BY input_chunks.ordinality
       `,
       [params.projectId, params.documentId, JSON.stringify(params.chunks)],
+    );
+
+    return rows;
+  }
+
+  async upsertDocumentChunkEmbeddings(
+    params: UpsertDocumentChunkEmbeddingsParams,
+    manager?: EntityManager,
+  ): Promise<DocumentChunkEmbeddingRow[]> {
+    const rows = await this.getManager(manager).query<
+      DocumentChunkEmbeddingRow[]
+    >(
+      `
+        WITH input_embeddings AS (
+          SELECT
+            (embedding.value ->> 'chunkId')::uuid AS chunk_id,
+            embedding.value ->> 'contentHash' AS content_hash,
+            embedding.value ->> 'model' AS model,
+            (embedding.value ->> 'dimensions')::int AS dimensions,
+            (
+              SELECT ('[' || string_agg(embedding_value.value, ',') || ']')::vector
+              FROM jsonb_array_elements_text(embedding.value -> 'embedding') AS embedding_value(value)
+            ) AS embedding,
+            embedding.ordinality
+          FROM jsonb_array_elements($3::jsonb) WITH ORDINALITY AS embedding(value, ordinality)
+        ),
+        matched_embeddings AS (
+          SELECT
+            input_embeddings.chunk_id,
+            input_embeddings.content_hash,
+            input_embeddings.model,
+            input_embeddings.dimensions,
+            input_embeddings.embedding,
+            input_embeddings.ordinality
+          FROM input_embeddings
+                 INNER JOIN prism_document_chunks_l c
+                            ON c.chunk_id = input_embeddings.chunk_id
+                           AND c.project_id = $1
+                           AND c.document_id = $2
+                           AND c.content_hash = input_embeddings.content_hash
+        ),
+        validated_embeddings AS (
+          SELECT matched_embeddings.*
+          FROM matched_embeddings
+          WHERE (SELECT COUNT(*) FROM matched_embeddings) = (
+            SELECT COUNT(*) FROM input_embeddings
+          )
+        ),
+        upserted_embeddings AS (
+          INSERT INTO prism_document_chunk_embeddings_l (
+            chunk_id,
+            project_id,
+            embedding,
+            model,
+            dimensions,
+            content_hash
+          )
+          SELECT
+            validated_embeddings.chunk_id,
+            $1,
+            validated_embeddings.embedding,
+            validated_embeddings.model,
+            validated_embeddings.dimensions,
+            validated_embeddings.content_hash
+          FROM validated_embeddings
+          ON CONFLICT (chunk_id)
+          DO UPDATE SET
+            project_id = EXCLUDED.project_id,
+            embedding = EXCLUDED.embedding,
+            model = EXCLUDED.model,
+            dimensions = EXCLUDED.dimensions,
+            content_hash = EXCLUDED.content_hash,
+            embedded_at = NOW()
+          RETURNING
+            chunk_id AS "chunkId",
+            project_id AS "projectId",
+            model,
+            dimensions,
+            content_hash AS "contentHash",
+            created_at AS "createdAt",
+            embedded_at AS "embeddedAt"
+        )
+        SELECT
+          upserted_embeddings."chunkId",
+          upserted_embeddings."projectId",
+          upserted_embeddings.model,
+          upserted_embeddings.dimensions,
+          upserted_embeddings."contentHash",
+          upserted_embeddings."createdAt",
+          upserted_embeddings."embeddedAt"
+        FROM upserted_embeddings
+               INNER JOIN input_embeddings
+                          ON input_embeddings.chunk_id = upserted_embeddings."chunkId"
+        ORDER BY input_embeddings.ordinality
+      `,
+      [params.projectId, params.documentId, JSON.stringify(params.embeddings)],
     );
 
     return rows;

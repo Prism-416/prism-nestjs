@@ -19,6 +19,8 @@ import { ApiDataResponse } from '@/core/response';
 import { MAX_DOCUMENT_FILE_SIZE_BYTES } from '@/modules/document/constants';
 import { ApiDocumentUploadBody } from '@/modules/document/controller/document-upload-body.decorator';
 import {
+  AppendDocumentChunkEmbeddingsDto,
+  AppendDocumentChunkEmbeddingsResponseDto,
   AppendDocumentChunksDto,
   AppendDocumentChunksResponseDto,
   DocumentSummaryResponseDto,
@@ -90,6 +92,26 @@ export class DocumentController {
     @Body() dto: AppendDocumentChunksDto,
   ): Promise<AppendDocumentChunksResponseDto> {
     return this.usecase.appendDocumentChunks(
+      String(user.sub),
+      projectId,
+      documentId,
+      dto,
+    );
+  }
+
+  @Post(':documentId/chunks/embeddings')
+  @Authenticated()
+  @ApiOperation({ summary: 'Append document chunk embeddings' })
+  @ApiDataResponse(AppendDocumentChunkEmbeddingsResponseDto, {
+    status: HttpStatus.CREATED,
+  })
+  async appendDocumentChunkEmbeddings(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('documentId') documentId: string,
+    @Body() dto: AppendDocumentChunkEmbeddingsDto,
+  ): Promise<AppendDocumentChunkEmbeddingsResponseDto> {
+    return this.usecase.appendDocumentChunkEmbeddings(
       String(user.sub),
       projectId,
       documentId,
