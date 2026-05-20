@@ -4,6 +4,8 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   AgentActionEventRow,
   AgentActionRow,
+  AgentMemoryEmbeddingRow,
+  AgentMemoryRow,
   AgentProjectRow,
   AgentRunRow,
   AgentStepRow,
@@ -15,6 +17,8 @@ import {
   CreateAgentRunParams,
   SearchAgentRunsParams,
   SearchAgentRunsResult,
+  UpsertAgentMemoryEmbeddingParams,
+  UpsertAgentMemoryParams,
 } from '@/modules/agent/types';
 
 type AgentRunDbRow = {
@@ -526,6 +530,197 @@ export class AgentRepository {
     );
 
     return workItems[0] ?? null;
+  }
+
+  async upsertAgentMemory(
+    params: UpsertAgentMemoryParams,
+    manager?: EntityManager,
+  ): Promise<AgentMemoryRow | null> {
+    const memories = await this.getManager(manager).query<AgentMemoryRow[]>(
+      `
+        WITH input_memory AS (
+          SELECT
+            COALESCE($2::uuid, gen_random_uuid()) AS memory_id,
+            $3::uuid AS requested_run_id,
+            $4::uuid AS step_id
+        ),
+        matched_step AS (
+          SELECT
+            s.step_id,
+            s.run_id
+          FROM input_memory
+                 INNER JOIN prism_agent_steps_l s
+                            ON s.step_id = input_memory.step_id
+                 INNER JOIN prism_agent_runs_l r
+                            ON r.run_id = s.run_id
+                           AND r.project_id = $1
+          WHERE input_memory.step_id IS NOT NULL
+            AND (
+              input_memory.requested_run_id IS NULL
+              OR s.run_id = input_memory.requested_run_id
+            )
+        ),
+        validated_memory AS (
+          SELECT
+            input_memory.memory_id,
+            COALESCE(input_memory.requested_run_id, matched_step.run_id) AS run_id,
+            input_memory.step_id
+          FROM input_memory
+                 LEFT JOIN matched_step
+                           ON matched_step.step_id = input_memory.step_id
+          WHERE (
+            input_memory.requested_run_id IS NULL
+            OR EXISTS (
+              SELECT 1
+              FROM prism_agent_runs_l r
+              WHERE r.project_id = $1
+                AND r.run_id = input_memory.requested_run_id
+            )
+          )
+            AND (
+              input_memory.step_id IS NULL
+              OR matched_step.step_id IS NOT NULL
+            )
+        )
+        INSERT INTO prism_agent_memories_l (
+          memory_id,
+          project_id,
+          run_id,
+          step_id,
+          memory_type,
+          title,
+          content,
+          content_hash
+        )
+        SELECT
+          validated_memory.memory_id,
+          $1,
+          validated_memory.run_id,
+          validated_memory.step_id,
+          $5,
+          $6,
+          $7,
+          $8
+        FROM validated_memory
+        ON CONFLICT (memory_id)
+        DO UPDATE SET
+          run_id = EXCLUDED.run_id,
+          step_id = EXCLUDED.step_id,
+          memory_type = EXCLUDED.memory_type,
+          title = EXCLUDED.title,
+          content = EXCLUDED.content,
+          content_hash = EXCLUDED.content_hash
+        WHERE prism_agent_memories_l.project_id = $1
+        RETURNING
+          memory_id AS "memoryId",
+          project_id AS "projectId",
+          run_id AS "runId",
+          step_id AS "stepId",
+          memory_type AS "memoryType",
+          title,
+          content,
+          content_hash AS "contentHash",
+          created_at AS "createdAt"
+      `,
+      [
+        params.projectId,
+        params.memoryId ?? null,
+        params.runId ?? null,
+        params.stepId ?? null,
+        params.memoryType,
+        params.title ?? null,
+        params.content,
+        params.contentHash,
+      ],
+    );
+
+    return memories[0] ?? null;
+  }
+
+  async findAgentMemoryById(
+    projectId: string,
+    memoryId: string,
+    manager?: EntityManager,
+  ): Promise<Pick<AgentMemoryRow, 'memoryId'> | null> {
+    const memories = await this.getManager(manager).query<
+      Array<Pick<AgentMemoryRow, 'memoryId'>>
+    >(
+      `
+        SELECT memory_id AS "memoryId"
+        FROM prism_agent_memories_l
+        WHERE project_id = $1
+          AND memory_id = $2
+        LIMIT 1
+      `,
+      [projectId, memoryId],
+    );
+
+    return memories[0] ?? null;
+  }
+
+  async upsertAgentMemoryEmbedding(
+    params: UpsertAgentMemoryEmbeddingParams,
+    manager?: EntityManager,
+  ): Promise<AgentMemoryEmbeddingRow | null> {
+    const embeddings = await this.getManager(manager).query<
+      AgentMemoryEmbeddingRow[]
+    >(
+      `
+        WITH input_embedding AS (
+          SELECT
+            (
+              SELECT ('[' || string_agg(embedding_value.value, ',' ORDER BY embedding_value.ordinality) || ']')::vector
+              FROM jsonb_array_elements_text($6::jsonb) WITH ORDINALITY AS embedding_value(value, ordinality)
+            ) AS embedding
+        )
+        INSERT INTO prism_agent_memory_embeddings_l (
+          memory_id,
+          project_id,
+          embedding,
+          model,
+          dimensions,
+          content_hash
+        )
+        SELECT
+          m.memory_id,
+          m.project_id,
+          input_embedding.embedding,
+          $3,
+          $4,
+          $5
+        FROM prism_agent_memories_l m
+               CROSS JOIN input_embedding
+        WHERE m.project_id = $1
+          AND m.memory_id = $2
+          AND m.content_hash = $5
+        ON CONFLICT (memory_id)
+        DO UPDATE SET
+          project_id = EXCLUDED.project_id,
+          embedding = EXCLUDED.embedding,
+          model = EXCLUDED.model,
+          dimensions = EXCLUDED.dimensions,
+          content_hash = EXCLUDED.content_hash,
+          embedded_at = NOW()
+        RETURNING
+          memory_id AS "memoryId",
+          project_id AS "projectId",
+          model,
+          dimensions,
+          content_hash AS "contentHash",
+          created_at AS "createdAt",
+          embedded_at AS "embeddedAt"
+      `,
+      [
+        params.projectId,
+        params.memoryId,
+        params.model,
+        params.dimensions,
+        params.contentHash,
+        JSON.stringify(params.embedding),
+      ],
+    );
+
+    return embeddings[0] ?? null;
   }
 
   private mapAgentRunRow(row: AgentRunDbRow): AgentRunRow {

@@ -55,3 +55,29 @@ export class AgentActionNotCancellableError extends DomainError {
     );
   }
 }
+
+export class AgentMemoryNotFoundError extends NotExistsError {
+  constructor() {
+    super('Agent memory not found.', 'AGENT_MEMORY_NOT_FOUND');
+  }
+}
+
+export class AgentMemoryTargetMismatchError extends DomainError {
+  constructor() {
+    super(
+      'Agent memory target does not match the current project state.',
+      'AGENT_MEMORY_TARGET_MISMATCH',
+      409,
+    );
+  }
+}
+
+export class AgentMemoryEmbeddingTargetMismatchError extends DomainError {
+  constructor() {
+    super(
+      'Agent memory embedding target no longer matches the current memory.',
+      'AGENT_MEMORY_EMBEDDING_TARGET_MISMATCH',
+      409,
+    );
+  }
+}

@@ -15,8 +15,20 @@ export const AGENT_RUN_STATUSES = [
   'cancelled',
 ] as const;
 
+export const AGENT_MEMORY_TYPES = [
+  'agent_decision',
+  'agent_summary',
+  'agent_plan',
+  'agent_result',
+  'project_fact',
+  'user_preference',
+] as const;
+
+export const AGENT_EMBEDDING_DIMENSIONS = 1536;
+
 export type AgentRunTriggerType = (typeof AGENT_RUN_TRIGGER_TYPES)[number];
 export type AgentRunStatus = (typeof AGENT_RUN_STATUSES)[number];
+export type AgentMemoryType = (typeof AGENT_MEMORY_TYPES)[number];
 
 export type AgentProjectRow = {
   projectId: string;
@@ -140,4 +152,46 @@ export type AgentActionEventRow = {
   message: string | null;
   eventObjectName: string | null;
   createdAt: Date;
+};
+
+export type AgentMemoryRow = {
+  memoryId: string;
+  projectId: string;
+  runId: string | null;
+  stepId: string | null;
+  memoryType: AgentMemoryType;
+  title: string | null;
+  content: string;
+  contentHash: string;
+  createdAt: Date;
+};
+
+export type AgentMemoryEmbeddingRow = {
+  memoryId: string;
+  projectId: string;
+  model: string;
+  dimensions: number;
+  contentHash: string;
+  createdAt: Date;
+  embeddedAt: Date;
+};
+
+export type UpsertAgentMemoryParams = {
+  projectId: string;
+  memoryId?: string;
+  runId?: string;
+  stepId?: string;
+  memoryType: AgentMemoryType;
+  title?: string;
+  content: string;
+  contentHash: string;
+};
+
+export type UpsertAgentMemoryEmbeddingParams = {
+  projectId: string;
+  memoryId: string;
+  contentHash: string;
+  model: string;
+  dimensions: number;
+  embedding: number[];
 };
