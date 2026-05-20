@@ -1,16 +1,20 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
+import { PROJECT_EMBEDDING_DIMENSIONS } from '@/modules/project/constants';
 import {
   CreateWorkItemDto,
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
   UpdateWorkItemDto,
+  UpsertWorkItemEmbeddingDto,
+  WorkItemEmbeddingResponseDto,
   WorkItemResponseDto,
 } from '@/modules/project/dto';
 import {
   isWorkItemParentForeignKeyViolation,
   ProjectNotFoundError,
   WorkItemAssigneeNotFoundError,
+  WorkItemEmbeddingTargetMismatchError,
   WorkItemNotFoundError,
   WorkItemParentInvalidError,
   WorkItemParentNotFoundError,
@@ -110,6 +114,45 @@ export class WorkItemUseCase {
       project.projectId,
       itemId,
     );
+  }
+
+  async upsertWorkItemEmbedding(
+    userId: string,
+    projectId: string,
+    itemId: string,
+    dto: UpsertWorkItemEmbeddingDto,
+  ): Promise<WorkItemEmbeddingResponseDto> {
+    const project = await this.projectRepository.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const workItem = await this.workItemRepository.findWorkItemById(
+      project.projectId,
+      itemId,
+    );
+    if (!workItem) {
+      throw new WorkItemNotFoundError();
+    }
+
+    const embedding = await this.workItemRepository.upsertWorkItemEmbedding({
+      projectId: project.projectId,
+      itemId,
+      embeddedTitle: dto.embeddedTitle,
+      embeddedDescription: dto.embeddedDescription,
+      contentHash: dto.contentHash,
+      model: dto.model,
+      dimensions: dto.dimensions ?? PROJECT_EMBEDDING_DIMENSIONS,
+      embedding: dto.embedding,
+    });
+    if (!embedding) {
+      throw new WorkItemEmbeddingTargetMismatchError();
+    }
+
+    return embedding;
   }
 
   async createWorkItem(

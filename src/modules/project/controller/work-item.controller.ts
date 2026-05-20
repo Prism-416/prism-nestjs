@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -19,6 +20,8 @@ import {
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
   UpdateWorkItemDto,
+  UpsertWorkItemEmbeddingDto,
+  WorkItemEmbeddingResponseDto,
   WorkItemResponseDto,
 } from '@/modules/project/dto';
 import { WorkItemUseCase } from '@/modules/project/usecases';
@@ -65,6 +68,24 @@ export class WorkItemController {
       String(user.sub),
       projectId,
       itemId,
+    );
+  }
+
+  @Put(':itemId/embedding')
+  @Authenticated()
+  @ApiOperation({ summary: 'Upsert work item embedding' })
+  @ApiDataResponse(WorkItemEmbeddingResponseDto)
+  async upsertWorkItemEmbedding(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpsertWorkItemEmbeddingDto,
+  ): Promise<WorkItemEmbeddingResponseDto> {
+    return this.usecase.upsertWorkItemEmbedding(
+      String(user.sub),
+      projectId,
+      itemId,
+      dto,
     );
   }
 

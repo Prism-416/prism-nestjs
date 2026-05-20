@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
 } from '@nestjs/common';
 import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -19,6 +20,8 @@ import {
   CreateCommentDto,
   SearchCommentsQueryDto,
   SearchCommentsResponseDto,
+  UpsertWorkItemCommentEmbeddingDto,
+  WorkItemCommentEmbeddingResponseDto,
 } from '@/modules/project/dto';
 import { CommentUseCase } from '@/modules/project/usecases';
 
@@ -81,6 +84,26 @@ export class CommentController {
       projectId,
       itemId,
       commentId,
+    );
+  }
+
+  @Put(':commentId/embedding')
+  @Authenticated()
+  @ApiOperation({ summary: 'Upsert work item comment embedding' })
+  @ApiDataResponse(WorkItemCommentEmbeddingResponseDto)
+  async upsertWorkItemCommentEmbedding(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+    @Param('commentId') commentId: string,
+    @Body() dto: UpsertWorkItemCommentEmbeddingDto,
+  ): Promise<WorkItemCommentEmbeddingResponseDto> {
+    return this.usecase.upsertWorkItemCommentEmbedding(
+      String(user.sub),
+      projectId,
+      itemId,
+      commentId,
+      dto,
     );
   }
 

@@ -4,8 +4,10 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   SearchWorkItemsParams,
   SearchWorkItemsResult,
+  UpsertWorkItemEmbeddingParams,
   WorkItemAssigneeRow,
   WorkItemDetailRow,
+  WorkItemEmbeddingRow,
   WorkItemLabelRow,
   WorkItemPriority,
   WorkItemRow,
@@ -633,6 +635,82 @@ export class WorkItemRepository {
     );
 
     await this.createWorkItemLabels(projectId, itemId, labelIds, manager);
+  }
+
+  async upsertWorkItemEmbedding(
+    params: UpsertWorkItemEmbeddingParams,
+    manager?: EntityManager,
+  ): Promise<WorkItemEmbeddingRow | null> {
+    const embeddings = await this.getManager(manager).query<
+      WorkItemEmbeddingRow[]
+    >(
+      `
+        WITH input_embedding AS (
+          SELECT
+            (
+              SELECT ('[' || string_agg(embedding_value.value, ',' ORDER BY embedding_value.ordinality) || ']')::vector
+              FROM jsonb_array_elements_text($8::jsonb) WITH ORDINALITY AS embedding_value(value, ordinality)
+            ) AS embedding
+        )
+        INSERT INTO prism_work_item_embeddings_l (
+          item_id,
+          project_id,
+          embedding,
+          embedded_title,
+          embedded_description,
+          content_hash,
+          model,
+          dimensions
+        )
+        SELECT
+          wi.item_id,
+          wi.project_id,
+          input_embedding.embedding,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7
+        FROM prism_work_items_l wi
+               CROSS JOIN input_embedding
+        WHERE wi.project_id = $1
+          AND wi.item_id = $2
+          AND wi.title = $3
+          AND wi.description = $4
+        ON CONFLICT (item_id)
+        DO UPDATE SET
+          project_id = EXCLUDED.project_id,
+          embedding = EXCLUDED.embedding,
+          embedded_title = EXCLUDED.embedded_title,
+          embedded_description = EXCLUDED.embedded_description,
+          content_hash = EXCLUDED.content_hash,
+          model = EXCLUDED.model,
+          dimensions = EXCLUDED.dimensions,
+          embedded_at = NOW()
+        RETURNING
+          item_id AS "itemId",
+          project_id AS "projectId",
+          embedded_title AS "embeddedTitle",
+          embedded_description AS "embeddedDescription",
+          content_hash AS "contentHash",
+          model,
+          dimensions,
+          created_at AS "createdAt",
+          embedded_at AS "embeddedAt"
+      `,
+      [
+        params.projectId,
+        params.itemId,
+        params.embeddedTitle,
+        params.embeddedDescription,
+        params.contentHash,
+        params.model,
+        params.dimensions,
+        JSON.stringify(params.embedding),
+      ],
+    );
+
+    return embeddings[0] ?? null;
   }
 
   private getManager(manager?: EntityManager): DataSource | EntityManager {

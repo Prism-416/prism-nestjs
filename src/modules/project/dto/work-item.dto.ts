@@ -1,11 +1,14 @@
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
   ArrayUnique,
   IsArray,
   IsIn,
   IsInt,
   IsNotEmpty,
+  IsNumber,
   IsOptional,
   IsString,
   IsUUID,
@@ -13,6 +16,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { PROJECT_EMBEDDING_DIMENSIONS } from '@/modules/project/constants';
 import {
   normalizeTrimmedString,
   normalizeOptionalTrimmedString,
@@ -264,4 +268,84 @@ export class SearchWorkItemsResponseDto {
 
   @ApiProperty()
   offset!: number;
+}
+
+export class UpsertWorkItemEmbeddingDto {
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  embeddedTitle!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  embeddedDescription!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(256)
+  contentHash!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  model!: string;
+
+  @ApiPropertyOptional({
+    default: PROJECT_EMBEDDING_DIMENSIONS,
+    minimum: PROJECT_EMBEDDING_DIMENSIONS,
+    maximum: PROJECT_EMBEDDING_DIMENSIONS,
+  })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(PROJECT_EMBEDDING_DIMENSIONS)
+  @Max(PROJECT_EMBEDDING_DIMENSIONS)
+  dimensions?: number;
+
+  @ApiProperty({
+    type: [Number],
+    minItems: PROJECT_EMBEDDING_DIMENSIONS,
+    maxItems: PROJECT_EMBEDDING_DIMENSIONS,
+  })
+  @IsArray()
+  @ArrayMinSize(PROJECT_EMBEDDING_DIMENSIONS)
+  @ArrayMaxSize(PROJECT_EMBEDDING_DIMENSIONS)
+  @IsNumber({ allowInfinity: false, allowNaN: false }, { each: true })
+  embedding!: number[];
+}
+
+export class WorkItemEmbeddingResponseDto {
+  @ApiProperty()
+  itemId!: string;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  embeddedTitle!: string;
+
+  @ApiProperty()
+  embeddedDescription!: string;
+
+  @ApiProperty()
+  contentHash!: string;
+
+  @ApiProperty()
+  model!: string;
+
+  @ApiProperty()
+  dimensions!: number;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty()
+  embeddedAt!: Date;
 }
