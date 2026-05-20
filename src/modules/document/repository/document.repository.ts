@@ -4,10 +4,12 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   CreateDocumentParams,
   DeletedDocumentRow,
+  DocumentChunkRow,
   DocumentProjectRow,
   DocumentRow,
   SearchDocumentsParams,
   SearchDocumentsResult,
+  UpsertDocumentChunksParams,
 } from '@/modules/document/types';
 
 type DocumentDbRow = Omit<DocumentRow, 'sizeBytes'> & {
@@ -251,6 +253,92 @@ export class DocumentRepository {
     );
 
     return this.mapDocumentRow(documents[0]);
+  }
+
+  async upsertDocumentChunks(
+    params: UpsertDocumentChunksParams,
+    manager?: EntityManager,
+  ): Promise<DocumentChunkRow[]> {
+    const rows = await this.getManager(manager).query<DocumentChunkRow[]>(
+      `
+        WITH input_chunks AS (
+          SELECT
+            (chunk.value ->> 'chunkIndex')::int AS chunk_index,
+            CASE
+              WHEN jsonb_typeof(chunk.value -> 'headingPath') = 'array'
+                THEN ARRAY(
+                  SELECT jsonb_array_elements_text(chunk.value -> 'headingPath')
+                )
+              ELSE NULL
+            END AS heading_path,
+            chunk.value ->> 'content' AS content,
+            chunk.value ->> 'contentHash' AS content_hash,
+            (chunk.value ->> 'tokenCount')::int AS token_count,
+            (chunk.value ->> 'charCount')::int AS char_count,
+            chunk.ordinality
+          FROM jsonb_array_elements($3::jsonb) WITH ORDINALITY AS chunk(value, ordinality)
+        ),
+        upserted_chunks AS (
+          INSERT INTO prism_document_chunks_l (
+            document_id,
+            project_id,
+            chunk_index,
+            heading_path,
+            content,
+            content_hash,
+            token_count,
+            char_count
+          )
+          SELECT
+            $2,
+            $1,
+            input_chunks.chunk_index,
+            input_chunks.heading_path,
+            input_chunks.content,
+            input_chunks.content_hash,
+            input_chunks.token_count,
+            input_chunks.char_count
+          FROM input_chunks
+          ON CONFLICT (document_id, chunk_index)
+          DO UPDATE SET
+            heading_path = EXCLUDED.heading_path,
+            content = EXCLUDED.content,
+            content_hash = EXCLUDED.content_hash,
+            token_count = EXCLUDED.token_count,
+            char_count = EXCLUDED.char_count,
+            updated_at = NOW()
+          RETURNING
+            chunk_id AS "chunkId",
+            document_id AS "documentId",
+            project_id AS "projectId",
+            chunk_index AS "chunkIndex",
+            heading_path AS "headingPath",
+            content_hash AS "contentHash",
+            token_count AS "tokenCount",
+            char_count AS "charCount",
+            created_at AS "createdAt",
+            updated_at AS "updatedAt"
+        )
+        SELECT
+          upserted_chunks."chunkId",
+          upserted_chunks."documentId",
+          upserted_chunks."projectId",
+          upserted_chunks."chunkIndex",
+          upserted_chunks."headingPath",
+          upserted_chunks."contentHash",
+          upserted_chunks."tokenCount",
+          upserted_chunks."charCount",
+          upserted_chunks."createdAt",
+          upserted_chunks."updatedAt"
+        FROM upserted_chunks
+               INNER JOIN input_chunks
+                          ON input_chunks.chunk_index = upserted_chunks."chunkIndex"
+        ORDER BY input_chunks.ordinality
+      `,
+      [params.projectId, params.documentId, JSON.stringify(params.chunks)],
+    );
+
+    return rows;
   }
 
   async deleteDocument(

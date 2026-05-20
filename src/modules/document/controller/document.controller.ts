@@ -19,6 +19,8 @@ import { ApiDataResponse } from '@/core/response';
 import { MAX_DOCUMENT_FILE_SIZE_BYTES } from '@/modules/document/constants';
 import { ApiDocumentUploadBody } from '@/modules/document/controller/document-upload-body.decorator';
 import {
+  AppendDocumentChunksDto,
+  AppendDocumentChunksResponseDto,
   DocumentSummaryResponseDto,
   SearchDocumentsQueryDto,
   SearchDocumentsResponseDto,
@@ -73,6 +75,26 @@ export class DocumentController {
     @Param('documentId') documentId: string,
   ): Promise<DocumentSummaryResponseDto> {
     return this.usecase.getDocument(String(user.sub), projectId, documentId);
+  }
+
+  @Post(':documentId/chunks')
+  @Authenticated()
+  @ApiOperation({ summary: 'Append document chunks' })
+  @ApiDataResponse(AppendDocumentChunksResponseDto, {
+    status: HttpStatus.CREATED,
+  })
+  async appendDocumentChunks(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('documentId') documentId: string,
+    @Body() dto: AppendDocumentChunksDto,
+  ): Promise<AppendDocumentChunksResponseDto> {
+    return this.usecase.appendDocumentChunks(
+      String(user.sub),
+      projectId,
+      documentId,
+      dto,
+    );
   }
 
   @Delete(':documentId')

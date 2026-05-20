@@ -2,12 +2,17 @@ import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { OciObjectStorageService } from '@/core/object-storage';
 import {
+  AppendDocumentChunksDto,
+  AppendDocumentChunksResponseDto,
   DocumentSummaryResponseDto,
   SearchDocumentsQueryDto,
   SearchDocumentsResponseDto,
   UploadDocumentDto,
 } from '@/modules/document/dto';
 import {
+  DocumentChunkContentHashConflictError,
+  DocumentChunkDuplicateContentHashError,
+  DocumentChunkDuplicateIndexError,
   DocumentFileEmptyError,
   DocumentFileRequiredError,
   DocumentNotFoundError,
@@ -74,6 +79,51 @@ export class DocumentUseCase {
     }
 
     return document;
+  }
+
+  async appendDocumentChunks(
+    userId: string,
+    projectId: string,
+    documentId: string,
+    dto: AppendDocumentChunksDto,
+  ): Promise<AppendDocumentChunksResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new DocumentProjectNotFoundError();
+    }
+
+    const document = await this.repo.findDocumentById(
+      project.projectId,
+      documentId,
+    );
+    if (!document) {
+      throw new DocumentNotFoundError();
+    }
+
+    this.assertUniqueChunkIndexes(dto);
+    this.assertUniqueContentHashes(dto);
+
+    try {
+      const items = await this.repo.upsertDocumentChunks({
+        projectId: project.projectId,
+        documentId: document.documentId,
+        chunks: dto.chunks,
+      });
+
+      return {
+        items,
+        count: items.length,
+      };
+    } catch (error) {
+      if (this.isUniqueViolation(error, 'uq_document_chunks_hash')) {
+        throw new DocumentChunkContentHashConflictError();
+      }
+
+      throw error;
+    }
   }
 
   async uploadDocument(
@@ -193,5 +243,37 @@ export class DocumentUseCase {
         cleanupError instanceof Error ? cleanupError.message : fallbackMessage,
       );
     }
+  }
+
+  private assertUniqueChunkIndexes(dto: AppendDocumentChunksDto): void {
+    const seenChunkIndexes = new Set<number>();
+    for (const chunk of dto.chunks) {
+      if (seenChunkIndexes.has(chunk.chunkIndex)) {
+        throw new DocumentChunkDuplicateIndexError();
+      }
+
+      seenChunkIndexes.add(chunk.chunkIndex);
+    }
+  }
+
+  private assertUniqueContentHashes(dto: AppendDocumentChunksDto): void {
+    const seenContentHashes = new Set<string>();
+    for (const chunk of dto.chunks) {
+      if (seenContentHashes.has(chunk.contentHash)) {
+        throw new DocumentChunkDuplicateContentHashError();
+      }
+
+      seenContentHashes.add(chunk.contentHash);
+    }
+  }
+
+  private isUniqueViolation(error: unknown, constraint: string): boolean {
+    const driverError = (error as { driverError?: unknown }).driverError as
+      | { code?: string; constraint?: string }
+      | undefined;
+
+    return (
+      driverError?.code === '23505' && driverError.constraint === constraint
+    );
   }
 }
