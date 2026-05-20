@@ -1,4 +1,4 @@
-import { NotExistsError } from '@/core/errors';
+import { DomainError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
 const WORK_ITEM_PARENT_FOREIGN_KEY = 'fk_work_items_parent';
@@ -27,6 +27,16 @@ export class WorkItemAssigneeNotFoundError extends NotExistsError {
 export class WorkItemParentInvalidError extends NotExistsError {
   constructor() {
     super('Work item parent is invalid.', 'WORK_ITEM_PARENT_INVALID');
+  }
+}
+
+export class WorkItemEmbeddingTargetMismatchError extends DomainError {
+  constructor() {
+    super(
+      'Work item embedding target no longer matches the current work item.',
+      'WORK_ITEM_EMBEDDING_TARGET_MISMATCH',
+      409,
+    );
   }
 }
 

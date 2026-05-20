@@ -8,6 +8,18 @@ export type CommentRow = {
   updatedAt: Date | null;
 };
 
+export type WorkItemCommentEmbeddingRow = {
+  commentId: string;
+  projectId: string;
+  itemId: string;
+  embeddedBody: string;
+  contentHash: string;
+  model: string;
+  dimensions: number;
+  createdAt: Date;
+  embeddedAt: Date;
+};
+
 export type SearchCommentsParams = {
   projectId: string;
   itemId: string;
@@ -35,6 +47,17 @@ export type DeleteCommentParams = {
   itemId: string;
   commentId: string;
   authorUserId: string;
+};
+
+export type UpsertWorkItemCommentEmbeddingParams = {
+  projectId: string;
+  itemId: string;
+  commentId: string;
+  embeddedBody: string;
+  contentHash: string;
+  model: string;
+  dimensions: number;
+  embedding: number[];
 };
 
 export type SearchCommentsResult = {

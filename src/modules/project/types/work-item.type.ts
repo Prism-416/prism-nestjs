@@ -44,6 +44,18 @@ export type WorkItemDetailRow = WorkItemRow & {
   labelNames: string[];
 };
 
+export type WorkItemEmbeddingRow = {
+  itemId: string;
+  projectId: string;
+  embeddedTitle: string;
+  embeddedDescription: string;
+  contentHash: string;
+  model: string;
+  dimensions: number;
+  createdAt: Date;
+  embeddedAt: Date;
+};
+
 export type SearchWorkItemsParams = {
   projectId: string;
   query?: string;
@@ -55,6 +67,17 @@ export type SearchWorkItemsParams = {
   labelName?: string;
   limit: number;
   offset: number;
+};
+
+export type UpsertWorkItemEmbeddingParams = {
+  projectId: string;
+  itemId: string;
+  embeddedTitle: string;
+  embeddedDescription: string;
+  contentHash: string;
+  model: string;
+  dimensions: number;
+  embedding: number[];
 };
 
 export type SearchWorkItemsResult = {

@@ -27,6 +27,16 @@ export type DocumentChunkRow = {
   updatedAt: Date;
 };
 
+export type DocumentChunkEmbeddingRow = {
+  chunkId: string;
+  projectId: string;
+  model: string;
+  dimensions: number;
+  contentHash: string;
+  createdAt: Date;
+  embeddedAt: Date;
+};
+
 export type DocumentProjectRow = {
   projectId: string;
 };
@@ -84,4 +94,18 @@ export type UpsertDocumentChunksParams = {
   projectId: string;
   documentId: string;
   chunks: UpsertDocumentChunkInput[];
+};
+
+export type UpsertDocumentChunkEmbeddingInput = {
+  chunkId: string;
+  contentHash: string;
+  model: string;
+  dimensions: number;
+  embedding: number[];
+};
+
+export type UpsertDocumentChunkEmbeddingsParams = {
+  projectId: string;
+  documentId: string;
+  embeddings: UpsertDocumentChunkEmbeddingInput[];
 };

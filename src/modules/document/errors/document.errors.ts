@@ -53,3 +53,23 @@ export class DocumentChunkContentHashConflictError extends DomainError {
     );
   }
 }
+
+export class DocumentChunkEmbeddingDuplicateTargetError extends DomainError {
+  constructor() {
+    super(
+      'Document chunk embedding targets must be unique.',
+      'DOCUMENT_CHUNK_EMBEDDING_DUPLICATE_TARGET',
+      400,
+    );
+  }
+}
+
+export class DocumentChunkEmbeddingTargetMismatchError extends DomainError {
+  constructor() {
+    super(
+      'One or more document chunks were not found or content hashes do not match.',
+      'DOCUMENT_CHUNK_EMBEDDING_TARGET_MISMATCH',
+      409,
+    );
+  }
+}

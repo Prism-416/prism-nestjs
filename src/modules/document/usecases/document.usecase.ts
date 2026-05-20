@@ -1,7 +1,10 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { OciObjectStorageService } from '@/core/object-storage';
+import { DOCUMENT_EMBEDDING_DIMENSIONS } from '@/modules/document/constants';
 import {
+  AppendDocumentChunkEmbeddingsDto,
+  AppendDocumentChunkEmbeddingsResponseDto,
   AppendDocumentChunksDto,
   AppendDocumentChunksResponseDto,
   DocumentSummaryResponseDto,
@@ -11,6 +14,8 @@ import {
 } from '@/modules/document/dto';
 import {
   DocumentChunkContentHashConflictError,
+  DocumentChunkEmbeddingDuplicateTargetError,
+  DocumentChunkEmbeddingTargetMismatchError,
   DocumentChunkDuplicateContentHashError,
   DocumentChunkDuplicateIndexError,
   DocumentFileEmptyError,
@@ -124,6 +129,49 @@ export class DocumentUseCase {
 
       throw error;
     }
+  }
+
+  async appendDocumentChunkEmbeddings(
+    userId: string,
+    projectId: string,
+    documentId: string,
+    dto: AppendDocumentChunkEmbeddingsDto,
+  ): Promise<AppendDocumentChunkEmbeddingsResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new DocumentProjectNotFoundError();
+    }
+
+    const document = await this.repo.findDocumentById(
+      project.projectId,
+      documentId,
+    );
+    if (!document) {
+      throw new DocumentNotFoundError();
+    }
+
+    this.assertUniqueEmbeddingChunkIds(dto);
+
+    const items = await this.repo.upsertDocumentChunkEmbeddings({
+      projectId: project.projectId,
+      documentId: document.documentId,
+      embeddings: dto.embeddings.map((embedding) => ({
+        ...embedding,
+        dimensions: embedding.dimensions ?? DOCUMENT_EMBEDDING_DIMENSIONS,
+      })),
+    });
+
+    if (items.length !== dto.embeddings.length) {
+      throw new DocumentChunkEmbeddingTargetMismatchError();
+    }
+
+    return {
+      items,
+      count: items.length,
+    };
   }
 
   async uploadDocument(
@@ -264,6 +312,20 @@ export class DocumentUseCase {
       }
 
       seenContentHashes.add(chunk.contentHash);
+    }
+  }
+
+  private assertUniqueEmbeddingChunkIds(
+    dto: AppendDocumentChunkEmbeddingsDto,
+  ): void {
+    const seenChunkIds = new Set<string>();
+    for (const embedding of dto.embeddings) {
+      const chunkId = embedding.chunkId.toLowerCase();
+      if (seenChunkIds.has(chunkId)) {
+        throw new DocumentChunkEmbeddingDuplicateTargetError();
+      }
+
+      seenChunkIds.add(chunkId);
     }
   }
 

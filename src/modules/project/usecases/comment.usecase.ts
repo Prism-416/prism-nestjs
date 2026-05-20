@@ -1,12 +1,16 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
+import { PROJECT_EMBEDDING_DIMENSIONS } from '@/modules/project/constants';
 import {
   CommentResponseDto,
   CreateCommentDto,
   SearchCommentsQueryDto,
   SearchCommentsResponseDto,
+  UpsertWorkItemCommentEmbeddingDto,
+  WorkItemCommentEmbeddingResponseDto,
 } from '@/modules/project/dto';
 import {
+  CommentEmbeddingTargetMismatchError,
   CommentNotFoundError,
   ProjectNotFoundError,
   WorkItemNotFoundError,
@@ -196,5 +200,55 @@ export class CommentUseCase {
       limit: query.limit ?? 50,
       offset: query.offset ?? 0,
     });
+  }
+
+  async upsertWorkItemCommentEmbedding(
+    userId: string,
+    projectId: string,
+    itemId: string,
+    commentId: string,
+    dto: UpsertWorkItemCommentEmbeddingDto,
+  ): Promise<WorkItemCommentEmbeddingResponseDto> {
+    const project = await this.projectRepository.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const workItem = await this.workItemRepository.findWorkItemById(
+      project.projectId,
+      itemId,
+    );
+    if (!workItem) {
+      throw new WorkItemNotFoundError();
+    }
+
+    const comment = await this.commentRepository.findWorkItemCommentById(
+      project.projectId,
+      itemId,
+      commentId,
+    );
+    if (!comment) {
+      throw new CommentNotFoundError();
+    }
+
+    const embedding =
+      await this.commentRepository.upsertWorkItemCommentEmbedding({
+        projectId: project.projectId,
+        itemId,
+        commentId,
+        embeddedBody: dto.embeddedBody,
+        contentHash: dto.contentHash,
+        model: dto.model,
+        dimensions: dto.dimensions ?? PROJECT_EMBEDDING_DIMENSIONS,
+        embedding: dto.embedding,
+      });
+    if (!embedding) {
+      throw new CommentEmbeddingTargetMismatchError();
+    }
+
+    return embedding;
   }
 }
