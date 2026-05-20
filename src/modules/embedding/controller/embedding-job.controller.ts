@@ -19,6 +19,7 @@ import {
   UpdateEmbeddingJobDto,
 } from '@/modules/embedding/dto';
 import { EmbeddingJobUseCase } from '@/modules/embedding/usecases';
+import { RequireInternalScopes } from '@/modules/internal';
 
 @ApiTags('Project Embedding Job')
 @Controller(':projectId/embedding-jobs')
@@ -50,6 +51,18 @@ export class EmbeddingJobController {
     return this.usecase.claimEmbeddingJobs(String(user.sub), projectId, dto);
   }
 
+  @Post('internal/claim')
+  @RequireInternalScopes('embeddings:write')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Claim queued embedding jobs for internal workers' })
+  @ApiDataResponse(ClaimEmbeddingJobsResponseDto)
+  async claimEmbeddingJobsForInternal(
+    @Param('projectId') projectId: string,
+    @Body() dto: ClaimEmbeddingJobsDto,
+  ): Promise<ClaimEmbeddingJobsResponseDto> {
+    return this.usecase.claimEmbeddingJobsForInternal(projectId, dto);
+  }
+
   @Patch(':embeddingJobId')
   @Authenticated()
   @ApiOperation({ summary: 'Update embedding job status' })
@@ -62,6 +75,22 @@ export class EmbeddingJobController {
   ): Promise<EmbeddingJobResponseDto> {
     return this.usecase.updateEmbeddingJob(
       String(user.sub),
+      projectId,
+      embeddingJobId,
+      dto,
+    );
+  }
+
+  @Patch('internal/:embeddingJobId')
+  @RequireInternalScopes('embeddings:write')
+  @ApiOperation({ summary: 'Update embedding job status for internal workers' })
+  @ApiDataResponse(EmbeddingJobResponseDto)
+  async updateEmbeddingJobForInternal(
+    @Param('projectId') projectId: string,
+    @Param('embeddingJobId') embeddingJobId: string,
+    @Body() dto: UpdateEmbeddingJobDto,
+  ): Promise<EmbeddingJobResponseDto> {
+    return this.usecase.updateEmbeddingJobForInternal(
       projectId,
       embeddingJobId,
       dto,

@@ -67,17 +67,19 @@ export class EmbeddingJobUseCase {
       throw new EmbeddingProjectNotFoundError();
     }
 
-    const items = await this.repo.claimEmbeddingJobs({
-      projectId: project.projectId,
-      jobTypes: dto.jobTypes,
-      model: dto.model,
-      limit: dto.limit ?? 10,
-    });
+    return this.claimProjectEmbeddingJobs(project.projectId, dto);
+  }
 
-    return {
-      items,
-      count: items.length,
-    };
+  async claimEmbeddingJobsForInternal(
+    projectId: string,
+    dto: ClaimEmbeddingJobsDto,
+  ): Promise<ClaimEmbeddingJobsResponseDto> {
+    const project = await this.repo.findProjectById(projectId);
+    if (!project) {
+      throw new EmbeddingProjectNotFoundError();
+    }
+
+    return this.claimProjectEmbeddingJobs(project.projectId, dto);
   }
 
   async updateEmbeddingJob(
@@ -94,12 +96,58 @@ export class EmbeddingJobUseCase {
       throw new EmbeddingProjectNotFoundError();
     }
 
+    return this.updateProjectEmbeddingJob(
+      project.projectId,
+      embeddingJobId,
+      dto,
+    );
+  }
+
+  async updateEmbeddingJobForInternal(
+    projectId: string,
+    embeddingJobId: string,
+    dto: UpdateEmbeddingJobDto,
+  ): Promise<EmbeddingJobResponseDto> {
+    const project = await this.repo.findProjectById(projectId);
+    if (!project) {
+      throw new EmbeddingProjectNotFoundError();
+    }
+
+    return this.updateProjectEmbeddingJob(
+      project.projectId,
+      embeddingJobId,
+      dto,
+    );
+  }
+
+  private async claimProjectEmbeddingJobs(
+    projectId: string,
+    dto: ClaimEmbeddingJobsDto,
+  ): Promise<ClaimEmbeddingJobsResponseDto> {
+    const items = await this.repo.claimEmbeddingJobs({
+      projectId,
+      jobTypes: dto.jobTypes,
+      model: dto.model,
+      limit: dto.limit ?? 10,
+    });
+
+    return {
+      items,
+      count: items.length,
+    };
+  }
+
+  private async updateProjectEmbeddingJob(
+    projectId: string,
+    embeddingJobId: string,
+    dto: UpdateEmbeddingJobDto,
+  ): Promise<EmbeddingJobResponseDto> {
     if (dto.status === 'queued' && dto.scheduledAt === undefined) {
       throw new EmbeddingJobRequeueScheduledAtRequiredError();
     }
 
     const job = await this.repo.updateEmbeddingJob({
-      projectId: project.projectId,
+      projectId,
       embeddingJobId,
       status: dto.status,
       errorMessage: dto.errorMessage,
