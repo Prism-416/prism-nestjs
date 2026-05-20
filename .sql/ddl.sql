@@ -432,105 +432,105 @@ CREATE INDEX IF NOT EXISTS idx_agent_runs_parent
 
 CREATE TABLE IF NOT EXISTS prism_agent_steps_l
 (
-    step_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    run_id UUID NOT NULL
-        REFERENCES prism_agent_runs_l(run_id) ON DELETE CASCADE,
-    step_order INT NOT NULL,
-    step_type VARCHAR(30) NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'pending',
-    title VARCHAR(100) NOT NULL,
-    input_object_name TEXT,
+    step_id            UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
+    run_id             UUID         NOT NULL
+        REFERENCES prism_agent_runs_l (run_id) ON DELETE CASCADE,
+    step_order         INT          NOT NULL,
+    step_type          VARCHAR(30)  NOT NULL,
+    status             VARCHAR(20)  NOT NULL DEFAULT 'pending',
+    title              VARCHAR(100) NOT NULL,
+    input_object_name  TEXT,
     output_object_name TEXT,
-    input_summary TEXT,
-    output_summary TEXT,
-    error_message TEXT,
-    started_at TIMESTAMPTZ,
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    input_summary      TEXT,
+    output_summary     TEXT,
+    error_message      TEXT,
+    started_at         TIMESTAMPTZ,
+    completed_at       TIMESTAMPTZ,
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     UNIQUE (run_id, step_order)
 );
 
 CREATE TABLE IF NOT EXISTS prism_agent_actions_l
 (
-    action_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    run_id UUID NOT NULL
-        REFERENCES prism_agent_runs_l(run_id) ON DELETE CASCADE,
-    step_id UUID
-                REFERENCES prism_agent_steps_l(step_id) ON DELETE SET NULL,
-    project_id UUID NOT NULL
-        REFERENCES prism_projects_l(project_id) ON DELETE CASCADE,
-    action_type VARCHAR(50) NOT NULL,
-    target_type VARCHAR(50) NOT NULL,
-    target_id UUID,
-    status VARCHAR(20) NOT NULL DEFAULT 'proposed',
-    reasoning_summary TEXT,
+    action_id           UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    run_id              UUID        NOT NULL
+        REFERENCES prism_agent_runs_l (run_id) ON DELETE CASCADE,
+    step_id             UUID
+                                    REFERENCES prism_agent_steps_l (step_id) ON DELETE SET NULL,
+    project_id          UUID        NOT NULL
+        REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    action_type         VARCHAR(50) NOT NULL,
+    target_type         VARCHAR(50) NOT NULL,
+    target_id           UUID,
+    status              VARCHAR(20) NOT NULL DEFAULT 'proposed',
+    reasoning_summary   TEXT,
     payload_object_name TEXT,
-    result_object_name TEXT,
-    requires_approval BOOLEAN NOT NULL DEFAULT TRUE,
+    result_object_name  TEXT,
+    requires_approval   BOOLEAN     NOT NULL DEFAULT TRUE,
     approved_by_user_id UUID
-        REFERENCES prism_users_l(user_id) ON DELETE SET NULL,
-    approved_at TIMESTAMPTZ,
-    executed_at TIMESTAMPTZ,
-    error_message TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+                                    REFERENCES prism_users_l (user_id) ON DELETE SET NULL,
+    approved_at         TIMESTAMPTZ,
+    executed_at         TIMESTAMPTZ,
+    error_message       TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS prism_agent_action_events_l
 (
-    event_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    action_id UUID NOT NULL
-        REFERENCES prism_agent_actions_l(action_id) ON DELETE CASCADE,
-    actor_user_id UUID
-                   REFERENCES prism_users_l(user_id) ON DELETE SET NULL,
-    event_type VARCHAR(30) NOT NULL,
-    message TEXT,
+    event_id          UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    action_id         UUID        NOT NULL
+        REFERENCES prism_agent_actions_l (action_id) ON DELETE CASCADE,
+    actor_user_id     UUID
+                                  REFERENCES prism_users_l (user_id) ON DELETE SET NULL,
+    event_type        VARCHAR(30) NOT NULL,
+    message           TEXT,
     event_object_name TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS prism_document_chunks_l
 (
-    chunk_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    document_id UUID NOT NULL
-        REFERENCES prism_documents_l(document_id) ON DELETE CASCADE,
-    project_id UUID NOT NULL
-        REFERENCES prism_projects_l(project_id) ON DELETE CASCADE,
-    chunk_index INT NOT NULL,
+    chunk_id     UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    document_id  UUID        NOT NULL
+        REFERENCES prism_documents_l (document_id) ON DELETE CASCADE,
+    project_id   UUID        NOT NULL
+        REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    chunk_index  INT         NOT NULL,
     heading_path TEXT[],
-    content TEXT NOT NULL,
-    content_hash TEXT NOT NULL,
-    token_count INT,
-    char_count INT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    content      TEXT        NOT NULL,
+    content_hash TEXT        NOT NULL,
+    token_count  INT,
+    char_count   INT,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     UNIQUE (document_id, chunk_index)
 );
 
 CREATE INDEX IF NOT EXISTS idx_document_chunks_project
-    ON prism_document_chunks_l(project_id);
+    ON prism_document_chunks_l (project_id);
 
 CREATE INDEX IF NOT EXISTS idx_document_chunks_document
-    ON prism_document_chunks_l(document_id, chunk_index);
+    ON prism_document_chunks_l (document_id, chunk_index);
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_document_chunks_hash
-    ON prism_document_chunks_l(document_id, content_hash);
+    ON prism_document_chunks_l (document_id, content_hash);
 
 CREATE TABLE IF NOT EXISTS prism_document_chunk_embeddings_l
 (
-    chunk_id UUID PRIMARY KEY
-        REFERENCES prism_document_chunks_l(chunk_id) ON DELETE CASCADE,
-    project_id UUID NOT NULL
-        REFERENCES prism_projects_l(project_id) ON DELETE CASCADE,
-    embedding vector(1536) NOT NULL,
-    model VARCHAR(100) NOT NULL,
-    dimensions INT NOT NULL DEFAULT 1536,
-    content_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    embedded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    chunk_id     UUID PRIMARY KEY
+        REFERENCES prism_document_chunks_l (chunk_id) ON DELETE CASCADE,
+    project_id   UUID         NOT NULL
+        REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    embedding    vector(1536) NOT NULL,
+    model        VARCHAR(100) NOT NULL,
+    dimensions   INT          NOT NULL DEFAULT 1536,
+    content_hash TEXT         NOT NULL,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    embedded_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_document_chunk_embeddings_project
-    ON prism_document_chunk_embeddings_l(project_id);
+    ON prism_document_chunk_embeddings_l (project_id);
 
 CREATE INDEX IF NOT EXISTS idx_document_chunk_embeddings_vector
     ON prism_document_chunk_embeddings_l
@@ -539,22 +539,22 @@ CREATE INDEX IF NOT EXISTS idx_document_chunk_embeddings_vector
 
 CREATE TABLE IF NOT EXISTS prism_work_item_embeddings_l
 (
-    item_id UUID PRIMARY KEY
-        REFERENCES prism_work_items_l(item_id) ON DELETE CASCADE,
-    project_id UUID NOT NULL
-        REFERENCES prism_projects_l(project_id) ON DELETE CASCADE,
-    embedding vector(1536) NOT NULL,
-    embedded_title TEXT NOT NULL,
-    embedded_description TEXT NOT NULL,
-    content_hash TEXT NOT NULL,
-    model VARCHAR(100) NOT NULL,
-    dimensions INT NOT NULL DEFAULT 1536,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    embedded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    item_id              UUID PRIMARY KEY
+        REFERENCES prism_work_items_l (item_id) ON DELETE CASCADE,
+    project_id           UUID         NOT NULL
+        REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    embedding            vector(1536) NOT NULL,
+    embedded_title       TEXT         NOT NULL,
+    embedded_description TEXT         NOT NULL,
+    content_hash         TEXT         NOT NULL,
+    model                VARCHAR(100) NOT NULL,
+    dimensions           INT          NOT NULL DEFAULT 1536,
+    created_at           TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    embedded_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_work_item_embeddings_project
-    ON prism_work_item_embeddings_l(project_id);
+    ON prism_work_item_embeddings_l (project_id);
 
 CREATE INDEX IF NOT EXISTS idx_work_item_embeddings_vector
     ON prism_work_item_embeddings_l
@@ -563,26 +563,26 @@ CREATE INDEX IF NOT EXISTS idx_work_item_embeddings_vector
 
 CREATE TABLE IF NOT EXISTS prism_work_item_comment_embeddings_l
 (
-    comment_id UUID PRIMARY KEY
-        REFERENCES prism_work_item_comments_l(comment_id) ON DELETE CASCADE,
-    project_id UUID NOT NULL
-        REFERENCES prism_projects_l(project_id) ON DELETE CASCADE,
-    item_id UUID NOT NULL
-        REFERENCES prism_work_items_l(item_id) ON DELETE CASCADE,
-    embedding vector(1536) NOT NULL,
-    embedded_body TEXT NOT NULL,
-    content_hash TEXT NOT NULL,
-    model VARCHAR(100) NOT NULL,
-    dimensions INT NOT NULL DEFAULT 1536,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    embedded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    comment_id    UUID PRIMARY KEY
+        REFERENCES prism_work_item_comments_l (comment_id) ON DELETE CASCADE,
+    project_id    UUID         NOT NULL
+        REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    item_id       UUID         NOT NULL
+        REFERENCES prism_work_items_l (item_id) ON DELETE CASCADE,
+    embedding     vector(1536) NOT NULL,
+    embedded_body TEXT         NOT NULL,
+    content_hash  TEXT         NOT NULL,
+    model         VARCHAR(100) NOT NULL,
+    dimensions    INT          NOT NULL DEFAULT 1536,
+    created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    embedded_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_comment_embeddings_item
-    ON prism_work_item_comment_embeddings_l(project_id, item_id);
+    ON prism_work_item_comment_embeddings_l (project_id, item_id);
 
 CREATE INDEX IF NOT EXISTS idx_comment_embeddings_project
-    ON prism_work_item_comment_embeddings_l(project_id);
+    ON prism_work_item_comment_embeddings_l (project_id);
 
 CREATE INDEX IF NOT EXISTS idx_comment_embeddings_vector
     ON prism_work_item_comment_embeddings_l
@@ -591,18 +591,18 @@ CREATE INDEX IF NOT EXISTS idx_comment_embeddings_vector
 
 CREATE TABLE IF NOT EXISTS prism_agent_memories_l
 (
-    memory_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id UUID NOT NULL
-        REFERENCES prism_projects_l(project_id) ON DELETE CASCADE,
-    run_id UUID
-                    REFERENCES prism_agent_runs_l(run_id) ON DELETE SET NULL,
-    step_id UUID
-                    REFERENCES prism_agent_steps_l(step_id) ON DELETE SET NULL,
-    memory_type VARCHAR(40) NOT NULL,
-    title VARCHAR(100),
-    content TEXT NOT NULL,
-    content_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    memory_id    UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    project_id   UUID        NOT NULL
+        REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    run_id       UUID
+                             REFERENCES prism_agent_runs_l (run_id) ON DELETE SET NULL,
+    step_id      UUID
+                             REFERENCES prism_agent_steps_l (step_id) ON DELETE SET NULL,
+    memory_type  VARCHAR(40) NOT NULL,
+    title        VARCHAR(100),
+    content      TEXT        NOT NULL,
+    content_hash TEXT        NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CHECK (
         memory_type IN (
                         'agent_decision',
@@ -616,24 +616,24 @@ CREATE TABLE IF NOT EXISTS prism_agent_memories_l
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_memories_project_type
-    ON prism_agent_memories_l(project_id, memory_type);
+    ON prism_agent_memories_l (project_id, memory_type);
 
 CREATE TABLE IF NOT EXISTS prism_agent_memory_embeddings_l
 (
-    memory_id UUID PRIMARY KEY
-        REFERENCES prism_agent_memories_l(memory_id) ON DELETE CASCADE,
-    project_id UUID NOT NULL
-        REFERENCES prism_projects_l(project_id) ON DELETE CASCADE,
-    embedding vector(1536) NOT NULL,
-    model VARCHAR(100) NOT NULL,
-    dimensions INT NOT NULL DEFAULT 1536,
-    content_hash TEXT NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    embedded_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    memory_id    UUID PRIMARY KEY
+        REFERENCES prism_agent_memories_l (memory_id) ON DELETE CASCADE,
+    project_id   UUID         NOT NULL
+        REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    embedding    vector(1536) NOT NULL,
+    model        VARCHAR(100) NOT NULL,
+    dimensions   INT          NOT NULL DEFAULT 1536,
+    content_hash TEXT         NOT NULL,
+    created_at   TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    embedded_at  TIMESTAMPTZ  NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_agent_memory_embeddings_project
-    ON prism_agent_memory_embeddings_l(project_id);
+    ON prism_agent_memory_embeddings_l (project_id);
 
 CREATE INDEX IF NOT EXISTS idx_agent_memory_embeddings_vector
     ON prism_agent_memory_embeddings_l
@@ -642,23 +642,23 @@ CREATE INDEX IF NOT EXISTS idx_agent_memory_embeddings_vector
 
 CREATE TABLE IF NOT EXISTS prism_embedding_jobs_l
 (
-    embedding_job_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    project_id UUID NOT NULL
-        REFERENCES prism_projects_l(project_id) ON DELETE CASCADE,
-    job_type VARCHAR(40) NOT NULL,
-    target_id UUID NOT NULL,
-    status VARCHAR(20) NOT NULL DEFAULT 'queued',
-    model VARCHAR(100) NOT NULL,
-    dimensions INT NOT NULL DEFAULT 1536,
-    content_hash TEXT,
-    object_name TEXT,
-    attempts INT NOT NULL DEFAULT 0,
-    max_attempts INT NOT NULL DEFAULT 3,
-    error_message TEXT,
-    scheduled_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    started_at TIMESTAMPTZ,
-    completed_at TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    embedding_job_id UUID PRIMARY KEY      DEFAULT gen_random_uuid(),
+    project_id       UUID         NOT NULL
+        REFERENCES prism_projects_l (project_id) ON DELETE CASCADE,
+    job_type         VARCHAR(40)  NOT NULL,
+    target_id        UUID         NOT NULL,
+    status           VARCHAR(20)  NOT NULL DEFAULT 'queued',
+    model            VARCHAR(100) NOT NULL,
+    dimensions       INT          NOT NULL DEFAULT 1536,
+    content_hash     TEXT,
+    object_name      TEXT,
+    attempts         INT          NOT NULL DEFAULT 0,
+    max_attempts     INT          NOT NULL DEFAULT 3,
+    error_message    TEXT,
+    scheduled_at     TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    started_at       TIMESTAMPTZ,
+    completed_at     TIMESTAMPTZ,
+    created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     CHECK (
         job_type IN (
                      'document',
@@ -680,10 +680,10 @@ CREATE TABLE IF NOT EXISTS prism_embedding_jobs_l
 );
 
 CREATE INDEX IF NOT EXISTS idx_embedding_jobs_status_scheduled
-    ON prism_embedding_jobs_l(status, scheduled_at);
+    ON prism_embedding_jobs_l (status, scheduled_at);
 
 CREATE INDEX IF NOT EXISTS idx_embedding_jobs_project_type
-    ON prism_embedding_jobs_l(project_id, job_type);
+    ON prism_embedding_jobs_l (project_id, job_type);
 
 CREATE INDEX idx_document_chunk_embeddings_hnsw
     ON prism_document_chunk_embeddings_l
