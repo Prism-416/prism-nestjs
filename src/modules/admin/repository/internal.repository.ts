@@ -7,7 +7,7 @@ import {
   InternalServiceAccountRow,
   PersistInternalApiTokenParams,
   CreateInternalServiceAccountParams,
-} from '@/modules/internal/types';
+} from '@/modules/admin/types';
 
 @Injectable()
 export class InternalRepository {

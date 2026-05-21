@@ -3,7 +3,7 @@ import type { Request } from 'express';
 import type {
   InternalAuthenticatedRequest,
   InternalServicePrincipal,
-} from '@/modules/internal/types';
+} from '@/modules/admin/types';
 
 export const CurrentInternalService = createParamDecorator(
   (_data, ctx): InternalServicePrincipal | undefined => {

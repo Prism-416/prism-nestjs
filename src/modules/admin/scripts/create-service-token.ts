@@ -8,10 +8,10 @@ import {
   applyPostgresSearchPath,
   buildTypeOrmOptions,
 } from '@/core/database/typeorm.options';
-import { InternalRepository } from '@/modules/internal/repository';
-import { InternalTokenService } from '@/modules/internal/services';
-import { InternalUseCase } from '@/modules/internal/usecases';
-import { INTERNAL_SCOPES, InternalScope } from '@/modules/internal/types';
+import { InternalRepository } from '@/modules/admin/repository';
+import { InternalTokenService } from '@/modules/admin/services';
+import { InternalUseCase } from '@/modules/admin/usecases';
+import { INTERNAL_SCOPES, InternalScope } from '@/modules/admin/types';
 
 type CreateServiceTokenOptions = {
   serviceName: string;

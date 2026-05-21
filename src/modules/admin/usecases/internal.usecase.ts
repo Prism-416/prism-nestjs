@@ -12,9 +12,9 @@ import {
   InternalServiceAccountInactiveError,
   InternalServiceAccountNotFoundError,
   isServiceAccountNameUniqueViolation,
-} from '@/modules/internal/errors';
-import { InternalRepository } from '@/modules/internal/repository';
-import { InternalTokenService } from '@/modules/internal/services';
+} from '@/modules/admin/errors';
+import { InternalRepository } from '@/modules/admin/repository';
+import { InternalTokenService } from '@/modules/admin/services';
 import {
   CreatedInternalApiToken,
   CreateInternalApiTokenParams,
@@ -25,7 +25,7 @@ import {
   InternalScope,
   InternalServiceAccountRow,
   InternalServicePrincipal,
-} from '@/modules/internal/types';
+} from '@/modules/admin/types';
 
 @Injectable()
 export class InternalUseCase {
