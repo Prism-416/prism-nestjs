@@ -9,11 +9,13 @@ Token issuance endpoints:
 
 - `GET /admin/service-accounts`
 - `POST /admin/service-accounts`
+- `GET /admin/service-accounts/:serviceAccountId/api-tokens`
 - `POST /admin/service-accounts/:serviceAccountId/api-tokens`
 - `POST /admin/service-api-tokens`
+- `POST /admin/service-api-tokens/:apiTokenId/revoke`
 
 The issue-token endpoints return the raw token once. Store it in the calling
-service secret store.
+service secret store. Listing and revoke endpoints return token metadata only.
 
 Supported scopes:
 

@@ -2,11 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  CreateInternalServiceAccountParams,
+  InternalApiTokenMetadataRow,
   InternalApiTokenRow,
   InternalApiTokenWithServiceRow,
   InternalServiceAccountRow,
   PersistInternalApiTokenParams,
-  CreateInternalServiceAccountParams,
 } from '@/modules/admin/types';
 
 @Injectable()
@@ -181,6 +182,31 @@ export class InternalRepository {
     );
 
     return tokens[0] ?? null;
+  }
+
+  async listServiceApiTokensForServiceAccount(
+    serviceAccountId: string,
+    manager?: EntityManager,
+  ): Promise<InternalApiTokenMetadataRow[]> {
+    return this.getManager(manager).query<InternalApiTokenMetadataRow[]>(
+      `
+        SELECT
+          api_token_id AS "apiTokenId",
+          service_account_id AS "serviceAccountId",
+          name,
+          token_prefix AS "tokenPrefix",
+          scopes,
+          expires_at AS "expiresAt",
+          last_used_at AS "lastUsedAt",
+          revoked_at AS "revokedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM prism_service_api_tokens_l
+        WHERE service_account_id = $1
+        ORDER BY created_at DESC, api_token_id DESC
+      `,
+      [serviceAccountId],
+    );
   }
 
   async revokeServiceApiToken(

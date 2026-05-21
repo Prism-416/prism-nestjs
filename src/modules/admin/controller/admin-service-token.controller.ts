@@ -1,4 +1,12 @@
-import { Body, Controller, Get, HttpStatus, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiDataResponse } from '@/core/response';
 import { AdminAuthenticated } from '@/modules/admin/decorators';
@@ -10,7 +18,11 @@ import {
   ServiceAccountResponseDto,
   ServiceApiTokenResponseDto,
 } from '@/modules/admin/dto';
-import { CreatedInternalApiToken } from '@/modules/admin/types';
+import {
+  CreatedInternalApiToken,
+  InternalApiTokenMetadataRow,
+  InternalApiTokenRow,
+} from '@/modules/admin/types';
 import { InternalUseCase } from '@/modules/admin/usecases';
 
 @ApiTags('Admin Service Tokens')
@@ -34,6 +46,21 @@ export class AdminServiceTokenController {
     @Body() dto: CreateServiceAccountDto,
   ): Promise<ServiceAccountResponseDto> {
     return this.usecase.createServiceAccount(dto);
+  }
+
+  @Get('service-accounts/:serviceAccountId/api-tokens')
+  @AdminAuthenticated()
+  @ApiOperation({ summary: 'List service API tokens for a service account' })
+  @ApiDataResponse(ServiceApiTokenResponseDto, { isArray: true })
+  async listServiceApiTokens(
+    @Param('serviceAccountId') serviceAccountId: string,
+  ): Promise<ServiceApiTokenResponseDto[]> {
+    const tokens =
+      await this.usecase.listServiceApiTokensForServiceAccount(
+        serviceAccountId,
+      );
+
+    return tokens.map((token) => this.toServiceApiTokenResponse(token));
   }
 
   @Post('service-accounts/:serviceAccountId/api-tokens')
@@ -76,6 +103,18 @@ export class AdminServiceTokenController {
     return this.toIssueServiceApiTokenResponse(created);
   }
 
+  @Post('service-api-tokens/:apiTokenId/revoke')
+  @AdminAuthenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Revoke a service API token' })
+  @ApiDataResponse(ServiceApiTokenResponseDto)
+  async revokeServiceApiToken(
+    @Param('apiTokenId') apiTokenId: string,
+  ): Promise<ServiceApiTokenResponseDto> {
+    const revoked = await this.usecase.revokeServiceApiToken(apiTokenId);
+    return this.toServiceApiTokenResponse(revoked);
+  }
+
   private toIssueServiceApiTokenResponse(
     created: CreatedInternalApiToken,
   ): IssueServiceApiTokenResponseDto {
@@ -86,7 +125,7 @@ export class AdminServiceTokenController {
   }
 
   private toServiceApiTokenResponse(
-    row: CreatedInternalApiToken['apiToken'],
+    row: InternalApiTokenMetadataRow | InternalApiTokenRow,
   ): ServiceApiTokenResponseDto {
     return {
       apiTokenId: row.apiTokenId,
