@@ -20,6 +20,7 @@ import {
   CreateInternalApiTokenParams,
   CreateInternalApiTokenForServiceNameParams,
   CreateInternalServiceAccountParams,
+  InternalApiTokenMetadataRow,
   InternalApiTokenRow,
   INTERNAL_SCOPES,
   InternalScope,
@@ -146,6 +147,18 @@ export class InternalUseCase {
         apiToken,
       };
     });
+  }
+
+  async listServiceApiTokensForServiceAccount(
+    serviceAccountId: string,
+  ): Promise<InternalApiTokenMetadataRow[]> {
+    const serviceAccount =
+      await this.repo.findServiceAccountById(serviceAccountId);
+    if (!serviceAccount) {
+      throw new InternalServiceAccountNotFoundError();
+    }
+
+    return this.repo.listServiceApiTokensForServiceAccount(serviceAccountId);
   }
 
   async revokeServiceApiToken(

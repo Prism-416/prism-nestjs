@@ -31,6 +31,11 @@ export type InternalApiTokenRow = {
   updatedAt: Date;
 };
 
+export type InternalApiTokenMetadataRow = Omit<
+  InternalApiTokenRow,
+  'tokenHash'
+>;
+
 export type InternalApiTokenWithServiceRow = InternalApiTokenRow & {
   serviceName: string;
   serviceActive: boolean;
