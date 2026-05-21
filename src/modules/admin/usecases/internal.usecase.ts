@@ -57,6 +57,18 @@ export class InternalUseCase {
     return this.repo.listServiceAccounts();
   }
 
+  async activateServiceAccount(
+    serviceAccountId: string,
+  ): Promise<InternalServiceAccountRow> {
+    return this.updateServiceAccountActiveStatus(serviceAccountId, true);
+  }
+
+  async deactivateServiceAccount(
+    serviceAccountId: string,
+  ): Promise<InternalServiceAccountRow> {
+    return this.updateServiceAccountActiveStatus(serviceAccountId, false);
+  }
+
   async createServiceApiToken(
     params: CreateInternalApiTokenParams,
   ): Promise<CreatedInternalApiToken> {
@@ -237,5 +249,20 @@ export class InternalUseCase {
     }
 
     return normalized as InternalScope[];
+  }
+
+  private async updateServiceAccountActiveStatus(
+    serviceAccountId: string,
+    isActive: boolean,
+  ): Promise<InternalServiceAccountRow> {
+    const serviceAccount = await this.repo.updateServiceAccountActiveStatus(
+      serviceAccountId,
+      isActive,
+    );
+    if (!serviceAccount) {
+      throw new InternalServiceAccountNotFoundError();
+    }
+
+    return serviceAccount;
   }
 }

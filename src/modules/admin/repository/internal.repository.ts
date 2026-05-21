@@ -109,6 +109,33 @@ export class InternalRepository {
     );
   }
 
+  async updateServiceAccountActiveStatus(
+    serviceAccountId: string,
+    isActive: boolean,
+    manager?: EntityManager,
+  ): Promise<InternalServiceAccountRow | null> {
+    const accounts = await this.getManager(manager).query<
+      InternalServiceAccountRow[]
+    >(
+      `
+        UPDATE prism_service_accounts_m
+        SET is_active = $2,
+            updated_at = NOW()
+        WHERE service_account_id = $1
+        RETURNING
+          service_account_id AS "serviceAccountId",
+          name,
+          description,
+          is_active AS "isActive",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [serviceAccountId, isActive],
+    );
+
+    return accounts[0] ?? null;
+  }
+
   async createServiceApiToken(
     params: PersistInternalApiTokenParams,
     manager?: EntityManager,
