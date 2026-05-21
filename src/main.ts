@@ -71,6 +71,10 @@ async function bootstrap() {
       { type: 'http', scheme: 'bearer', bearerFormat: 'Internal API token' },
       'internal',
     )
+    .addApiKey(
+      { type: 'apiKey', in: 'header', name: 'x-admin-password' },
+      'admin-password',
+    )
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, swaggerDocument);

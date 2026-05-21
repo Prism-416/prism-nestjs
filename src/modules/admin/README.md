@@ -2,8 +2,8 @@
 
 Admin users issue internal service API tokens through the admin HTTP API.
 
-Configure `ADMIN_USER_IDS` as a comma-separated list of user IDs that may call
-the admin routes. If it is empty, admin routes reject all callers.
+Configure `ADMIN_PASSWORD` and pass it in the `x-admin-password` header when
+calling admin routes. If it is empty, admin routes reject all callers.
 
 Token issuance endpoints:
 

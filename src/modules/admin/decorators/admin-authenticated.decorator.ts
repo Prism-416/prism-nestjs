@@ -1,16 +1,11 @@
 import { UseGuards, applyDecorators } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiForbiddenResponse,
-  ApiUnauthorizedResponse,
-} from '@nestjs/swagger';
+import { ApiSecurity, ApiUnauthorizedResponse } from '@nestjs/swagger';
 import { AdminAuthenticationGuard } from '@/modules/admin/guards';
 
 export function AdminAuthenticated(): MethodDecorator & ClassDecorator {
   return applyDecorators(
     UseGuards(AdminAuthenticationGuard),
-    ApiBearerAuth('bearer'),
+    ApiSecurity('admin-password'),
     ApiUnauthorizedResponse({ description: 'Unauthorized' }),
-    ApiForbiddenResponse({ description: 'Admin access required' }),
   );
 }
