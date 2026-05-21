@@ -7,6 +7,38 @@ import {
 import { InternalUseCase } from '@/modules/admin/usecases';
 
 describe('AdminServiceTokenController', () => {
+  it('activates a service account', async () => {
+    const serviceAccount = buildServiceAccount({ isActive: true });
+    const activateServiceAccount = jest.fn().mockResolvedValue(serviceAccount);
+    const usecase = buildUseCase({
+      activateServiceAccount,
+    });
+    const controller = new AdminServiceTokenController(usecase);
+
+    const response =
+      await controller.activateServiceAccount('service-account-1');
+
+    expect(activateServiceAccount).toHaveBeenCalledWith('service-account-1');
+    expect(response).toEqual(serviceAccount);
+  });
+
+  it('deactivates a service account', async () => {
+    const serviceAccount = buildServiceAccount({ isActive: false });
+    const deactivateServiceAccount = jest
+      .fn()
+      .mockResolvedValue(serviceAccount);
+    const usecase = buildUseCase({
+      deactivateServiceAccount,
+    });
+    const controller = new AdminServiceTokenController(usecase);
+
+    const response =
+      await controller.deactivateServiceAccount('service-account-1');
+
+    expect(deactivateServiceAccount).toHaveBeenCalledWith('service-account-1');
+    expect(response).toEqual(serviceAccount);
+  });
+
   it('issues a token while omitting the persisted token hash', async () => {
     const created = buildCreatedToken();
     const issueServiceToken = jest.fn().mockResolvedValue(created);
@@ -71,6 +103,8 @@ function buildUseCase(
   return {
     listServiceAccounts: jest.fn(),
     createServiceAccount: jest.fn(),
+    activateServiceAccount: jest.fn(),
+    deactivateServiceAccount: jest.fn(),
     createServiceApiToken: jest.fn(),
     createServiceApiTokenForServiceName: jest.fn(),
     listServiceApiTokensForServiceAccount: jest.fn(),
@@ -78,6 +112,17 @@ function buildUseCase(
     validateServiceApiToken: jest.fn(),
     ...overrides,
   } as unknown as InternalUseCase;
+}
+
+function buildServiceAccount(params: { isActive: boolean }) {
+  return {
+    serviceAccountId: 'service-account-1',
+    name: 'embedding-worker',
+    description: 'Embedding worker',
+    isActive: params.isActive,
+    createdAt: new Date('2028-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2029-01-01T00:00:00.000Z'),
+  };
 }
 
 function buildCreatedToken(): CreatedInternalApiToken {

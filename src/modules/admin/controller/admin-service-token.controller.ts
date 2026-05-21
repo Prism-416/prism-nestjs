@@ -48,6 +48,28 @@ export class AdminServiceTokenController {
     return this.usecase.createServiceAccount(dto);
   }
 
+  @Post('service-accounts/:serviceAccountId/activate')
+  @AdminAuthenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Activate a service account' })
+  @ApiDataResponse(ServiceAccountResponseDto)
+  activateServiceAccount(
+    @Param('serviceAccountId') serviceAccountId: string,
+  ): Promise<ServiceAccountResponseDto> {
+    return this.usecase.activateServiceAccount(serviceAccountId);
+  }
+
+  @Post('service-accounts/:serviceAccountId/deactivate')
+  @AdminAuthenticated()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Deactivate a service account' })
+  @ApiDataResponse(ServiceAccountResponseDto)
+  deactivateServiceAccount(
+    @Param('serviceAccountId') serviceAccountId: string,
+  ): Promise<ServiceAccountResponseDto> {
+    return this.usecase.deactivateServiceAccount(serviceAccountId);
+  }
+
   @Get('service-accounts/:serviceAccountId/api-tokens')
   @AdminAuthenticated()
   @ApiOperation({ summary: 'List service API tokens for a service account' })
