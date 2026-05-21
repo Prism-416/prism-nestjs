@@ -6,14 +6,14 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import type { Request } from 'express';
-import { INTERNAL_REQUIRED_SCOPES_KEY } from '@/modules/internal/constants';
-import { InternalScopeRequiredError } from '@/modules/internal/errors';
-import { InternalUseCase } from '@/modules/internal/usecases';
+import { INTERNAL_REQUIRED_SCOPES_KEY } from '@/modules/admin/constants';
+import { InternalScopeRequiredError } from '@/modules/admin/errors';
+import { InternalUseCase } from '@/modules/admin/usecases';
 import type {
   InternalAuthenticatedRequest,
   InternalScope,
   InternalServicePrincipal,
-} from '@/modules/internal/types';
+} from '@/modules/admin/types';
 
 @Injectable()
 export class InternalAuthenticationGuard implements CanActivate {

@@ -1,7 +1,7 @@
 import { SetMetadata, applyDecorators } from '@nestjs/common';
 import { ApiForbiddenResponse } from '@nestjs/swagger';
-import { INTERNAL_REQUIRED_SCOPES_KEY } from '@/modules/internal/constants';
-import { InternalScope } from '@/modules/internal/types';
+import { INTERNAL_REQUIRED_SCOPES_KEY } from '@/modules/admin/constants';
+import { InternalScope } from '@/modules/admin/types';
 import { InternalAuthenticated } from './internal-authenticated.decorator';
 
 export function RequireInternalScopes(

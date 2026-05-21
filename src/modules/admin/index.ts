@@ -1,5 +1,5 @@
 export * from './constants';
 export * from './decorators';
 export * from './guards';
-export * from './internal.module';
+export * from './admin.module';
 export * from './types';

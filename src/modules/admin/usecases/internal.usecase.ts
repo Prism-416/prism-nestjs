@@ -12,19 +12,20 @@ import {
   InternalServiceAccountInactiveError,
   InternalServiceAccountNotFoundError,
   isServiceAccountNameUniqueViolation,
-} from '@/modules/internal/errors';
-import { InternalRepository } from '@/modules/internal/repository';
-import { InternalTokenService } from '@/modules/internal/services';
+} from '@/modules/admin/errors';
+import { InternalRepository } from '@/modules/admin/repository';
+import { InternalTokenService } from '@/modules/admin/services';
 import {
   CreatedInternalApiToken,
   CreateInternalApiTokenParams,
+  CreateInternalApiTokenForServiceNameParams,
   CreateInternalServiceAccountParams,
   InternalApiTokenRow,
   INTERNAL_SCOPES,
   InternalScope,
   InternalServiceAccountRow,
   InternalServicePrincipal,
-} from '@/modules/internal/types';
+} from '@/modules/admin/types';
 
 @Injectable()
 export class InternalUseCase {
@@ -83,6 +84,55 @@ export class InternalUseCase {
         {
           serviceAccountId: serviceAccount.serviceAccountId,
           name,
+          scopes,
+          expiresAt: params.expiresAt,
+          tokenPrefix: generated.tokenPrefix,
+          tokenHash: generated.tokenHash,
+        },
+        manager,
+      );
+
+      return {
+        token: generated.token,
+        apiToken,
+      };
+    });
+  }
+
+  async createServiceApiTokenForServiceName(
+    params: CreateInternalApiTokenForServiceNameParams,
+  ): Promise<CreatedInternalApiToken> {
+    const serviceName = this.normalizeRequiredText(params.serviceName);
+    const tokenName = this.normalizeRequiredText(params.tokenName);
+    const serviceDescription = this.normalizeOptionalText(
+      params.serviceDescription,
+    );
+    const scopes = this.normalizeScopes(params.scopes);
+
+    if (params.expiresAt <= new Date()) {
+      throw new InternalApiTokenExpiresAtInvalidError();
+    }
+
+    return this.uow.run(async (manager) => {
+      const serviceAccount =
+        (await this.repo.findServiceAccountByName(serviceName, manager)) ??
+        (await this.repo.createServiceAccount(
+          {
+            name: serviceName,
+            description: serviceDescription,
+          },
+          manager,
+        ));
+
+      if (!serviceAccount.isActive) {
+        throw new InternalServiceAccountInactiveError();
+      }
+
+      const generated = this.tokenService.generateToken();
+      const apiToken = await this.repo.createServiceApiToken(
+        {
+          serviceAccountId: serviceAccount.serviceAccountId,
+          name: tokenName,
           scopes,
           expiresAt: params.expiresAt,
           tokenPrefix: generated.tokenPrefix,

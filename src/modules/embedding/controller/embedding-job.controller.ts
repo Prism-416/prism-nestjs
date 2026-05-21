@@ -19,7 +19,7 @@ import {
   UpdateEmbeddingJobDto,
 } from '@/modules/embedding/dto';
 import { EmbeddingJobUseCase } from '@/modules/embedding/usecases';
-import { RequireInternalScopes } from '@/modules/internal';
+import { RequireInternalScopes } from '@/modules/admin';
 
 @ApiTags('Project Embedding Job')
 @Controller(':projectId/embedding-jobs')

@@ -7,7 +7,7 @@ import {
   InternalServiceAccountRow,
   PersistInternalApiTokenParams,
   CreateInternalServiceAccountParams,
-} from '@/modules/internal/types';
+} from '@/modules/admin/types';
 
 @Injectable()
 export class InternalRepository {
@@ -60,6 +60,31 @@ export class InternalRepository {
         LIMIT 1
       `,
       [serviceAccountId],
+    );
+
+    return accounts[0] ?? null;
+  }
+
+  async findServiceAccountByName(
+    name: string,
+    manager?: EntityManager,
+  ): Promise<InternalServiceAccountRow | null> {
+    const accounts = await this.getManager(manager).query<
+      InternalServiceAccountRow[]
+    >(
+      `
+        SELECT
+          service_account_id AS "serviceAccountId",
+          name,
+          description,
+          is_active AS "isActive",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+        FROM prism_service_accounts_m
+        WHERE name = $1
+        LIMIT 1
+      `,
+      [name],
     );
 
     return accounts[0] ?? null;

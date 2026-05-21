@@ -2,10 +2,10 @@ import { Module } from '@nestjs/common';
 import { EmbeddingJobController } from '@/modules/embedding/controller';
 import { EmbeddingJobRepository } from '@/modules/embedding/repository';
 import { EmbeddingJobUseCase } from '@/modules/embedding/usecases';
-import { InternalModule } from '@/modules/internal';
+import { AdminModule } from '@/modules/admin';
 
 @Module({
-  imports: [InternalModule],
+  imports: [AdminModule],
   controllers: [EmbeddingJobController],
   providers: [EmbeddingJobRepository, EmbeddingJobUseCase],
 })
