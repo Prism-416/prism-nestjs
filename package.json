@@ -19,7 +19,6 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "internal:create-token": "ts-node -r tsconfig-paths/register src/modules/admin/scripts/create-service-token.ts",
     "typeorm": "typeorm-ts-node-commonjs -d typeorm.datasource.ts",
     "migration:generate": "pnpm run typeorm -- migration:generate src/database/migrations/Init",
     "migration:create": "pnpm run typeorm -- migration:create src/database/migrations/NewMigration",

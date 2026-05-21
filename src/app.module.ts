@@ -71,6 +71,7 @@ const featureRegistrations: FeatureRegistration[] = [
   },
   {
     module: AdminModule,
+    path: 'admin',
     requiresDb: true,
   },
   {
