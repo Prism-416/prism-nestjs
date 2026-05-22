@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -7,8 +8,10 @@ import {
   Param,
   Patch,
   Post,
+  Req,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import type { Request } from 'express';
 import { ApiDataResponse } from '@/core/response';
 import { AdminAuthenticated } from '@/modules/admin/decorators';
 import {
@@ -22,6 +25,7 @@ import {
   UpdateServiceAccountDto,
 } from '@/modules/admin/dto';
 import {
+  AdminAuditContext,
   CreatedInternalApiToken,
   InternalApiTokenMetadataRow,
   InternalApiTokenRow,
@@ -47,8 +51,12 @@ export class AdminServiceTokenController {
   @ApiDataResponse(ServiceAccountResponseDto, { status: HttpStatus.CREATED })
   createServiceAccount(
     @Body() dto: CreateServiceAccountDto,
+    @Req() request: Request,
   ): Promise<ServiceAccountResponseDto> {
-    return this.usecase.createServiceAccount(dto);
+    return this.usecase.createServiceAccount(
+      dto,
+      this.toAdminAuditContext(request),
+    );
   }
 
   @Patch('service-accounts/:serviceAccountId')
@@ -58,12 +66,16 @@ export class AdminServiceTokenController {
   updateServiceAccount(
     @Param('serviceAccountId') serviceAccountId: string,
     @Body() dto: UpdateServiceAccountDto,
+    @Req() request: Request,
   ): Promise<ServiceAccountResponseDto> {
-    return this.usecase.updateServiceAccount({
-      serviceAccountId,
-      name: dto.name,
-      description: dto.description,
-    });
+    return this.usecase.updateServiceAccount(
+      {
+        serviceAccountId,
+        name: dto.name,
+        description: dto.description,
+      },
+      this.toAdminAuditContext(request),
+    );
   }
 
   @Post('service-accounts/:serviceAccountId/activate')
@@ -73,8 +85,12 @@ export class AdminServiceTokenController {
   @ApiDataResponse(ServiceAccountResponseDto)
   activateServiceAccount(
     @Param('serviceAccountId') serviceAccountId: string,
+    @Req() request: Request,
   ): Promise<ServiceAccountResponseDto> {
-    return this.usecase.activateServiceAccount(serviceAccountId);
+    return this.usecase.activateServiceAccount(
+      serviceAccountId,
+      this.toAdminAuditContext(request),
+    );
   }
 
   @Post('service-accounts/:serviceAccountId/deactivate')
@@ -84,8 +100,12 @@ export class AdminServiceTokenController {
   @ApiDataResponse(ServiceAccountResponseDto)
   deactivateServiceAccount(
     @Param('serviceAccountId') serviceAccountId: string,
+    @Req() request: Request,
   ): Promise<ServiceAccountResponseDto> {
-    return this.usecase.deactivateServiceAccount(serviceAccountId);
+    return this.usecase.deactivateServiceAccount(
+      serviceAccountId,
+      this.toAdminAuditContext(request),
+    );
   }
 
   @Get('service-accounts/:serviceAccountId/api-tokens')
@@ -112,13 +132,17 @@ export class AdminServiceTokenController {
   async createServiceApiToken(
     @Param('serviceAccountId') serviceAccountId: string,
     @Body() dto: CreateServiceApiTokenDto,
+    @Req() request: Request,
   ): Promise<IssueServiceApiTokenResponseDto> {
-    const created = await this.usecase.createServiceApiToken({
-      serviceAccountId,
-      name: dto.name,
-      scopes: dto.scopes,
-      expiresAt: dto.expiresAt,
-    });
+    const created = await this.usecase.createServiceApiToken(
+      {
+        serviceAccountId,
+        name: dto.name,
+        scopes: dto.scopes,
+        expiresAt: dto.expiresAt,
+      },
+      this.toAdminAuditContext(request),
+    );
 
     return this.toIssueServiceApiTokenResponse(created);
   }
@@ -131,14 +155,18 @@ export class AdminServiceTokenController {
   })
   async issueServiceApiToken(
     @Body() dto: IssueServiceApiTokenDto,
+    @Req() request: Request,
   ): Promise<IssueServiceApiTokenResponseDto> {
-    const created = await this.usecase.createServiceApiTokenForServiceName({
-      serviceName: dto.serviceName,
-      serviceDescription: dto.serviceDescription,
-      tokenName: dto.tokenName,
-      scopes: dto.scopes,
-      expiresAt: dto.expiresAt,
-    });
+    const created = await this.usecase.createServiceApiTokenForServiceName(
+      {
+        serviceName: dto.serviceName,
+        serviceDescription: dto.serviceDescription,
+        tokenName: dto.tokenName,
+        scopes: dto.scopes,
+        expiresAt: dto.expiresAt,
+      },
+      this.toAdminAuditContext(request),
+    );
 
     return this.toIssueServiceApiTokenResponse(created);
   }
@@ -150,13 +178,17 @@ export class AdminServiceTokenController {
   async updateServiceApiToken(
     @Param('apiTokenId') apiTokenId: string,
     @Body() dto: UpdateServiceApiTokenDto,
+    @Req() request: Request,
   ): Promise<ServiceApiTokenResponseDto> {
-    const token = await this.usecase.updateServiceApiToken({
-      apiTokenId,
-      name: dto.name,
-      scopes: dto.scopes,
-      expiresAt: dto.expiresAt,
-    });
+    const token = await this.usecase.updateServiceApiToken(
+      {
+        apiTokenId,
+        name: dto.name,
+        scopes: dto.scopes,
+        expiresAt: dto.expiresAt,
+      },
+      this.toAdminAuditContext(request),
+    );
 
     return this.toServiceApiTokenResponse(token);
   }
@@ -168,8 +200,12 @@ export class AdminServiceTokenController {
   @ApiDataResponse(ServiceApiTokenResponseDto)
   async revokeServiceApiToken(
     @Param('apiTokenId') apiTokenId: string,
+    @Req() request: Request,
   ): Promise<ServiceApiTokenResponseDto> {
-    const revoked = await this.usecase.revokeServiceApiToken(apiTokenId);
+    const revoked = await this.usecase.revokeServiceApiToken(
+      apiTokenId,
+      this.toAdminAuditContext(request),
+    );
     return this.toServiceApiTokenResponse(revoked);
   }
 
@@ -197,5 +233,54 @@ export class AdminServiceTokenController {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     };
+  }
+
+  private toAdminAuditContext(request: Request): AdminAuditContext {
+    return {
+      actorType: 'admin-password',
+      requestId: this.extractRequestId(request),
+      reason: this.extractAdminReason(request),
+    };
+  }
+
+  private extractRequestId(request: Request): string | null {
+    const requestId = request.res?.getHeader('x-request-id');
+
+    if (Array.isArray(requestId)) {
+      return this.normalizeOptionalHeaderValue(requestId[0]);
+    }
+
+    return this.normalizeOptionalHeaderValue(requestId);
+  }
+
+  private extractAdminReason(request: Request): string | null {
+    const reason = request.headers['x-admin-reason'];
+
+    if (Array.isArray(reason)) {
+      return this.normalizeAdminReason(reason[0]);
+    }
+
+    return this.normalizeAdminReason(reason);
+  }
+
+  private normalizeOptionalHeaderValue(
+    value: number | string | undefined,
+  ): string | null {
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  }
+
+  private normalizeAdminReason(value: string | undefined): string | null {
+    const reason = this.normalizeOptionalHeaderValue(value);
+    if (!reason) {
+      return null;
+    }
+
+    if (reason.length > 500) {
+      throw new BadRequestException(
+        'Admin audit reason must be 500 characters or fewer.',
+      );
+    }
+
+    return reason;
   }
 }

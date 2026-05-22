@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
 import {
   InternalApiTokenExpiredError,
@@ -15,10 +16,15 @@ import {
   InternalServiceAccountUpdateEmptyError,
   isServiceAccountNameUniqueViolation,
 } from '@/modules/admin/errors';
-import { InternalRepository } from '@/modules/admin/repository';
+import {
+  AdminAuditRepository,
+  InternalRepository,
+} from '@/modules/admin/repository';
 import { InternalTokenService } from '@/modules/admin/services';
 import {
+  AdminAuditContext,
   CreatedInternalApiToken,
+  CreateAdminAuditEventParams,
   CreateInternalApiTokenParams,
   CreateInternalApiTokenForServiceNameParams,
   CreateInternalServiceAccountParams,
@@ -36,17 +42,40 @@ import {
 export class InternalUseCase {
   constructor(
     private readonly repo: InternalRepository,
+    private readonly auditRepo: AdminAuditRepository,
     private readonly tokenService: InternalTokenService,
     private readonly uow: UnitOfWork,
   ) {}
 
   async createServiceAccount(
     params: CreateInternalServiceAccountParams,
+    auditContext: AdminAuditContext,
   ): Promise<InternalServiceAccountRow> {
+    const name = this.normalizeRequiredText(params.name);
+    const description = this.normalizeOptionalText(params.description);
+
     try {
-      return await this.repo.createServiceAccount({
-        name: this.normalizeRequiredText(params.name),
-        description: this.normalizeOptionalText(params.description),
+      return await this.uow.run(async (manager) => {
+        const serviceAccount = await this.repo.createServiceAccount(
+          {
+            name,
+            description,
+          },
+          manager,
+        );
+
+        await this.recordAdminAuditEvent(
+          auditContext,
+          {
+            action: 'service_account.create',
+            targetType: 'service_account',
+            targetId: serviceAccount.serviceAccountId,
+            targetName: serviceAccount.name,
+          },
+          manager,
+        );
+
+        return serviceAccount;
       });
     } catch (error) {
       if (isServiceAccountNameUniqueViolation(error)) {
@@ -63,6 +92,7 @@ export class InternalUseCase {
 
   async updateServiceAccount(
     params: UpdateInternalServiceAccountParams,
+    auditContext: AdminAuditContext,
   ): Promise<InternalServiceAccountRow> {
     const name =
       params.name === undefined
@@ -78,17 +108,33 @@ export class InternalUseCase {
     }
 
     try {
-      const serviceAccount = await this.repo.updateServiceAccount({
-        serviceAccountId: params.serviceAccountId,
-        name,
-        description,
-        updateDescription,
-      });
-      if (!serviceAccount) {
-        throw new InternalServiceAccountNotFoundError();
-      }
+      return await this.uow.run(async (manager) => {
+        const serviceAccount = await this.repo.updateServiceAccount(
+          {
+            serviceAccountId: params.serviceAccountId,
+            name,
+            description,
+            updateDescription,
+          },
+          manager,
+        );
+        if (!serviceAccount) {
+          throw new InternalServiceAccountNotFoundError();
+        }
 
-      return serviceAccount;
+        await this.recordAdminAuditEvent(
+          auditContext,
+          {
+            action: 'service_account.update',
+            targetType: 'service_account',
+            targetId: serviceAccount.serviceAccountId,
+            targetName: serviceAccount.name,
+          },
+          manager,
+        );
+
+        return serviceAccount;
+      });
     } catch (error) {
       if (isServiceAccountNameUniqueViolation(error)) {
         throw new InternalServiceAccountAlreadyExistsError();
@@ -100,18 +146,29 @@ export class InternalUseCase {
 
   async activateServiceAccount(
     serviceAccountId: string,
+    auditContext: AdminAuditContext,
   ): Promise<InternalServiceAccountRow> {
-    return this.updateServiceAccountActiveStatus(serviceAccountId, true);
+    return this.updateServiceAccountActiveStatus(
+      serviceAccountId,
+      true,
+      auditContext,
+    );
   }
 
   async deactivateServiceAccount(
     serviceAccountId: string,
+    auditContext: AdminAuditContext,
   ): Promise<InternalServiceAccountRow> {
-    return this.updateServiceAccountActiveStatus(serviceAccountId, false);
+    return this.updateServiceAccountActiveStatus(
+      serviceAccountId,
+      false,
+      auditContext,
+    );
   }
 
   async createServiceApiToken(
     params: CreateInternalApiTokenParams,
+    auditContext: AdminAuditContext,
   ): Promise<CreatedInternalApiToken> {
     const name = this.normalizeRequiredText(params.name);
     const scopes = this.normalizeScopes(params.scopes);
@@ -146,6 +203,17 @@ export class InternalUseCase {
         manager,
       );
 
+      await this.recordAdminAuditEvent(
+        auditContext,
+        {
+          action: 'service_api_token.create',
+          targetType: 'service_api_token',
+          targetId: apiToken.apiTokenId,
+          targetName: apiToken.name,
+        },
+        manager,
+      );
+
       return {
         token: generated.token,
         apiToken,
@@ -155,6 +223,7 @@ export class InternalUseCase {
 
   async createServiceApiTokenForServiceName(
     params: CreateInternalApiTokenForServiceNameParams,
+    auditContext: AdminAuditContext,
   ): Promise<CreatedInternalApiToken> {
     const serviceName = this.normalizeRequiredText(params.serviceName);
     const tokenName = this.normalizeRequiredText(params.tokenName);
@@ -168,18 +237,37 @@ export class InternalUseCase {
     }
 
     return this.uow.run(async (manager) => {
-      const serviceAccount =
-        (await this.repo.findServiceAccountByName(serviceName, manager)) ??
-        (await this.repo.createServiceAccount(
+      let serviceAccount = await this.repo.findServiceAccountByName(
+        serviceName,
+        manager,
+      );
+      const serviceAccountCreated = serviceAccount === null;
+
+      if (!serviceAccount) {
+        serviceAccount = await this.repo.createServiceAccount(
           {
             name: serviceName,
             description: serviceDescription,
           },
           manager,
-        ));
+        );
+      }
 
       if (!serviceAccount.isActive) {
         throw new InternalServiceAccountInactiveError();
+      }
+
+      if (serviceAccountCreated) {
+        await this.recordAdminAuditEvent(
+          auditContext,
+          {
+            action: 'service_account.create',
+            targetType: 'service_account',
+            targetId: serviceAccount.serviceAccountId,
+            targetName: serviceAccount.name,
+          },
+          manager,
+        );
       }
 
       const generated = this.tokenService.generateToken();
@@ -191,6 +279,17 @@ export class InternalUseCase {
           expiresAt: params.expiresAt,
           tokenPrefix: generated.tokenPrefix,
           tokenHash: generated.tokenHash,
+        },
+        manager,
+      );
+
+      await this.recordAdminAuditEvent(
+        auditContext,
+        {
+          action: 'service_api_token.create',
+          targetType: 'service_api_token',
+          targetId: apiToken.apiTokenId,
+          targetName: apiToken.name,
         },
         manager,
       );
@@ -216,6 +315,7 @@ export class InternalUseCase {
 
   async updateServiceApiToken(
     params: UpdateInternalApiTokenParams,
+    auditContext: AdminAuditContext,
   ): Promise<InternalApiTokenRow> {
     const name =
       params.name === undefined
@@ -235,30 +335,60 @@ export class InternalUseCase {
       throw new InternalApiTokenExpiresAtInvalidError();
     }
 
-    const token = await this.repo.updateServiceApiToken({
-      apiTokenId: params.apiTokenId,
-      name,
-      scopes,
-      expiresAt,
-      updateScopes,
-      updateExpiresAt,
-    });
-    if (!token) {
-      throw new InternalApiTokenNotFoundError();
-    }
+    return this.uow.run(async (manager) => {
+      const token = await this.repo.updateServiceApiToken(
+        {
+          apiTokenId: params.apiTokenId,
+          name,
+          scopes,
+          expiresAt,
+          updateScopes,
+          updateExpiresAt,
+        },
+        manager,
+      );
+      if (!token) {
+        throw new InternalApiTokenNotFoundError();
+      }
 
-    return token;
+      await this.recordAdminAuditEvent(
+        auditContext,
+        {
+          action: 'service_api_token.update',
+          targetType: 'service_api_token',
+          targetId: token.apiTokenId,
+          targetName: token.name,
+        },
+        manager,
+      );
+
+      return token;
+    });
   }
 
   async revokeServiceApiToken(
     apiTokenId: string,
+    auditContext: AdminAuditContext,
   ): Promise<InternalApiTokenRow> {
-    const token = await this.repo.revokeServiceApiToken(apiTokenId);
-    if (!token) {
-      throw new InternalApiTokenNotFoundError();
-    }
+    return this.uow.run(async (manager) => {
+      const token = await this.repo.revokeServiceApiToken(apiTokenId, manager);
+      if (!token) {
+        throw new InternalApiTokenNotFoundError();
+      }
 
-    return token;
+      await this.recordAdminAuditEvent(
+        auditContext,
+        {
+          action: 'service_api_token.revoke',
+          targetType: 'service_api_token',
+          targetId: token.apiTokenId,
+          targetName: token.name,
+        },
+        manager,
+      );
+
+      return token;
+    });
   }
 
   async validateServiceApiToken(
@@ -331,15 +461,49 @@ export class InternalUseCase {
   private async updateServiceAccountActiveStatus(
     serviceAccountId: string,
     isActive: boolean,
+    auditContext: AdminAuditContext,
   ): Promise<InternalServiceAccountRow> {
-    const serviceAccount = await this.repo.updateServiceAccountActiveStatus(
-      serviceAccountId,
-      isActive,
-    );
-    if (!serviceAccount) {
-      throw new InternalServiceAccountNotFoundError();
-    }
+    return this.uow.run(async (manager) => {
+      const serviceAccount = await this.repo.updateServiceAccountActiveStatus(
+        serviceAccountId,
+        isActive,
+        manager,
+      );
+      if (!serviceAccount) {
+        throw new InternalServiceAccountNotFoundError();
+      }
 
-    return serviceAccount;
+      await this.recordAdminAuditEvent(
+        auditContext,
+        {
+          action: isActive
+            ? 'service_account.activate'
+            : 'service_account.deactivate',
+          targetType: 'service_account',
+          targetId: serviceAccount.serviceAccountId,
+          targetName: serviceAccount.name,
+        },
+        manager,
+      );
+
+      return serviceAccount;
+    });
+  }
+
+  private async recordAdminAuditEvent(
+    auditContext: AdminAuditContext,
+    event: Omit<CreateAdminAuditEventParams, keyof AdminAuditContext>,
+    manager: EntityManager,
+  ): Promise<void> {
+    await this.auditRepo.createAuditEvent(
+      {
+        ...auditContext,
+        actorId: this.normalizeOptionalText(auditContext.actorId),
+        requestId: this.normalizeOptionalText(auditContext.requestId),
+        reason: this.normalizeOptionalText(auditContext.reason),
+        ...event,
+      },
+      manager,
+    );
   }
 }
