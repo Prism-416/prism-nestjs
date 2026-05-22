@@ -34,6 +34,23 @@ export class CreateServiceAccountDto {
   description?: string;
 }
 
+export class UpdateServiceAccountDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name?: string;
+
+  @ApiPropertyOptional({ nullable: true })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  description?: string | null;
+}
+
 export class CreateServiceApiTokenDto {
   @ApiProperty()
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))

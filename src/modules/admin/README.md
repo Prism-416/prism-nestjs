@@ -9,6 +9,7 @@ Token issuance endpoints:
 
 - `GET /admin/service-accounts`
 - `POST /admin/service-accounts`
+- `PATCH /admin/service-accounts/:serviceAccountId`
 - `POST /admin/service-accounts/:serviceAccountId/activate`
 - `POST /admin/service-accounts/:serviceAccountId/deactivate`
 - `GET /admin/service-accounts/:serviceAccountId/api-tokens`
