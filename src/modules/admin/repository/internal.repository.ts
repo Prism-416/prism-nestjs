@@ -7,8 +7,9 @@ import {
   InternalApiTokenRow,
   InternalApiTokenWithServiceRow,
   InternalServiceAccountRow,
-  PersistInternalServiceAccountUpdateParams,
   PersistInternalApiTokenParams,
+  PersistInternalApiTokenUpdateParams,
+  PersistInternalServiceAccountUpdateParams,
 } from '@/modules/admin/types';
 
 @Injectable()
@@ -267,6 +268,44 @@ export class InternalRepository {
       `,
       [serviceAccountId],
     );
+  }
+
+  async updateServiceApiToken(
+    params: PersistInternalApiTokenUpdateParams,
+    manager?: EntityManager,
+  ): Promise<InternalApiTokenRow | null> {
+    const tokens = await this.getManager(manager).query<InternalApiTokenRow[]>(
+      `
+        UPDATE prism_service_api_tokens_l
+        SET name = COALESCE($2, name),
+            scopes = CASE WHEN $3 THEN $4 ELSE scopes END,
+            expires_at = CASE WHEN $5 THEN $6 ELSE expires_at END,
+            updated_at = NOW()
+        WHERE api_token_id = $1
+        RETURNING
+          api_token_id AS "apiTokenId",
+          service_account_id AS "serviceAccountId",
+          name,
+          token_prefix AS "tokenPrefix",
+          token_hash AS "tokenHash",
+          scopes,
+          expires_at AS "expiresAt",
+          last_used_at AS "lastUsedAt",
+          revoked_at AS "revokedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [
+        params.apiTokenId,
+        params.name,
+        params.updateScopes,
+        params.scopes,
+        params.updateExpiresAt,
+        params.expiresAt,
+      ],
+    );
+
+    return tokens[0] ?? null;
   }
 
   async revokeServiceApiToken(

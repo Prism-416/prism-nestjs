@@ -15,6 +15,7 @@ Token issuance endpoints:
 - `GET /admin/service-accounts/:serviceAccountId/api-tokens`
 - `POST /admin/service-accounts/:serviceAccountId/api-tokens`
 - `POST /admin/service-api-tokens`
+- `PATCH /admin/service-api-tokens/:apiTokenId`
 - `POST /admin/service-api-tokens/:apiTokenId/revoke`
 
 The issue-token endpoints return the raw token once. Store it in the calling
