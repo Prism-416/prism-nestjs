@@ -78,6 +78,22 @@ export type CreateInternalApiTokenParams = {
   expiresAt: Date;
 };
 
+export type UpdateInternalApiTokenParams = {
+  apiTokenId: string;
+  name?: string;
+  scopes?: InternalScope[];
+  expiresAt?: Date;
+};
+
+export type PersistInternalApiTokenUpdateParams = {
+  apiTokenId: string;
+  name: string | null;
+  scopes: InternalScope[] | null;
+  expiresAt: Date | null;
+  updateScopes: boolean;
+  updateExpiresAt: boolean;
+};
+
 export type CreateInternalApiTokenForServiceNameParams = {
   serviceName: string;
   serviceDescription?: string | null;

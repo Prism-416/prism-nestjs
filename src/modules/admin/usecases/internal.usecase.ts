@@ -6,6 +6,7 @@ import {
   InternalApiTokenInvalidError,
   InternalApiTokenNotFoundError,
   InternalApiTokenRevokedError,
+  InternalApiTokenUpdateEmptyError,
   InternalNameInvalidError,
   InternalScopeInvalidError,
   InternalServiceAccountAlreadyExistsError,
@@ -27,6 +28,7 @@ import {
   InternalScope,
   InternalServiceAccountRow,
   InternalServicePrincipal,
+  UpdateInternalApiTokenParams,
   UpdateInternalServiceAccountParams,
 } from '@/modules/admin/types';
 
@@ -210,6 +212,42 @@ export class InternalUseCase {
     }
 
     return this.repo.listServiceApiTokensForServiceAccount(serviceAccountId);
+  }
+
+  async updateServiceApiToken(
+    params: UpdateInternalApiTokenParams,
+  ): Promise<InternalApiTokenRow> {
+    const name =
+      params.name === undefined
+        ? null
+        : this.normalizeRequiredText(params.name);
+    const updateScopes = params.scopes !== undefined;
+    const scopes =
+      params.scopes === undefined ? null : this.normalizeScopes(params.scopes);
+    const updateExpiresAt = params.expiresAt !== undefined;
+    const expiresAt = params.expiresAt ?? null;
+
+    if (name === null && !updateScopes && !updateExpiresAt) {
+      throw new InternalApiTokenUpdateEmptyError();
+    }
+
+    if (expiresAt && expiresAt <= new Date()) {
+      throw new InternalApiTokenExpiresAtInvalidError();
+    }
+
+    const token = await this.repo.updateServiceApiToken({
+      apiTokenId: params.apiTokenId,
+      name,
+      scopes,
+      expiresAt,
+      updateScopes,
+      updateExpiresAt,
+    });
+    if (!token) {
+      throw new InternalApiTokenNotFoundError();
+    }
+
+    return token;
   }
 
   async revokeServiceApiToken(

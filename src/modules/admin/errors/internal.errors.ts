@@ -67,6 +67,16 @@ export class InternalApiTokenExpiresAtInvalidError extends DomainError {
   }
 }
 
+export class InternalApiTokenUpdateEmptyError extends DomainError {
+  constructor() {
+    super(
+      'Internal API token update requires at least one field.',
+      'INTERNAL_API_TOKEN_UPDATE_EMPTY',
+      400,
+    );
+  }
+}
+
 export class InternalNameInvalidError extends DomainError {
   constructor() {
     super('Internal resource name is invalid.', 'INTERNAL_NAME_INVALID', 400);

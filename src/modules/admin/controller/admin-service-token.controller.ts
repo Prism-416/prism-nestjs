@@ -18,6 +18,7 @@ import {
   IssueServiceApiTokenResponseDto,
   ServiceAccountResponseDto,
   ServiceApiTokenResponseDto,
+  UpdateServiceApiTokenDto,
   UpdateServiceAccountDto,
 } from '@/modules/admin/dto';
 import {
@@ -140,6 +141,24 @@ export class AdminServiceTokenController {
     });
 
     return this.toIssueServiceApiTokenResponse(created);
+  }
+
+  @Patch('service-api-tokens/:apiTokenId')
+  @AdminAuthenticated()
+  @ApiOperation({ summary: 'Update a service API token' })
+  @ApiDataResponse(ServiceApiTokenResponseDto)
+  async updateServiceApiToken(
+    @Param('apiTokenId') apiTokenId: string,
+    @Body() dto: UpdateServiceApiTokenDto,
+  ): Promise<ServiceApiTokenResponseDto> {
+    const token = await this.usecase.updateServiceApiToken({
+      apiTokenId,
+      name: dto.name,
+      scopes: dto.scopes,
+      expiresAt: dto.expiresAt,
+    });
+
+    return this.toServiceApiTokenResponse(token);
   }
 
   @Post('service-api-tokens/:apiTokenId/revoke')

@@ -74,6 +74,32 @@ export class CreateServiceApiTokenDto {
   expiresAt!: Date;
 }
 
+export class UpdateServiceApiTokenDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name?: string;
+
+  @ApiPropertyOptional({ enum: INTERNAL_SCOPES, isArray: true })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(INTERNAL_SCOPES.length)
+  @ArrayUnique()
+  @IsString({ each: true })
+  @IsIn(INTERNAL_SCOPES, { each: true })
+  scopes?: InternalScope[];
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
+  @Type(() => Date)
+  @IsDate()
+  expiresAt?: Date;
+}
+
 export class IssueServiceApiTokenDto {
   @ApiProperty()
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
