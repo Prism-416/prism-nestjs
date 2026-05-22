@@ -1,11 +1,139 @@
 # Admin Service Tokens
 
-Admin users issue internal service API tokens through the admin HTTP API.
+Admin users issue and manage API tokens for backend-to-backend requests. The
+routes in this module are mounted under `/admin` when `DB_ENABLED=true`.
+
+## Admin Authentication
 
 Configure `ADMIN_PASSWORD` and pass it in the `x-admin-password` header when
-calling admin routes. If it is empty, admin routes reject all callers.
+calling admin routes. The guard trims both values and compares SHA-256 digests
+with `timingSafeEqual`. If `ADMIN_PASSWORD` is empty, admin routes reject all
+callers.
 
-Token issuance endpoints:
+```bash
+curl -sS "$API_BASE_URL/admin/service-accounts" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+## Service Token Authentication
+
+Internal services can pass tokens through either header:
+
+- `Authorization: Bearer <token>`
+- `x-internal-api-token: <token>`
+
+Use `@RequireInternalScopes(...)` on internal endpoints. The guard validates the
+token, rejects inactive service accounts, revoked tokens, expired tokens, and
+requests missing any required scope.
+
+```ts
+@Post('internal/claim')
+@RequireInternalScopes('embeddings:write')
+claimJobs() {
+  // ...
+}
+```
+
+## Token Issuance
+
+Use this endpoint when the service account already exists:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-accounts/$SERVICE_ACCOUNT_ID/api-tokens" \
+  -X POST \
+  -H "content-type: application/json" \
+  -H "x-admin-password: $ADMIN_PASSWORD" \
+  -d '{
+    "name": "embedding-worker-prod",
+    "scopes": ["embeddings:write"],
+    "expiresAt": "2026-12-31T00:00:00.000Z"
+  }'
+```
+
+Use this endpoint to create-or-find a service account by name and issue a token
+in one request:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-api-tokens" \
+  -X POST \
+  -H "content-type: application/json" \
+  -H "x-admin-password: $ADMIN_PASSWORD" \
+  -d '{
+    "serviceName": "embedding-worker",
+    "serviceDescription": "Consumes queued embedding jobs",
+    "tokenName": "prod",
+    "scopes": ["embeddings:write"],
+    "expiresAt": "2026-12-31T00:00:00.000Z"
+  }'
+```
+
+Issue-token responses include the raw token once. Persist it in the calling
+service secret store. Listing, update, and revoke endpoints return token
+metadata only and never return `tokenHash`.
+
+## Token Operations
+
+List service accounts:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-accounts" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+Update service account metadata:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-accounts/$SERVICE_ACCOUNT_ID" \
+  -X PATCH \
+  -H "content-type: application/json" \
+  -H "x-admin-password: $ADMIN_PASSWORD" \
+  -d '{
+    "description": "Consumes queued embedding jobs"
+  }'
+```
+
+Deactivate or reactivate a service account:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-accounts/$SERVICE_ACCOUNT_ID/deactivate" \
+  -X POST \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+
+curl -sS "$API_BASE_URL/admin/service-accounts/$SERVICE_ACCOUNT_ID/activate" \
+  -X POST \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+List tokens for a service account:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-accounts/$SERVICE_ACCOUNT_ID/api-tokens" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+Update token metadata, scopes, or expiration:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-api-tokens/$API_TOKEN_ID" \
+  -X PATCH \
+  -H "content-type: application/json" \
+  -H "x-admin-password: $ADMIN_PASSWORD" \
+  -d '{
+    "name": "prod-rotation-2026",
+    "scopes": ["embeddings:write"],
+    "expiresAt": "2027-01-31T00:00:00.000Z"
+  }'
+```
+
+Revoke a token:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-api-tokens/$API_TOKEN_ID/revoke" \
+  -X POST \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+## Endpoint Reference
 
 - `GET /admin/service-accounts`
 - `POST /admin/service-accounts`
@@ -18,10 +146,7 @@ Token issuance endpoints:
 - `PATCH /admin/service-api-tokens/:apiTokenId`
 - `POST /admin/service-api-tokens/:apiTokenId/revoke`
 
-The issue-token endpoints return the raw token once. Store it in the calling
-service secret store. Listing and revoke endpoints return token metadata only.
-
-Supported scopes:
+## Supported Scopes
 
 - `agents:invoke`
 - `documents:read`
