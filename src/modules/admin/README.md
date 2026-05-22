@@ -115,6 +115,17 @@ curl -sS "$API_BASE_URL/admin/service-accounts/$SERVICE_ACCOUNT_ID/api-tokens" \
   -H "x-admin-password: $ADMIN_PASSWORD"
 ```
 
+Search service tokens globally without exposing raw tokens or token hashes:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-api-tokens?status=active&expiresBefore=2026-12-31T00:00:00.000Z" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+The global token inventory returns service-account metadata, token prefixes,
+scopes, expiration, last-use timestamps, revocation timestamps, and computed
+token status. It does not expose user workspace data or token secrets.
+
 Update token metadata, scopes, or expiration:
 
 ```bash
@@ -170,6 +181,7 @@ curl -sS "$API_BASE_URL/admin/audit-events?targetType=service_account&targetId=$
 - `POST /admin/service-accounts/:serviceAccountId/deactivate`
 - `GET /admin/service-accounts/:serviceAccountId/api-tokens`
 - `POST /admin/service-accounts/:serviceAccountId/api-tokens`
+- `GET /admin/service-api-tokens`
 - `POST /admin/service-api-tokens`
 - `PATCH /admin/service-api-tokens/:apiTokenId`
 - `POST /admin/service-api-tokens/:apiTokenId/revoke`
