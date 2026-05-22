@@ -137,6 +137,37 @@ CREATE INDEX IF NOT EXISTS idx_service_api_tokens_active
 CREATE INDEX IF NOT EXISTS idx_service_api_tokens_last_used_at
     ON prism_service_api_tokens_l (last_used_at);
 
+CREATE TABLE IF NOT EXISTS prism_admin_audit_events_l
+(
+    audit_event_id UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
+    actor_type     VARCHAR(40) NOT NULL,
+    actor_id       VARCHAR(120),
+    action         VARCHAR(80) NOT NULL,
+    target_type    VARCHAR(80) NOT NULL,
+    target_id      VARCHAR(120),
+    target_name    VARCHAR(160),
+    request_id     VARCHAR(64),
+    reason         VARCHAR(500),
+    created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT ck_admin_audit_actor_type_not_blank CHECK (LENGTH(TRIM(actor_type)) > 0),
+    CONSTRAINT ck_admin_audit_action_not_blank CHECK (LENGTH(TRIM(action)) > 0),
+    CONSTRAINT ck_admin_audit_target_type_not_blank CHECK (LENGTH(TRIM(target_type)) > 0),
+    CONSTRAINT ck_admin_audit_actor_id_not_blank CHECK (actor_id IS NULL OR LENGTH(TRIM(actor_id)) > 0),
+    CONSTRAINT ck_admin_audit_target_id_not_blank CHECK (target_id IS NULL OR LENGTH(TRIM(target_id)) > 0),
+    CONSTRAINT ck_admin_audit_target_name_not_blank CHECK (target_name IS NULL OR LENGTH(TRIM(target_name)) > 0),
+    CONSTRAINT ck_admin_audit_request_id_not_blank CHECK (request_id IS NULL OR LENGTH(TRIM(request_id)) > 0),
+    CONSTRAINT ck_admin_audit_reason_not_blank CHECK (reason IS NULL OR LENGTH(TRIM(reason)) > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_events_created_at
+    ON prism_admin_audit_events_l (created_at DESC, audit_event_id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_events_action
+    ON prism_admin_audit_events_l (action);
+
+CREATE INDEX IF NOT EXISTS idx_admin_audit_events_target
+    ON prism_admin_audit_events_l (target_type, target_id);
+
 CREATE TABLE IF NOT EXISTS prism_workspaces_l
 (
     workspace_id UUID PRIMARY KEY     DEFAULT gen_random_uuid(),
