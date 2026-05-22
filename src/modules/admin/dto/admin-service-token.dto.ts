@@ -6,13 +6,24 @@ import {
   ArrayUnique,
   IsArray,
   IsDate,
+  IsInt,
   IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
+  Max,
   MaxLength,
+  Min,
 } from 'class-validator';
-import { INTERNAL_SCOPES, InternalScope } from '@/modules/admin/types';
+import {
+  INTERNAL_API_TOKEN_INVENTORY_STATUSES,
+  INTERNAL_SCOPES,
+} from '@/modules/admin/types';
+import type {
+  InternalApiTokenInventoryStatus,
+  InternalScope,
+} from '@/modules/admin/types';
 import {
   normalizeOptionalTrimmedString,
   normalizeTrimmedString,
@@ -98,6 +109,55 @@ export class UpdateServiceApiTokenDto {
   @Type(() => Date)
   @IsDate()
   expiresAt?: Date;
+}
+
+export class SearchServiceApiTokensQueryDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  serviceAccountId?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  serviceName?: string;
+
+  @ApiPropertyOptional({ enum: INTERNAL_API_TOKEN_INVENTORY_STATUSES })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsIn(INTERNAL_API_TOKEN_INVENTORY_STATUSES)
+  status?: InternalApiTokenInventoryStatus;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @Type(() => Date)
+  @IsOptional()
+  @IsDate()
+  expiresBefore?: Date;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @Type(() => Date)
+  @IsOptional()
+  @IsDate()
+  lastUsedBefore?: Date;
+
+  @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+
+  @ApiPropertyOptional({ default: 0, minimum: 0 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  offset?: number;
 }
 
 export class IssueServiceApiTokenDto {
@@ -195,4 +255,29 @@ export class IssueServiceApiTokenResponseDto {
 
   @ApiProperty({ type: ServiceApiTokenResponseDto })
   apiToken!: ServiceApiTokenResponseDto;
+}
+
+export class ServiceApiTokenInventoryResponseDto extends ServiceApiTokenResponseDto {
+  @ApiProperty()
+  serviceAccountName!: string;
+
+  @ApiProperty()
+  serviceAccountActive!: boolean;
+
+  @ApiProperty({ enum: INTERNAL_API_TOKEN_INVENTORY_STATUSES })
+  status!: InternalApiTokenInventoryStatus;
+}
+
+export class SearchServiceApiTokensResponseDto {
+  @ApiProperty({ type: [ServiceApiTokenInventoryResponseDto] })
+  items!: ServiceApiTokenInventoryResponseDto[];
+
+  @ApiProperty()
+  total!: number;
+
+  @ApiProperty()
+  limit!: number;
+
+  @ApiProperty()
+  offset!: number;
 }

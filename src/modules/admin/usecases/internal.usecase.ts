@@ -34,6 +34,8 @@ import {
   InternalScope,
   InternalServiceAccountRow,
   InternalServicePrincipal,
+  SearchInternalApiTokensParams,
+  SearchInternalApiTokensResult,
   UpdateInternalApiTokenParams,
   UpdateInternalServiceAccountParams,
 } from '@/modules/admin/types';
@@ -311,6 +313,21 @@ export class InternalUseCase {
     }
 
     return this.repo.listServiceApiTokensForServiceAccount(serviceAccountId);
+  }
+
+  searchServiceApiTokens(
+    params: Partial<SearchInternalApiTokensParams>,
+  ): Promise<SearchInternalApiTokensResult> {
+    return this.repo.searchServiceApiTokens({
+      serviceAccountId:
+        this.normalizeOptionalText(params.serviceAccountId) ?? undefined,
+      serviceName: this.normalizeOptionalText(params.serviceName) ?? undefined,
+      status: params.status,
+      expiresBefore: params.expiresBefore,
+      lastUsedBefore: params.lastUsedBefore,
+      limit: params.limit ?? 50,
+      offset: params.offset ?? 0,
+    });
   }
 
   async updateServiceApiToken(

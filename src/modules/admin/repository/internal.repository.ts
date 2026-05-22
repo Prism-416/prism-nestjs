@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   CreateInternalServiceAccountParams,
+  InternalApiTokenInventoryRow,
   InternalApiTokenMetadataRow,
   InternalApiTokenRow,
   InternalApiTokenWithServiceRow,
@@ -10,7 +11,13 @@ import {
   PersistInternalApiTokenParams,
   PersistInternalApiTokenUpdateParams,
   PersistInternalServiceAccountUpdateParams,
+  SearchInternalApiTokensParams,
+  SearchInternalApiTokensResult,
 } from '@/modules/admin/types';
+
+type CountRow = {
+  total: string | number;
+};
 
 @Injectable()
 export class InternalRepository {
@@ -268,6 +275,86 @@ export class InternalRepository {
       `,
       [serviceAccountId],
     );
+  }
+
+  async searchServiceApiTokens(
+    params: SearchInternalApiTokensParams,
+    manager?: EntityManager,
+  ): Promise<SearchInternalApiTokensResult> {
+    const queryParams = [
+      params.serviceAccountId ?? null,
+      params.serviceName ?? null,
+      params.status ?? null,
+      params.expiresBefore ?? null,
+      params.lastUsedBefore ?? null,
+    ];
+    const [items, counts] = await Promise.all([
+      this.getManager(manager).query<InternalApiTokenInventoryRow[]>(
+        `
+          SELECT
+            t.api_token_id AS "apiTokenId",
+            t.service_account_id AS "serviceAccountId",
+            t.name,
+            t.token_prefix AS "tokenPrefix",
+            t.scopes,
+            t.expires_at AS "expiresAt",
+            t.last_used_at AS "lastUsedAt",
+            t.revoked_at AS "revokedAt",
+            t.created_at AS "createdAt",
+            t.updated_at AS "updatedAt",
+            s.name AS "serviceAccountName",
+            s.is_active AS "serviceAccountActive",
+            CASE
+              WHEN t.revoked_at IS NOT NULL THEN 'revoked'
+              WHEN t.expires_at <= NOW() THEN 'expired'
+              ELSE 'active'
+            END AS status
+          FROM prism_service_api_tokens_l t
+                 INNER JOIN prism_service_accounts_m s
+                            ON s.service_account_id = t.service_account_id
+          WHERE ($1::UUID IS NULL OR t.service_account_id = $1)
+            AND ($2::TEXT IS NULL OR s.name ILIKE '%' || $2 || '%')
+            AND (
+              $3::TEXT IS NULL
+              OR ($3 = 'active' AND t.revoked_at IS NULL AND t.expires_at > NOW())
+              OR ($3 = 'expired' AND t.revoked_at IS NULL AND t.expires_at <= NOW())
+              OR ($3 = 'revoked' AND t.revoked_at IS NOT NULL)
+            )
+            AND ($4::TIMESTAMPTZ IS NULL OR t.expires_at <= $4)
+            AND ($5::TIMESTAMPTZ IS NULL OR t.last_used_at < $5)
+          ORDER BY t.expires_at ASC, t.created_at DESC, t.api_token_id DESC
+          LIMIT $6
+          OFFSET $7
+        `,
+        [...queryParams, params.limit, params.offset],
+      ),
+      this.getManager(manager).query<CountRow[]>(
+        `
+          SELECT COUNT(*) AS total
+          FROM prism_service_api_tokens_l t
+                 INNER JOIN prism_service_accounts_m s
+                            ON s.service_account_id = t.service_account_id
+          WHERE ($1::UUID IS NULL OR t.service_account_id = $1)
+            AND ($2::TEXT IS NULL OR s.name ILIKE '%' || $2 || '%')
+            AND (
+              $3::TEXT IS NULL
+              OR ($3 = 'active' AND t.revoked_at IS NULL AND t.expires_at > NOW())
+              OR ($3 = 'expired' AND t.revoked_at IS NULL AND t.expires_at <= NOW())
+              OR ($3 = 'revoked' AND t.revoked_at IS NOT NULL)
+            )
+            AND ($4::TIMESTAMPTZ IS NULL OR t.expires_at <= $4)
+            AND ($5::TIMESTAMPTZ IS NULL OR t.last_used_at < $5)
+        `,
+        queryParams,
+      ),
+    ]);
+
+    return {
+      items,
+      total: Number(counts[0]?.total ?? 0),
+      limit: params.limit,
+      offset: params.offset,
+    };
   }
 
   async updateServiceApiToken(

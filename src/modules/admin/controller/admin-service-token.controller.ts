@@ -8,6 +8,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -19,6 +20,8 @@ import {
   CreateServiceApiTokenDto,
   IssueServiceApiTokenDto,
   IssueServiceApiTokenResponseDto,
+  SearchServiceApiTokensQueryDto,
+  SearchServiceApiTokensResponseDto,
   ServiceAccountResponseDto,
   ServiceApiTokenResponseDto,
   UpdateServiceApiTokenDto,
@@ -121,6 +124,16 @@ export class AdminServiceTokenController {
       );
 
     return tokens.map((token) => this.toServiceApiTokenResponse(token));
+  }
+
+  @Get('service-api-tokens')
+  @AdminAuthenticated()
+  @ApiOperation({ summary: 'Search service API tokens' })
+  @ApiDataResponse(SearchServiceApiTokensResponseDto)
+  searchServiceApiTokens(
+    @Query() query: SearchServiceApiTokensQueryDto,
+  ): Promise<SearchServiceApiTokensResponseDto> {
+    return this.usecase.searchServiceApiTokens(query);
   }
 
   @Post('service-accounts/:serviceAccountId/api-tokens')

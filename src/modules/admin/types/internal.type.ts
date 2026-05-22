@@ -36,6 +36,21 @@ export type InternalApiTokenMetadataRow = Omit<
   'tokenHash'
 >;
 
+export const INTERNAL_API_TOKEN_INVENTORY_STATUSES = [
+  'active',
+  'expired',
+  'revoked',
+] as const;
+
+export type InternalApiTokenInventoryStatus =
+  (typeof INTERNAL_API_TOKEN_INVENTORY_STATUSES)[number];
+
+export type InternalApiTokenInventoryRow = InternalApiTokenMetadataRow & {
+  serviceAccountName: string;
+  serviceAccountActive: boolean;
+  status: InternalApiTokenInventoryStatus;
+};
+
 export type InternalApiTokenWithServiceRow = InternalApiTokenRow & {
   serviceName: string;
   serviceActive: boolean;
@@ -110,4 +125,21 @@ export type PersistInternalApiTokenParams = CreateInternalApiTokenParams & {
 export type CreatedInternalApiToken = {
   token: string;
   apiToken: InternalApiTokenRow;
+};
+
+export type SearchInternalApiTokensParams = {
+  serviceAccountId?: string;
+  serviceName?: string;
+  status?: InternalApiTokenInventoryStatus;
+  expiresBefore?: Date;
+  lastUsedBefore?: Date;
+  limit: number;
+  offset: number;
+};
+
+export type SearchInternalApiTokensResult = {
+  items: InternalApiTokenInventoryRow[];
+  total: number;
+  limit: number;
+  offset: number;
 };
