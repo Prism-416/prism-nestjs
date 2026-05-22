@@ -15,6 +15,10 @@ curl -sS "$API_BASE_URL/admin/service-accounts" \
   -H "x-admin-password: $ADMIN_PASSWORD"
 ```
 
+For mutating admin requests, optionally pass `x-admin-reason` with a concise
+operator reason. The reason is stored with the admin audit event and is limited
+to 500 characters.
+
 ## Service Token Authentication
 
 Internal services can pass tokens through either header:
@@ -133,8 +137,32 @@ curl -sS "$API_BASE_URL/admin/service-api-tokens/$API_TOKEN_ID/revoke" \
   -H "x-admin-password: $ADMIN_PASSWORD"
 ```
 
+## Admin Audit Events
+
+Successful service-account and service-token mutations write metadata-only audit
+events. Audit events intentionally avoid request payloads, customer workspace
+content, IP addresses, user agents, token hashes, and raw tokens.
+
+List recent audit events:
+
+```bash
+curl -sS "$API_BASE_URL/admin/audit-events?limit=50" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+Filter by action or target:
+
+```bash
+curl -sS "$API_BASE_URL/admin/audit-events?action=service_api_token.revoke" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+
+curl -sS "$API_BASE_URL/admin/audit-events?targetType=service_account&targetId=$SERVICE_ACCOUNT_ID" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
 ## Endpoint Reference
 
+- `GET /admin/audit-events`
 - `GET /admin/service-accounts`
 - `POST /admin/service-accounts`
 - `PATCH /admin/service-accounts/:serviceAccountId`
