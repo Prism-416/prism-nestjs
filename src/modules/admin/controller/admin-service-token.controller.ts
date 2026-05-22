@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -17,6 +18,7 @@ import {
   IssueServiceApiTokenResponseDto,
   ServiceAccountResponseDto,
   ServiceApiTokenResponseDto,
+  UpdateServiceAccountDto,
 } from '@/modules/admin/dto';
 import {
   CreatedInternalApiToken,
@@ -46,6 +48,21 @@ export class AdminServiceTokenController {
     @Body() dto: CreateServiceAccountDto,
   ): Promise<ServiceAccountResponseDto> {
     return this.usecase.createServiceAccount(dto);
+  }
+
+  @Patch('service-accounts/:serviceAccountId')
+  @AdminAuthenticated()
+  @ApiOperation({ summary: 'Update a service account' })
+  @ApiDataResponse(ServiceAccountResponseDto)
+  updateServiceAccount(
+    @Param('serviceAccountId') serviceAccountId: string,
+    @Body() dto: UpdateServiceAccountDto,
+  ): Promise<ServiceAccountResponseDto> {
+    return this.usecase.updateServiceAccount({
+      serviceAccountId,
+      name: dto.name,
+      description: dto.description,
+    });
   }
 
   @Post('service-accounts/:serviceAccountId/activate')

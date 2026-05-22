@@ -7,6 +7,7 @@ import {
   InternalApiTokenRow,
   InternalApiTokenWithServiceRow,
   InternalServiceAccountRow,
+  PersistInternalServiceAccountUpdateParams,
   PersistInternalApiTokenParams,
 } from '@/modules/admin/types';
 
@@ -131,6 +132,38 @@ export class InternalRepository {
           updated_at AS "updatedAt"
       `,
       [serviceAccountId, isActive],
+    );
+
+    return accounts[0] ?? null;
+  }
+
+  async updateServiceAccount(
+    params: PersistInternalServiceAccountUpdateParams,
+    manager?: EntityManager,
+  ): Promise<InternalServiceAccountRow | null> {
+    const accounts = await this.getManager(manager).query<
+      InternalServiceAccountRow[]
+    >(
+      `
+        UPDATE prism_service_accounts_m
+        SET name = COALESCE($2, name),
+            description = CASE WHEN $3 THEN $4 ELSE description END,
+            updated_at = NOW()
+        WHERE service_account_id = $1
+        RETURNING
+          service_account_id AS "serviceAccountId",
+          name,
+          description,
+          is_active AS "isActive",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [
+        params.serviceAccountId,
+        params.name,
+        params.updateDescription,
+        params.description,
+      ],
     );
 
     return accounts[0] ?? null;

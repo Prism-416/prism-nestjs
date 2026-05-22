@@ -11,6 +11,7 @@ import {
   InternalServiceAccountAlreadyExistsError,
   InternalServiceAccountInactiveError,
   InternalServiceAccountNotFoundError,
+  InternalServiceAccountUpdateEmptyError,
   isServiceAccountNameUniqueViolation,
 } from '@/modules/admin/errors';
 import { InternalRepository } from '@/modules/admin/repository';
@@ -26,6 +27,7 @@ import {
   InternalScope,
   InternalServiceAccountRow,
   InternalServicePrincipal,
+  UpdateInternalServiceAccountParams,
 } from '@/modules/admin/types';
 
 @Injectable()
@@ -55,6 +57,43 @@ export class InternalUseCase {
 
   listServiceAccounts(): Promise<InternalServiceAccountRow[]> {
     return this.repo.listServiceAccounts();
+  }
+
+  async updateServiceAccount(
+    params: UpdateInternalServiceAccountParams,
+  ): Promise<InternalServiceAccountRow> {
+    const name =
+      params.name === undefined
+        ? null
+        : this.normalizeRequiredText(params.name);
+    const updateDescription = params.description !== undefined;
+    const description = updateDescription
+      ? this.normalizeOptionalText(params.description)
+      : null;
+
+    if (name === null && !updateDescription) {
+      throw new InternalServiceAccountUpdateEmptyError();
+    }
+
+    try {
+      const serviceAccount = await this.repo.updateServiceAccount({
+        serviceAccountId: params.serviceAccountId,
+        name,
+        description,
+        updateDescription,
+      });
+      if (!serviceAccount) {
+        throw new InternalServiceAccountNotFoundError();
+      }
+
+      return serviceAccount;
+    } catch (error) {
+      if (isServiceAccountNameUniqueViolation(error)) {
+        throw new InternalServiceAccountAlreadyExistsError();
+      }
+
+      throw error;
+    }
   }
 
   async activateServiceAccount(

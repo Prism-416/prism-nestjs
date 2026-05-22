@@ -73,6 +73,16 @@ export class InternalNameInvalidError extends DomainError {
   }
 }
 
+export class InternalServiceAccountUpdateEmptyError extends DomainError {
+  constructor() {
+    super(
+      'Internal service account update requires at least one field.',
+      'INTERNAL_SERVICE_ACCOUNT_UPDATE_EMPTY',
+      400,
+    );
+  }
+}
+
 export class InternalScopeInvalidError extends DomainError {
   constructor() {
     super(

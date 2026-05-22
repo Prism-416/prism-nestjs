@@ -58,6 +58,19 @@ export type CreateInternalServiceAccountParams = {
   description?: string | null;
 };
 
+export type UpdateInternalServiceAccountParams = {
+  serviceAccountId: string;
+  name?: string;
+  description?: string | null;
+};
+
+export type PersistInternalServiceAccountUpdateParams = {
+  serviceAccountId: string;
+  name: string | null;
+  description: string | null;
+  updateDescription: boolean;
+};
+
 export type CreateInternalApiTokenParams = {
   serviceAccountId: string;
   name: string;
