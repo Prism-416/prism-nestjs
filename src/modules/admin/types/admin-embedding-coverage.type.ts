@@ -1,0 +1,26 @@
+export type AdminEmbeddingCoverageSummary = {
+  generatedAt: Date;
+  totalTargets: number;
+  embeddedTargets: number;
+  currentEmbeddings: number;
+  missingEmbeddings: number;
+  staleEmbeddings: number;
+  documentChunkTargets: number;
+  documentChunkCurrentEmbeddings: number;
+  documentChunkMissingEmbeddings: number;
+  documentChunkStaleEmbeddings: number;
+  workItemTargets: number;
+  workItemCurrentEmbeddings: number;
+  workItemMissingEmbeddings: number;
+  workItemStaleEmbeddings: number;
+  workItemCommentTargets: number;
+  workItemCommentCurrentEmbeddings: number;
+  workItemCommentMissingEmbeddings: number;
+  workItemCommentStaleEmbeddings: number;
+  agentMemoryTargets: number;
+  agentMemoryCurrentEmbeddings: number;
+  agentMemoryMissingEmbeddings: number;
+  agentMemoryStaleEmbeddings: number;
+  projectsWithMissingEmbeddings: number;
+  projectsWithStaleEmbeddings: number;
+};
