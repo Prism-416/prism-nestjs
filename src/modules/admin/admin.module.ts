@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import {
   AdminAuditController,
+  AdminEmbeddingJobController,
   AdminServiceTokenController,
 } from '@/modules/admin/controller';
 import {
@@ -9,14 +10,25 @@ import {
 } from '@/modules/admin/guards';
 import {
   AdminAuditRepository,
+  AdminEmbeddingJobRepository,
   InternalRepository,
 } from '@/modules/admin/repository';
 import { InternalTokenService } from '@/modules/admin/services';
-import { AdminAuditUseCase, InternalUseCase } from '@/modules/admin/usecases';
+import {
+  AdminAuditUseCase,
+  AdminEmbeddingJobUseCase,
+  InternalUseCase,
+} from '@/modules/admin/usecases';
 
 @Module({
-  controllers: [AdminAuditController, AdminServiceTokenController],
+  controllers: [
+    AdminAuditController,
+    AdminEmbeddingJobController,
+    AdminServiceTokenController,
+  ],
   providers: [
+    AdminEmbeddingJobRepository,
+    AdminEmbeddingJobUseCase,
     AdminAuditRepository,
     AdminAuditUseCase,
     InternalRepository,

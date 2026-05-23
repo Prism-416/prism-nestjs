@@ -1,2 +1,3 @@
 export * from './admin-audit.usecase';
+export * from './admin-embedding-job.usecase';
 export * from './internal.usecase';

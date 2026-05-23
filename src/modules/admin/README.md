@@ -170,6 +170,21 @@ curl -sS "$API_BASE_URL/admin/service-api-tokens/$API_TOKEN_ID/revoke" \
   -H "x-admin-password: $ADMIN_PASSWORD"
 ```
 
+## Embedding Job Operations
+
+Summarize embedding job health:
+
+```bash
+curl -sS "$API_BASE_URL/admin/embedding-jobs/health?staleQueuedAfterMinutes=60&staleRunningAfterMinutes=30" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+The embedding job health summary returns aggregate counts only, including
+queued, claimable, scheduled, stale queued, exhausted, running, stale running,
+completed, failed, cancelled, and pending-project counts. It does not expose job
+IDs, project IDs, target IDs, object names, error messages, content hashes, or
+document content.
+
 ## Admin Audit Events
 
 Successful service-account and service-token mutations write metadata-only audit
@@ -196,6 +211,7 @@ curl -sS "$API_BASE_URL/admin/audit-events?targetType=service_account&targetId=$
 ## Endpoint Reference
 
 - `GET /admin/audit-events`
+- `GET /admin/embedding-jobs/health`
 - `GET /admin/service-accounts`
 - `GET /admin/service-accounts/health`
 - `POST /admin/service-accounts`
