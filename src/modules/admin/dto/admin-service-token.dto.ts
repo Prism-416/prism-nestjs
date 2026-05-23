@@ -160,6 +160,24 @@ export class SearchServiceApiTokensQueryDto {
   offset?: number;
 }
 
+export class GetServiceApiTokenHealthQueryDto {
+  @ApiPropertyOptional({ default: 30, minimum: 1, maximum: 365 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  expiringWithinDays?: number;
+
+  @ApiPropertyOptional({ default: 90, minimum: 1, maximum: 3650 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(3650)
+  staleAfterDays?: number;
+}
+
 export class IssueServiceApiTokenDto {
   @ApiProperty()
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
@@ -280,4 +298,39 @@ export class SearchServiceApiTokensResponseDto {
 
   @ApiProperty()
   offset!: number;
+}
+
+export class ServiceApiTokenHealthSummaryResponseDto {
+  @ApiProperty()
+  generatedAt!: Date;
+
+  @ApiProperty()
+  expiringWithinDays!: number;
+
+  @ApiProperty()
+  staleAfterDays!: number;
+
+  @ApiProperty()
+  totalTokens!: number;
+
+  @ApiProperty()
+  activeTokens!: number;
+
+  @ApiProperty()
+  expiredTokens!: number;
+
+  @ApiProperty()
+  revokedTokens!: number;
+
+  @ApiProperty()
+  expiringSoonTokens!: number;
+
+  @ApiProperty()
+  neverUsedActiveTokens!: number;
+
+  @ApiProperty()
+  staleActiveTokens!: number;
+
+  @ApiProperty()
+  activeTokensOnInactiveAccounts!: number;
 }

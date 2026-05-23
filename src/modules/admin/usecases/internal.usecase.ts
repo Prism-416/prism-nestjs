@@ -28,6 +28,8 @@ import {
   CreateInternalApiTokenParams,
   CreateInternalApiTokenForServiceNameParams,
   CreateInternalServiceAccountParams,
+  InternalApiTokenHealthSummary,
+  InternalApiTokenHealthSummaryParams,
   InternalApiTokenMetadataRow,
   InternalApiTokenRow,
   INTERNAL_SCOPES,
@@ -327,6 +329,15 @@ export class InternalUseCase {
       lastUsedBefore: params.lastUsedBefore,
       limit: params.limit ?? 50,
       offset: params.offset ?? 0,
+    });
+  }
+
+  getServiceApiTokenHealthSummary(
+    params: Partial<InternalApiTokenHealthSummaryParams>,
+  ): Promise<InternalApiTokenHealthSummary> {
+    return this.repo.getServiceApiTokenHealthSummary({
+      expiringWithinDays: params.expiringWithinDays ?? 30,
+      staleAfterDays: params.staleAfterDays ?? 90,
     });
   }
 

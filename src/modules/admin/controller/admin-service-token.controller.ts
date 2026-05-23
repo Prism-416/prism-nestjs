@@ -18,11 +18,13 @@ import { AdminAuthenticated } from '@/modules/admin/decorators';
 import {
   CreateServiceAccountDto,
   CreateServiceApiTokenDto,
+  GetServiceApiTokenHealthQueryDto,
   IssueServiceApiTokenDto,
   IssueServiceApiTokenResponseDto,
   SearchServiceApiTokensQueryDto,
   SearchServiceApiTokensResponseDto,
   ServiceAccountResponseDto,
+  ServiceApiTokenHealthSummaryResponseDto,
   ServiceApiTokenResponseDto,
   UpdateServiceApiTokenDto,
   UpdateServiceAccountDto,
@@ -124,6 +126,16 @@ export class AdminServiceTokenController {
       );
 
     return tokens.map((token) => this.toServiceApiTokenResponse(token));
+  }
+
+  @Get('service-api-tokens/health')
+  @AdminAuthenticated()
+  @ApiOperation({ summary: 'Summarize service API token health' })
+  @ApiDataResponse(ServiceApiTokenHealthSummaryResponseDto)
+  getServiceApiTokenHealthSummary(
+    @Query() query: GetServiceApiTokenHealthQueryDto,
+  ): Promise<ServiceApiTokenHealthSummaryResponseDto> {
+    return this.usecase.getServiceApiTokenHealthSummary(query);
   }
 
   @Get('service-api-tokens')
