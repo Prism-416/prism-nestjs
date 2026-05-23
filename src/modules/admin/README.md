@@ -170,7 +170,19 @@ curl -sS "$API_BASE_URL/admin/service-api-tokens/$API_TOKEN_ID/revoke" \
   -H "x-admin-password: $ADMIN_PASSWORD"
 ```
 
-## Embedding Job Operations
+## Embedding Operations
+
+Summarize embedding coverage for active workspace projects:
+
+```bash
+curl -sS "$API_BASE_URL/admin/embeddings/coverage" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+The embedding coverage summary returns aggregate counts only for document
+chunks, work items, work item comments, and agent memories. It includes current,
+missing, and stale embedding counts without exposing IDs, source text, file
+names, object names, content hashes, or embedding vectors.
 
 Summarize embedding job health:
 
@@ -211,6 +223,7 @@ curl -sS "$API_BASE_URL/admin/audit-events?targetType=service_account&targetId=$
 ## Endpoint Reference
 
 - `GET /admin/audit-events`
+- `GET /admin/embeddings/coverage`
 - `GET /admin/embedding-jobs/health`
 - `GET /admin/service-accounts`
 - `GET /admin/service-accounts/health`
