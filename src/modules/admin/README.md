@@ -84,6 +84,18 @@ curl -sS "$API_BASE_URL/admin/service-accounts" \
   -H "x-admin-password: $ADMIN_PASSWORD"
 ```
 
+Summarize service account health:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-accounts/health" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+The service account health summary returns aggregate counts only, including
+active and inactive accounts, accounts with or without tokens, active accounts
+without active tokens, inactive accounts that still have active tokens, and
+accounts with multiple active tokens.
+
 Update service account metadata:
 
 ```bash
@@ -185,6 +197,7 @@ curl -sS "$API_BASE_URL/admin/audit-events?targetType=service_account&targetId=$
 
 - `GET /admin/audit-events`
 - `GET /admin/service-accounts`
+- `GET /admin/service-accounts/health`
 - `POST /admin/service-accounts`
 - `PATCH /admin/service-accounts/:serviceAccountId`
 - `POST /admin/service-accounts/:serviceAccountId/activate`
