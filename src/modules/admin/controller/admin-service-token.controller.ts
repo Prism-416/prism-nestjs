@@ -23,6 +23,7 @@ import {
   IssueServiceApiTokenResponseDto,
   SearchServiceApiTokensQueryDto,
   SearchServiceApiTokensResponseDto,
+  ServiceAccountHealthSummaryResponseDto,
   ServiceAccountResponseDto,
   ServiceApiTokenHealthSummaryResponseDto,
   ServiceApiTokenResponseDto,
@@ -48,6 +49,14 @@ export class AdminServiceTokenController {
   @ApiDataResponse(ServiceAccountResponseDto, { isArray: true })
   listServiceAccounts(): Promise<ServiceAccountResponseDto[]> {
     return this.usecase.listServiceAccounts();
+  }
+
+  @Get('service-accounts/health')
+  @AdminAuthenticated()
+  @ApiOperation({ summary: 'Summarize service account health' })
+  @ApiDataResponse(ServiceAccountHealthSummaryResponseDto)
+  getServiceAccountHealthSummary(): Promise<ServiceAccountHealthSummaryResponseDto> {
+    return this.usecase.getServiceAccountHealthSummary();
   }
 
   @Post('service-accounts')

@@ -334,3 +334,32 @@ export class ServiceApiTokenHealthSummaryResponseDto {
   @ApiProperty()
   activeTokensOnInactiveAccounts!: number;
 }
+
+export class ServiceAccountHealthSummaryResponseDto {
+  @ApiProperty()
+  generatedAt!: Date;
+
+  @ApiProperty()
+  totalServiceAccounts!: number;
+
+  @ApiProperty()
+  activeServiceAccounts!: number;
+
+  @ApiProperty()
+  inactiveServiceAccounts!: number;
+
+  @ApiProperty()
+  serviceAccountsWithTokens!: number;
+
+  @ApiProperty()
+  serviceAccountsWithoutTokens!: number;
+
+  @ApiProperty()
+  activeServiceAccountsWithoutActiveTokens!: number;
+
+  @ApiProperty()
+  inactiveServiceAccountsWithActiveTokens!: number;
+
+  @ApiProperty()
+  serviceAccountsWithMultipleActiveTokens!: number;
+}

@@ -9,6 +9,7 @@ import {
   InternalApiTokenMetadataRow,
   InternalApiTokenRow,
   InternalApiTokenWithServiceRow,
+  InternalServiceAccountHealthSummary,
   InternalServiceAccountRow,
   PersistInternalApiTokenParams,
   PersistInternalApiTokenUpdateParams,
@@ -31,6 +32,18 @@ type InternalApiTokenHealthSummaryRow = {
   neverUsedActiveTokens: string | number;
   staleActiveTokens: string | number;
   activeTokensOnInactiveAccounts: string | number;
+};
+
+type InternalServiceAccountHealthSummaryRow = {
+  generatedAt: Date;
+  totalServiceAccounts: string | number;
+  activeServiceAccounts: string | number;
+  inactiveServiceAccounts: string | number;
+  serviceAccountsWithTokens: string | number;
+  serviceAccountsWithoutTokens: string | number;
+  activeServiceAccountsWithoutActiveTokens: string | number;
+  inactiveServiceAccountsWithActiveTokens: string | number;
+  serviceAccountsWithMultipleActiveTokens: string | number;
 };
 
 @Injectable()
@@ -130,6 +143,89 @@ export class InternalRepository {
         ORDER BY name ASC, created_at ASC
       `,
     );
+  }
+
+  async getServiceAccountHealthSummary(
+    manager?: EntityManager,
+  ): Promise<InternalServiceAccountHealthSummary> {
+    const rows = await this.getManager(manager).query<
+      InternalServiceAccountHealthSummaryRow[]
+    >(
+      `
+        SELECT
+          NOW() AS "generatedAt",
+          COUNT(*) AS "totalServiceAccounts",
+          COUNT(*) FILTER (
+            WHERE s.is_active = TRUE
+          ) AS "activeServiceAccounts",
+          COUNT(*) FILTER (
+            WHERE s.is_active = FALSE
+          ) AS "inactiveServiceAccounts",
+          COUNT(*) FILTER (
+            WHERE EXISTS (
+              SELECT 1
+              FROM prism_service_api_tokens_l t
+              WHERE t.service_account_id = s.service_account_id
+            )
+          ) AS "serviceAccountsWithTokens",
+          COUNT(*) FILTER (
+            WHERE NOT EXISTS (
+              SELECT 1
+              FROM prism_service_api_tokens_l t
+              WHERE t.service_account_id = s.service_account_id
+            )
+          ) AS "serviceAccountsWithoutTokens",
+          COUNT(*) FILTER (
+            WHERE s.is_active = TRUE
+              AND NOT EXISTS (
+                SELECT 1
+                FROM prism_service_api_tokens_l t
+                WHERE t.service_account_id = s.service_account_id
+                  AND t.revoked_at IS NULL
+                  AND t.expires_at > NOW()
+              )
+          ) AS "activeServiceAccountsWithoutActiveTokens",
+          COUNT(*) FILTER (
+            WHERE s.is_active = FALSE
+              AND EXISTS (
+                SELECT 1
+                FROM prism_service_api_tokens_l t
+                WHERE t.service_account_id = s.service_account_id
+                  AND t.revoked_at IS NULL
+                  AND t.expires_at > NOW()
+              )
+          ) AS "inactiveServiceAccountsWithActiveTokens",
+          COUNT(*) FILTER (
+            WHERE (
+              SELECT COUNT(*)
+              FROM prism_service_api_tokens_l t
+              WHERE t.service_account_id = s.service_account_id
+                AND t.revoked_at IS NULL
+                AND t.expires_at > NOW()
+            ) > 1
+          ) AS "serviceAccountsWithMultipleActiveTokens"
+        FROM prism_service_accounts_m s
+      `,
+    );
+    const row = rows[0];
+
+    return {
+      generatedAt: row.generatedAt,
+      totalServiceAccounts: Number(row.totalServiceAccounts),
+      activeServiceAccounts: Number(row.activeServiceAccounts),
+      inactiveServiceAccounts: Number(row.inactiveServiceAccounts),
+      serviceAccountsWithTokens: Number(row.serviceAccountsWithTokens),
+      serviceAccountsWithoutTokens: Number(row.serviceAccountsWithoutTokens),
+      activeServiceAccountsWithoutActiveTokens: Number(
+        row.activeServiceAccountsWithoutActiveTokens,
+      ),
+      inactiveServiceAccountsWithActiveTokens: Number(
+        row.inactiveServiceAccountsWithActiveTokens,
+      ),
+      serviceAccountsWithMultipleActiveTokens: Number(
+        row.serviceAccountsWithMultipleActiveTokens,
+      ),
+    };
   }
 
   async updateServiceAccountActiveStatus(
