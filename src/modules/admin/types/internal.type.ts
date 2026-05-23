@@ -143,3 +143,22 @@ export type SearchInternalApiTokensResult = {
   limit: number;
   offset: number;
 };
+
+export type InternalApiTokenHealthSummaryParams = {
+  expiringWithinDays: number;
+  staleAfterDays: number;
+};
+
+export type InternalApiTokenHealthSummary = {
+  generatedAt: Date;
+  expiringWithinDays: number;
+  staleAfterDays: number;
+  totalTokens: number;
+  activeTokens: number;
+  expiredTokens: number;
+  revokedTokens: number;
+  expiringSoonTokens: number;
+  neverUsedActiveTokens: number;
+  staleActiveTokens: number;
+  activeTokensOnInactiveAccounts: number;
+};

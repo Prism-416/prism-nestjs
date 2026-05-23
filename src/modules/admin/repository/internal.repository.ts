@@ -3,6 +3,8 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   CreateInternalServiceAccountParams,
+  InternalApiTokenHealthSummary,
+  InternalApiTokenHealthSummaryParams,
   InternalApiTokenInventoryRow,
   InternalApiTokenMetadataRow,
   InternalApiTokenRow,
@@ -17,6 +19,18 @@ import {
 
 type CountRow = {
   total: string | number;
+};
+
+type InternalApiTokenHealthSummaryRow = {
+  generatedAt: Date;
+  totalTokens: string | number;
+  activeTokens: string | number;
+  expiredTokens: string | number;
+  revokedTokens: string | number;
+  expiringSoonTokens: string | number;
+  neverUsedActiveTokens: string | number;
+  staleActiveTokens: string | number;
+  activeTokensOnInactiveAccounts: string | number;
 };
 
 @Injectable()
@@ -354,6 +368,73 @@ export class InternalRepository {
       total: Number(counts[0]?.total ?? 0),
       limit: params.limit,
       offset: params.offset,
+    };
+  }
+
+  async getServiceApiTokenHealthSummary(
+    params: InternalApiTokenHealthSummaryParams,
+    manager?: EntityManager,
+  ): Promise<InternalApiTokenHealthSummary> {
+    const rows = await this.getManager(manager).query<
+      InternalApiTokenHealthSummaryRow[]
+    >(
+      `
+        SELECT
+          NOW() AS "generatedAt",
+          COUNT(*) AS "totalTokens",
+          COUNT(*) FILTER (
+            WHERE t.revoked_at IS NULL
+              AND t.expires_at > NOW()
+          ) AS "activeTokens",
+          COUNT(*) FILTER (
+            WHERE t.revoked_at IS NULL
+              AND t.expires_at <= NOW()
+          ) AS "expiredTokens",
+          COUNT(*) FILTER (
+            WHERE t.revoked_at IS NOT NULL
+          ) AS "revokedTokens",
+          COUNT(*) FILTER (
+            WHERE t.revoked_at IS NULL
+              AND t.expires_at > NOW()
+              AND t.expires_at <= NOW() + ($1::INT * INTERVAL '1 day')
+          ) AS "expiringSoonTokens",
+          COUNT(*) FILTER (
+            WHERE t.revoked_at IS NULL
+              AND t.expires_at > NOW()
+              AND t.last_used_at IS NULL
+          ) AS "neverUsedActiveTokens",
+          COUNT(*) FILTER (
+            WHERE t.revoked_at IS NULL
+              AND t.expires_at > NOW()
+              AND t.last_used_at < NOW() - ($2::INT * INTERVAL '1 day')
+          ) AS "staleActiveTokens",
+          COUNT(*) FILTER (
+            WHERE t.revoked_at IS NULL
+              AND t.expires_at > NOW()
+              AND s.is_active = FALSE
+          ) AS "activeTokensOnInactiveAccounts"
+        FROM prism_service_api_tokens_l t
+               INNER JOIN prism_service_accounts_m s
+                          ON s.service_account_id = t.service_account_id
+      `,
+      [params.expiringWithinDays, params.staleAfterDays],
+    );
+    const row = rows[0];
+
+    return {
+      generatedAt: row.generatedAt,
+      expiringWithinDays: params.expiringWithinDays,
+      staleAfterDays: params.staleAfterDays,
+      totalTokens: Number(row.totalTokens),
+      activeTokens: Number(row.activeTokens),
+      expiredTokens: Number(row.expiredTokens),
+      revokedTokens: Number(row.revokedTokens),
+      expiringSoonTokens: Number(row.expiringSoonTokens),
+      neverUsedActiveTokens: Number(row.neverUsedActiveTokens),
+      staleActiveTokens: Number(row.staleActiveTokens),
+      activeTokensOnInactiveAccounts: Number(
+        row.activeTokensOnInactiveAccounts,
+      ),
     };
   }
 

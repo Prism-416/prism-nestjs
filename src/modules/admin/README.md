@@ -126,6 +126,16 @@ The global token inventory returns service-account metadata, token prefixes,
 scopes, expiration, last-use timestamps, revocation timestamps, and computed
 token status. It does not expose user workspace data or token secrets.
 
+Summarize service token health:
+
+```bash
+curl -sS "$API_BASE_URL/admin/service-api-tokens/health?expiringWithinDays=30&staleAfterDays=90" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+The health summary returns aggregate counts only, including active, expired,
+revoked, expiring-soon, never-used, stale, and inactive-account token counts.
+
 Update token metadata, scopes, or expiration:
 
 ```bash
@@ -181,6 +191,7 @@ curl -sS "$API_BASE_URL/admin/audit-events?targetType=service_account&targetId=$
 - `POST /admin/service-accounts/:serviceAccountId/deactivate`
 - `GET /admin/service-accounts/:serviceAccountId/api-tokens`
 - `POST /admin/service-accounts/:serviceAccountId/api-tokens`
+- `GET /admin/service-api-tokens/health`
 - `GET /admin/service-api-tokens`
 - `POST /admin/service-api-tokens`
 - `PATCH /admin/service-api-tokens/:apiTokenId`
