@@ -10,6 +10,12 @@ calling admin routes. The guard trims both values and compares SHA-256 digests
 with `timingSafeEqual`. If `ADMIN_PASSWORD` is empty, admin routes reject all
 callers.
 
+Admin password failures are rate-limited per client address. Defaults are 5
+failed attempts within 5 minutes, followed by a 15 minute ban. Configure
+`ADMIN_PASSWORD_FAILURE_LIMIT`, `ADMIN_PASSWORD_FAILURE_WINDOW_MS`, and
+`ADMIN_PASSWORD_BAN_MS` to tune those thresholds. Banned clients receive
+`429 Too Many Requests` with `Retry-After`.
+
 ```bash
 curl -sS "$API_BASE_URL/admin/service-accounts" \
   -H "x-admin-password: $ADMIN_PASSWORD"
