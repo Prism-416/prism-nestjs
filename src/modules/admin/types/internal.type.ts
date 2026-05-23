@@ -162,3 +162,15 @@ export type InternalApiTokenHealthSummary = {
   staleActiveTokens: number;
   activeTokensOnInactiveAccounts: number;
 };
+
+export type InternalServiceAccountHealthSummary = {
+  generatedAt: Date;
+  totalServiceAccounts: number;
+  activeServiceAccounts: number;
+  inactiveServiceAccounts: number;
+  serviceAccountsWithTokens: number;
+  serviceAccountsWithoutTokens: number;
+  activeServiceAccountsWithoutActiveTokens: number;
+  inactiveServiceAccountsWithActiveTokens: number;
+  serviceAccountsWithMultipleActiveTokens: number;
+};

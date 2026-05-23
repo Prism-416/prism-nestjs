@@ -34,6 +34,7 @@ import {
   InternalApiTokenRow,
   INTERNAL_SCOPES,
   InternalScope,
+  InternalServiceAccountHealthSummary,
   InternalServiceAccountRow,
   InternalServicePrincipal,
   SearchInternalApiTokensParams,
@@ -339,6 +340,10 @@ export class InternalUseCase {
       expiringWithinDays: params.expiringWithinDays ?? 30,
       staleAfterDays: params.staleAfterDays ?? 90,
     });
+  }
+
+  getServiceAccountHealthSummary(): Promise<InternalServiceAccountHealthSummary> {
+    return this.repo.getServiceAccountHealthSummary();
   }
 
   async updateServiceApiToken(
