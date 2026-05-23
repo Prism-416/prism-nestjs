@@ -15,7 +15,10 @@ import {
   AdminEmbeddingJobRepository,
   InternalRepository,
 } from '@/modules/admin/repository';
-import { InternalTokenService } from '@/modules/admin/services';
+import {
+  AdminPasswordAttemptLimiterService,
+  InternalTokenService,
+} from '@/modules/admin/services';
 import {
   AdminAuditUseCase,
   AdminEmbeddingCoverageUseCase,
@@ -37,6 +40,7 @@ import {
     AdminEmbeddingJobUseCase,
     AdminAuditRepository,
     AdminAuditUseCase,
+    AdminPasswordAttemptLimiterService,
     InternalRepository,
     InternalTokenService,
     InternalUseCase,

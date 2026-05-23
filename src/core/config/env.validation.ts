@@ -23,6 +23,12 @@ export const envValidationSchema = Joi.object({
   JWT_ACCESS_EXPIRES_IN_SEC: Joi.number().integer().min(60).default(900),
   JWT_REFRESH_EXPIRES_IN_SEC: Joi.number().integer().min(300).default(1209600),
   ADMIN_PASSWORD: Joi.string().allow('').default(''),
+  ADMIN_PASSWORD_FAILURE_LIMIT: Joi.number().integer().min(1).default(5),
+  ADMIN_PASSWORD_FAILURE_WINDOW_MS: Joi.number()
+    .integer()
+    .min(1000)
+    .default(300000),
+  ADMIN_PASSWORD_BAN_MS: Joi.number().integer().min(1000).default(900000),
   WORKSPACE_INVITATION_EXPIRES_IN_SEC: Joi.number()
     .integer()
     .min(300)

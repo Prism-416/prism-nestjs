@@ -71,6 +71,10 @@ Key variables:
 - `CORS_ORIGIN` (comma-separated allowed origins)
 - `RATE_LIMIT_TTL_MS`
 - `RATE_LIMIT_MAX`
+- `ADMIN_PASSWORD`
+- `ADMIN_PASSWORD_FAILURE_LIMIT`
+- `ADMIN_PASSWORD_FAILURE_WINDOW_MS`
+- `ADMIN_PASSWORD_BAN_MS`
 - `DB_ENABLED` (set `true` to enable postgres connection)
 - `PG_HOST`
 - `PG_PORT`
