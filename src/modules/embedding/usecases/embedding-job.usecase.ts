@@ -33,6 +33,7 @@ export class EmbeddingJobUseCase {
     }
 
     const targetExists = await this.repo.existsEmbeddingTarget(
+      project.workspaceId,
       project.projectId,
       dto.jobType,
       dto.targetId,
@@ -42,6 +43,7 @@ export class EmbeddingJobUseCase {
     }
 
     return this.repo.createEmbeddingJob({
+      workspaceId: project.workspaceId,
       projectId: project.projectId,
       jobType: dto.jobType,
       targetId: dto.targetId,
@@ -67,7 +69,11 @@ export class EmbeddingJobUseCase {
       throw new EmbeddingProjectNotFoundError();
     }
 
-    return this.claimProjectEmbeddingJobs(project.projectId, dto);
+    return this.claimProjectEmbeddingJobs(
+      project.workspaceId,
+      project.projectId,
+      dto,
+    );
   }
 
   async claimEmbeddingJobsForInternal(
@@ -79,7 +85,11 @@ export class EmbeddingJobUseCase {
       throw new EmbeddingProjectNotFoundError();
     }
 
-    return this.claimProjectEmbeddingJobs(project.projectId, dto);
+    return this.claimProjectEmbeddingJobs(
+      project.workspaceId,
+      project.projectId,
+      dto,
+    );
   }
 
   async updateEmbeddingJob(
@@ -97,6 +107,7 @@ export class EmbeddingJobUseCase {
     }
 
     return this.updateProjectEmbeddingJob(
+      project.workspaceId,
       project.projectId,
       embeddingJobId,
       dto,
@@ -114,6 +125,7 @@ export class EmbeddingJobUseCase {
     }
 
     return this.updateProjectEmbeddingJob(
+      project.workspaceId,
       project.projectId,
       embeddingJobId,
       dto,
@@ -121,10 +133,12 @@ export class EmbeddingJobUseCase {
   }
 
   private async claimProjectEmbeddingJobs(
+    workspaceId: string,
     projectId: string,
     dto: ClaimEmbeddingJobsDto,
   ): Promise<ClaimEmbeddingJobsResponseDto> {
     const items = await this.repo.claimEmbeddingJobs({
+      workspaceId,
       projectId,
       jobTypes: dto.jobTypes,
       model: dto.model,
@@ -138,6 +152,7 @@ export class EmbeddingJobUseCase {
   }
 
   private async updateProjectEmbeddingJob(
+    workspaceId: string,
     projectId: string,
     embeddingJobId: string,
     dto: UpdateEmbeddingJobDto,
@@ -147,6 +162,7 @@ export class EmbeddingJobUseCase {
     }
 
     const job = await this.repo.updateEmbeddingJob({
+      workspaceId,
       projectId,
       embeddingJobId,
       status: dto.status,
