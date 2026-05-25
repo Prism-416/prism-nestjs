@@ -75,7 +75,7 @@ export class SprintRepository {
           $5,
           $6,
           $7,
-          CASE WHEN $6 = 'closed' THEN NOW() ELSE NULL END
+          CASE WHEN $8 THEN NOW() ELSE NULL END
         )
         RETURNING
           sprint_id AS "sprintId",
@@ -95,6 +95,7 @@ export class SprintRepository {
         params.endsAt,
         params.status,
         params.createdBy,
+        params.status === 'closed',
       ],
     );
 
@@ -341,8 +342,8 @@ export class SprintRepository {
           ends_at = $6,
           status = $7,
           closed_at = CASE
-                        WHEN $7 = 'closed' AND closed_at IS NULL THEN NOW()
-                        WHEN $7 <> 'closed' THEN NULL
+                        WHEN $8 AND closed_at IS NULL THEN NOW()
+                        WHEN NOT $8 THEN NULL
                         ELSE closed_at
                       END,
           updated_at = NOW()
@@ -366,6 +367,7 @@ export class SprintRepository {
         params.startsAt,
         params.endsAt,
         params.status,
+        params.status === 'closed',
       ],
     );
 
