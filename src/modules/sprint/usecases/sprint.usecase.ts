@@ -15,7 +15,7 @@ import {
   SprintAlreadyExistsError,
   SprintNotFoundError,
   SprintPeriodInvalidError,
-  SprintProjectNotFoundError,
+  SprintWorkspaceNotFoundError,
 } from '@/modules/sprint/errors';
 import { SprintRepository } from '@/modules/sprint/repository';
 import { SPRINT_STATUSES } from '@/modules/sprint/types';
@@ -29,44 +29,46 @@ export class SprintUseCase {
 
   async getSprints(
     userId: string,
-    projectId: string,
+    workspaceId: string,
   ): Promise<SprintResponseDto[]> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
       userId,
     );
-    if (!project) {
-      throw new SprintProjectNotFoundError();
+    if (!workspace) {
+      throw new SprintWorkspaceNotFoundError();
     }
 
-    return this.repo.findSprintsByProjectId(project.projectId);
+    return this.repo.findSprintsByWorkspaceId(workspace.workspaceId);
   }
 
   async getSprintWorkItems(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     sprintId: string,
     query: SearchWorkItemsQueryDto,
   ): Promise<SearchWorkItemsResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
       userId,
     );
-    if (!project) {
-      throw new SprintProjectNotFoundError();
+    if (!workspace) {
+      throw new SprintWorkspaceNotFoundError();
     }
 
-    const sprint = await this.repo.findSprintById(project.projectId, sprintId);
+    const sprint = await this.repo.findSprintById(
+      workspace.workspaceId,
+      sprintId,
+    );
     if (!sprint) {
       throw new SprintNotFoundError();
     }
 
     return this.repo.searchSprintWorkItems({
-      projectId: project.projectId,
+      workspaceId: workspace.workspaceId,
       sprintId: sprint.sprintId,
       query: query.query,
       parentId: query.parentId,
-      type: query.type,
       priority: query.priority,
       status: query.status,
       assigneeUsername: query.assigneeUsername,
@@ -78,18 +80,21 @@ export class SprintUseCase {
 
   async getSprintMetadata(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     sprintId: string,
   ): Promise<SprintResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
       userId,
     );
-    if (!project) {
-      throw new SprintProjectNotFoundError();
+    if (!workspace) {
+      throw new SprintWorkspaceNotFoundError();
     }
 
-    const sprint = await this.repo.findSprintById(project.projectId, sprintId);
+    const sprint = await this.repo.findSprintById(
+      workspace.workspaceId,
+      sprintId,
+    );
     if (!sprint) {
       throw new SprintNotFoundError();
     }
@@ -99,7 +104,7 @@ export class SprintUseCase {
 
   async createSprint(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     dto: CreateSprintDto,
   ): Promise<SprintResponseDto> {
     const startsAt = new Date(dto.startsAt);
@@ -110,24 +115,25 @@ export class SprintUseCase {
     }
 
     return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndMemberUserId(
-        projectId,
+      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+        workspaceId,
         userId,
         manager,
       );
-      if (!project) {
-        throw new SprintProjectNotFoundError();
+      if (!workspace) {
+        throw new SprintWorkspaceNotFoundError();
       }
 
       try {
         return await this.repo.createSprint(
           {
-            projectId: project.projectId,
+            workspaceId: workspace.workspaceId,
             name: dto.name,
-            description: dto.description,
+            goal: dto.goal,
             startsAt,
             endsAt,
             status: dto.status ?? SPRINT_STATUSES[0],
+            createdBy: userId,
           },
           manager,
         );
@@ -147,22 +153,22 @@ export class SprintUseCase {
 
   async updateSprintMetadata(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     sprintId: string,
     dto: UpdateSprintMetadataDto,
   ): Promise<SprintResponseDto> {
     return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndMemberUserId(
-        projectId,
+      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+        workspaceId,
         userId,
         manager,
       );
-      if (!project) {
-        throw new SprintProjectNotFoundError();
+      if (!workspace) {
+        throw new SprintWorkspaceNotFoundError();
       }
 
       const currentSprint = await this.repo.findSprintById(
-        project.projectId,
+        workspace.workspaceId,
         sprintId,
         manager,
       );
@@ -186,10 +192,10 @@ export class SprintUseCase {
       try {
         updatedSprint = await this.repo.updateSprintMetadata(
           {
-            projectId: project.projectId,
+            workspaceId: workspace.workspaceId,
             sprintId,
             name: dto.name ?? currentSprint.name,
-            description: dto.description ?? currentSprint.description,
+            goal: dto.goal ?? currentSprint.goal,
             startsAt,
             endsAt,
             status: dto.status ?? currentSprint.status,
@@ -218,21 +224,21 @@ export class SprintUseCase {
 
   async deleteSprint(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     sprintId: string,
   ): Promise<void> {
     return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndMemberUserId(
-        projectId,
+      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+        workspaceId,
         userId,
         manager,
       );
-      if (!project) {
-        throw new SprintProjectNotFoundError();
+      if (!workspace) {
+        throw new SprintWorkspaceNotFoundError();
       }
 
       const deleted = await this.repo.deleteSprint(
-        project.projectId,
+        workspace.workspaceId,
         sprintId,
         manager,
       );

@@ -31,6 +31,8 @@ export type WorkspaceMemberRow = {
   fullName: string;
   username: string;
   role: WorkspaceMemberRole;
+  jobIds: string[];
+  jobNames: string[];
   joinedAt: Date | null;
 };
 
@@ -53,7 +55,12 @@ export type WorkspaceInvitationReceiver = {
   username: string | null;
 };
 
-export type WorkspaceInvitationEventType = 'sent' | 'accepted' | 'denied';
+export type WorkspaceInvitationEventType =
+  | 'sent'
+  | 'accepted'
+  | 'denied'
+  | 'expired'
+  | 'cancelled';
 
 export type WorkspaceInvitationEventRow = {
   eventId: string;
@@ -70,7 +77,7 @@ export type WorkspaceUserRow = {
   username: string;
 };
 
-export type WorkspaceProjectJobRow = {
+export type WorkspaceJobRow = {
   jobId: string;
   workspaceId: string;
   name: string;
@@ -78,7 +85,7 @@ export type WorkspaceProjectJobRow = {
   createdAt: Date;
 };
 
-export type WorkspaceProjectJobIdRow = {
+export type WorkspaceJobIdRow = {
   jobId: string;
 };
 

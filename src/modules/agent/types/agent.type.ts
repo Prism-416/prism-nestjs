@@ -32,6 +32,7 @@ export type AgentMemoryType = (typeof AGENT_MEMORY_TYPES)[number];
 
 export type AgentProjectRow = {
   projectId: string;
+  workspaceId: string;
 };
 
 export type AgentWorkItemRow = {
@@ -40,6 +41,7 @@ export type AgentWorkItemRow = {
 
 export type AgentRunRow = {
   runId: string;
+  workspaceId: string;
   projectId: string;
   triggeredByUserId: string | null;
   workItemId: string | null;
@@ -55,6 +57,7 @@ export type AgentRunRow = {
 };
 
 export type SearchAgentRunsParams = {
+  workspaceId: string;
   projectId: string;
   status?: AgentRunStatus;
   agentType?: string;
@@ -64,6 +67,7 @@ export type SearchAgentRunsParams = {
 };
 
 export type CreateAgentRunParams = {
+  workspaceId: string;
   projectId: string;
   triggeredByUserId: string;
   workItemId?: string;
@@ -74,12 +78,14 @@ export type CreateAgentRunParams = {
 };
 
 export type CancelAgentRunParams = {
+  workspaceId: string;
   projectId: string;
   runId: string;
   cancellableStatuses: AgentRunStatus[];
 };
 
 export type ApproveAgentActionParams = {
+  workspaceId: string;
   projectId: string;
   actionId: string;
   approvedByUserId: string;
@@ -87,6 +93,7 @@ export type ApproveAgentActionParams = {
 };
 
 export type CancelAgentActionParams = {
+  workspaceId: string;
   projectId: string;
   actionId: string;
   cancellableStatuses: string[];
@@ -128,6 +135,7 @@ export type AgentActionRow = {
   actionId: string;
   runId: string;
   stepId: string | null;
+  workspaceId: string;
   projectId: string;
   actionType: string;
   targetType: string;
@@ -156,6 +164,7 @@ export type AgentActionEventRow = {
 
 export type AgentMemoryRow = {
   memoryId: string;
+  workspaceId: string;
   projectId: string;
   runId: string | null;
   stepId: string | null;
@@ -168,6 +177,7 @@ export type AgentMemoryRow = {
 
 export type AgentMemoryEmbeddingRow = {
   memoryId: string;
+  workspaceId: string;
   projectId: string;
   model: string;
   dimensions: number;
@@ -177,6 +187,7 @@ export type AgentMemoryEmbeddingRow = {
 };
 
 export type UpsertAgentMemoryParams = {
+  workspaceId: string;
   projectId: string;
   memoryId?: string;
   runId?: string;
@@ -188,6 +199,7 @@ export type UpsertAgentMemoryParams = {
 };
 
 export type UpsertAgentMemoryEmbeddingParams = {
+  workspaceId: string;
   projectId: string;
   memoryId: string;
   contentHash: string;

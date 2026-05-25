@@ -24,13 +24,8 @@ import {
 import {
   WORK_ITEM_PRIORITIES,
   WORK_ITEM_STATUSES,
-  WORK_ITEM_TYPES,
 } from '@/modules/project/types';
-import type {
-  WorkItemPriority,
-  WorkItemStatus,
-  WorkItemType,
-} from '@/modules/project/types';
+import type { WorkItemPriority, WorkItemStatus } from '@/modules/project/types';
 
 function normalizeTrimmedStringArray(value: unknown): unknown {
   if (!Array.isArray(value)) {
@@ -50,17 +45,13 @@ export class CreateWorkItemDto {
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
   @IsString()
   @IsNotEmpty()
-  @MaxLength(50)
+  @MaxLength(100)
   title!: string;
 
   @ApiProperty()
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
   @IsString()
   description!: string;
-
-  @ApiProperty({ enum: WORK_ITEM_TYPES })
-  @IsIn(WORK_ITEM_TYPES)
-  type!: WorkItemType;
 
   @ApiPropertyOptional({ enum: WORK_ITEM_PRIORITIES, default: 'medium' })
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
@@ -86,7 +77,7 @@ export class CreateWorkItemDto {
   @ArrayUnique()
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
-  @MaxLength(20, { each: true })
+  @MaxLength(30, { each: true })
   labelNames?: string[];
 }
 
@@ -105,13 +96,6 @@ export class SearchWorkItemsQueryDto {
   @IsOptional()
   @IsUUID()
   parentId?: string;
-
-  @ApiPropertyOptional({ enum: WORK_ITEM_TYPES })
-  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
-  @IsOptional()
-  @IsString()
-  @IsIn(WORK_ITEM_TYPES)
-  type?: WorkItemType;
 
   @ApiPropertyOptional({ enum: WORK_ITEM_PRIORITIES })
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
@@ -138,7 +122,7 @@ export class SearchWorkItemsQueryDto {
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
   @IsOptional()
   @IsString()
-  @MaxLength(20)
+  @MaxLength(30)
   labelName?: string;
 
   @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
@@ -168,7 +152,7 @@ export class UpdateWorkItemDto {
   @IsOptional()
   @IsString()
   @IsNotEmpty()
-  @MaxLength(50)
+  @MaxLength(100)
   title?: string;
 
   @ApiPropertyOptional()
@@ -176,12 +160,6 @@ export class UpdateWorkItemDto {
   @IsOptional()
   @IsString()
   description?: string;
-
-  @ApiPropertyOptional({ enum: WORK_ITEM_TYPES })
-  @IsOptional()
-  @IsString()
-  @IsIn(WORK_ITEM_TYPES)
-  type?: WorkItemType;
 
   @ApiPropertyOptional({ enum: WORK_ITEM_PRIORITIES })
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
@@ -214,13 +192,16 @@ export class UpdateWorkItemDto {
   @ArrayUnique()
   @IsString({ each: true })
   @IsNotEmpty({ each: true })
-  @MaxLength(20, { each: true })
+  @MaxLength(30, { each: true })
   labelNames?: string[];
 }
 
 export class WorkItemResponseDto {
   @ApiProperty()
   itemId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
 
   @ApiProperty()
   projectId!: string;
@@ -233,9 +214,6 @@ export class WorkItemResponseDto {
 
   @ApiProperty()
   description!: string;
-
-  @ApiProperty({ enum: WORK_ITEM_TYPES })
-  type!: WorkItemType;
 
   @ApiProperty({ enum: WORK_ITEM_PRIORITIES })
   priority!: WorkItemPriority;
@@ -324,6 +302,9 @@ export class UpsertWorkItemEmbeddingDto {
 export class WorkItemEmbeddingResponseDto {
   @ApiProperty()
   itemId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
 
   @ApiProperty()
   projectId!: string;

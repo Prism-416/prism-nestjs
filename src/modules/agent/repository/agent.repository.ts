@@ -23,6 +23,7 @@ import {
 
 type AgentRunDbRow = {
   runId: string;
+  workspaceId: string;
   projectId: string;
   triggeredByUserId: string | null;
   workItemId: string | null;
@@ -49,7 +50,8 @@ export class AgentRepository {
     const projects = await this.getManager(manager).query<AgentProjectRow[]>(
       `
         SELECT
-          p.project_id AS "projectId"
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId"
         FROM prism_projects_l p
                INNER JOIN prism_workspaces_l w
                           ON w.workspace_id = p.workspace_id
@@ -59,9 +61,34 @@ export class AgentRepository {
           AND wm.user_id = $2
           AND w.deleted_at IS NULL
           AND w.status = 'active'
+          AND p.status <> 'archived'
         LIMIT 1
       `,
       [projectId, userId],
+    );
+
+    return projects[0] ?? null;
+  }
+
+  async findProjectById(
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<AgentProjectRow | null> {
+    const projects = await this.getManager(manager).query<AgentProjectRow[]>(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId"
+        FROM prism_projects_l p
+               INNER JOIN prism_workspaces_l w
+                          ON w.workspace_id = p.workspace_id
+        WHERE p.project_id = $1
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+          AND p.status <> 'archived'
+        LIMIT 1
+      `,
+      [projectId],
     );
 
     return projects[0] ?? null;
@@ -80,6 +107,7 @@ export class AgentRepository {
         WITH filtered_runs AS (
           SELECT
             r.run_id,
+            r.workspace_id,
             r.project_id,
             r.triggered_by_user_id,
             r.work_item_id,
@@ -93,10 +121,11 @@ export class AgentRepository {
             r.completed_at,
             r.created_at
           FROM prism_agent_runs_l r
-          WHERE r.project_id = $1
-            AND ($2::text IS NULL OR r.status = $2)
-            AND ($3::text IS NULL OR r.agent_type = $3)
-            AND ($4::uuid IS NULL OR r.work_item_id = $4)
+          WHERE r.workspace_id = $1
+            AND r.project_id = $2
+            AND ($3::text IS NULL OR r.status = $3)
+            AND ($4::text IS NULL OR r.agent_type = $4)
+            AND ($5::uuid IS NULL OR r.work_item_id = $5)
         ),
         total_count AS (
           SELECT COUNT(*)::int AS total
@@ -106,11 +135,12 @@ export class AgentRepository {
           SELECT *
           FROM filtered_runs
           ORDER BY created_at DESC, run_id DESC
-          LIMIT $5
-          OFFSET $6
+          LIMIT $6
+          OFFSET $7
         )
         SELECT
           pr.run_id AS "runId",
+          pr.workspace_id AS "workspaceId",
           pr.project_id AS "projectId",
           pr.triggered_by_user_id AS "triggeredByUserId",
           pr.work_item_id AS "workItemId",
@@ -131,6 +161,7 @@ export class AgentRepository {
                  pr.run_id DESC NULLS LAST
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.status ?? null,
         params.agentType ?? null,
@@ -159,6 +190,7 @@ export class AgentRepository {
     const runs = await this.getManager(manager).query<AgentRunDbRow[]>(
       `
         INSERT INTO prism_agent_runs_l (
+          workspace_id,
           project_id,
           triggered_by_user_id,
           work_item_id,
@@ -168,9 +200,10 @@ export class AgentRepository {
           objective,
           system_prompt_version
         )
-        VALUES ($1, $2, $3, $4, $5, 'manual', $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, 'manual', $7, $8)
         RETURNING
           run_id AS "runId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           triggered_by_user_id AS "triggeredByUserId",
           work_item_id AS "workItemId",
@@ -185,6 +218,7 @@ export class AgentRepository {
           created_at AS "createdAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.triggeredByUserId,
         params.workItemId ?? null,
@@ -199,6 +233,7 @@ export class AgentRepository {
   }
 
   async findAgentRunById(
+    workspaceId: string,
     projectId: string,
     runId: string,
     manager?: EntityManager,
@@ -207,6 +242,7 @@ export class AgentRepository {
       `
         SELECT
           run_id AS "runId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           triggered_by_user_id AS "triggeredByUserId",
           work_item_id AS "workItemId",
@@ -220,11 +256,12 @@ export class AgentRepository {
           completed_at AS "completedAt",
           created_at AS "createdAt"
         FROM prism_agent_runs_l
-        WHERE project_id = $1
-          AND run_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND run_id = $3
         LIMIT 1
       `,
-      [projectId, runId],
+      [workspaceId, projectId, runId],
     );
 
     return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
@@ -240,11 +277,13 @@ export class AgentRepository {
         SET
           status = 'cancelled',
           completed_at = NOW()
-        WHERE project_id = $1
-          AND run_id = $2
-          AND status = ANY($3::text[])
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND run_id = $3
+          AND status = ANY($4::text[])
         RETURNING
           run_id AS "runId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           triggered_by_user_id AS "triggeredByUserId",
           work_item_id AS "workItemId",
@@ -258,13 +297,19 @@ export class AgentRepository {
           completed_at AS "completedAt",
           created_at AS "createdAt"
       `,
-      [params.projectId, params.runId, params.cancellableStatuses],
+      [
+        params.workspaceId,
+        params.projectId,
+        params.runId,
+        params.cancellableStatuses,
+      ],
     );
 
     return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
   }
 
   async findAgentStepsByRunId(
+    workspaceId: string,
     projectId: string,
     runId: string,
     manager?: EntityManager,
@@ -289,16 +334,18 @@ export class AgentRepository {
         FROM prism_agent_steps_l s
                INNER JOIN prism_agent_runs_l r
                           ON r.run_id = s.run_id
-        WHERE r.project_id = $1
-          AND s.run_id = $2
+        WHERE r.workspace_id = $1
+          AND r.project_id = $2
+          AND s.run_id = $3
         ORDER BY s.step_order ASC,
                  s.step_id ASC
       `,
-      [projectId, runId],
+      [workspaceId, projectId, runId],
     );
   }
 
   async findAgentActionsByRunId(
+    workspaceId: string,
     projectId: string,
     runId: string,
     manager?: EntityManager,
@@ -309,6 +356,7 @@ export class AgentRepository {
           a.action_id AS "actionId",
           a.run_id AS "runId",
           a.step_id AS "stepId",
+          a.workspace_id AS "workspaceId",
           a.project_id AS "projectId",
           a.action_type AS "actionType",
           a.target_type AS "targetType",
@@ -326,17 +374,20 @@ export class AgentRepository {
         FROM prism_agent_actions_l a
                INNER JOIN prism_agent_runs_l r
                           ON r.run_id = a.run_id
+                         AND r.workspace_id = a.workspace_id
                          AND r.project_id = a.project_id
-        WHERE r.project_id = $1
-          AND a.run_id = $2
+        WHERE r.workspace_id = $1
+          AND r.project_id = $2
+          AND a.run_id = $3
         ORDER BY a.created_at ASC,
                  a.action_id ASC
       `,
-      [projectId, runId],
+      [workspaceId, projectId, runId],
     );
   }
 
   async findAgentActionById(
+    workspaceId: string,
     projectId: string,
     actionId: string,
     manager?: EntityManager,
@@ -347,6 +398,7 @@ export class AgentRepository {
           a.action_id AS "actionId",
           a.run_id AS "runId",
           a.step_id AS "stepId",
+          a.workspace_id AS "workspaceId",
           a.project_id AS "projectId",
           a.action_type AS "actionType",
           a.target_type AS "targetType",
@@ -362,11 +414,12 @@ export class AgentRepository {
           a.error_message AS "errorMessage",
           a.created_at AS "createdAt"
         FROM prism_agent_actions_l a
-        WHERE a.project_id = $1
-          AND a.action_id = $2
+        WHERE a.workspace_id = $1
+          AND a.project_id = $2
+          AND a.action_id = $3
         LIMIT 1
       `,
-      [projectId, actionId],
+      [workspaceId, projectId, actionId],
     );
 
     return actions[0] ?? null;
@@ -381,16 +434,18 @@ export class AgentRepository {
         UPDATE prism_agent_actions_l
         SET
           status = 'approved',
-          approved_by_user_id = $3,
+          approved_by_user_id = $4,
           approved_at = NOW()
-        WHERE project_id = $1
-          AND action_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND action_id = $3
           AND requires_approval = TRUE
-          AND status = ANY($4::text[])
+          AND status = ANY($5::text[])
         RETURNING
           action_id AS "actionId",
           run_id AS "runId",
           step_id AS "stepId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           action_type AS "actionType",
           target_type AS "targetType",
@@ -407,6 +462,7 @@ export class AgentRepository {
           created_at AS "createdAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.actionId,
         params.approvedByUserId,
@@ -425,14 +481,16 @@ export class AgentRepository {
       `
         UPDATE prism_agent_actions_l
         SET status = 'cancelled'
-        WHERE project_id = $1
-          AND action_id = $2
-          AND status = ANY($3::text[])
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND action_id = $3
+          AND status = ANY($4::text[])
           AND executed_at IS NULL
         RETURNING
           action_id AS "actionId",
           run_id AS "runId",
           step_id AS "stepId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           action_type AS "actionType",
           target_type AS "targetType",
@@ -448,7 +506,12 @@ export class AgentRepository {
           error_message AS "errorMessage",
           created_at AS "createdAt"
       `,
-      [params.projectId, params.actionId, params.cancellableStatuses],
+      [
+        params.workspaceId,
+        params.projectId,
+        params.actionId,
+        params.cancellableStatuses,
+      ],
     );
 
     return actions[0] ?? null;
@@ -513,6 +576,7 @@ export class AgentRepository {
   }
 
   async findWorkItemById(
+    workspaceId: string,
     projectId: string,
     workItemId: string,
     manager?: EntityManager,
@@ -522,11 +586,12 @@ export class AgentRepository {
         SELECT
           item_id AS "itemId"
         FROM prism_work_items_l
-        WHERE project_id = $1
-          AND item_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND item_id = $3
         LIMIT 1
       `,
-      [projectId, workItemId],
+      [workspaceId, projectId, workItemId],
     );
 
     return workItems[0] ?? null;
@@ -540,9 +605,9 @@ export class AgentRepository {
       `
         WITH input_memory AS (
           SELECT
-            COALESCE($2::uuid, gen_random_uuid()) AS memory_id,
-            $3::uuid AS requested_run_id,
-            $4::uuid AS step_id
+            COALESCE($3::uuid, gen_random_uuid()) AS memory_id,
+            $4::uuid AS requested_run_id,
+            $5::uuid AS step_id
         ),
         matched_step AS (
           SELECT
@@ -553,7 +618,8 @@ export class AgentRepository {
                             ON s.step_id = input_memory.step_id
                  INNER JOIN prism_agent_runs_l r
                             ON r.run_id = s.run_id
-                           AND r.project_id = $1
+                           AND r.workspace_id = $1
+                           AND r.project_id = $2
           WHERE input_memory.step_id IS NOT NULL
             AND (
               input_memory.requested_run_id IS NULL
@@ -573,7 +639,8 @@ export class AgentRepository {
             OR EXISTS (
               SELECT 1
               FROM prism_agent_runs_l r
-              WHERE r.project_id = $1
+              WHERE r.workspace_id = $1
+                AND r.project_id = $2
                 AND r.run_id = input_memory.requested_run_id
             )
           )
@@ -584,6 +651,7 @@ export class AgentRepository {
         )
         INSERT INTO prism_agent_memories_l (
           memory_id,
+          workspace_id,
           project_id,
           run_id,
           step_id,
@@ -595,24 +663,29 @@ export class AgentRepository {
         SELECT
           validated_memory.memory_id,
           $1,
+          $2,
           validated_memory.run_id,
           validated_memory.step_id,
-          $5,
           $6,
           $7,
-          $8
+          $8,
+          $9
         FROM validated_memory
         ON CONFLICT (memory_id)
         DO UPDATE SET
+          workspace_id = EXCLUDED.workspace_id,
+          project_id = EXCLUDED.project_id,
           run_id = EXCLUDED.run_id,
           step_id = EXCLUDED.step_id,
           memory_type = EXCLUDED.memory_type,
           title = EXCLUDED.title,
           content = EXCLUDED.content,
           content_hash = EXCLUDED.content_hash
-        WHERE prism_agent_memories_l.project_id = $1
+        WHERE prism_agent_memories_l.workspace_id = $1
+          AND prism_agent_memories_l.project_id = $2
         RETURNING
           memory_id AS "memoryId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           run_id AS "runId",
           step_id AS "stepId",
@@ -623,6 +696,7 @@ export class AgentRepository {
           created_at AS "createdAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.memoryId ?? null,
         params.runId ?? null,
@@ -638,6 +712,7 @@ export class AgentRepository {
   }
 
   async findAgentMemoryById(
+    workspaceId: string,
     projectId: string,
     memoryId: string,
     manager?: EntityManager,
@@ -648,11 +723,12 @@ export class AgentRepository {
       `
         SELECT memory_id AS "memoryId"
         FROM prism_agent_memories_l
-        WHERE project_id = $1
-          AND memory_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND memory_id = $3
         LIMIT 1
       `,
-      [projectId, memoryId],
+      [workspaceId, projectId, memoryId],
     );
 
     return memories[0] ?? null;
@@ -670,11 +746,12 @@ export class AgentRepository {
           SELECT
             (
               SELECT ('[' || string_agg(embedding_value.value, ',' ORDER BY embedding_value.ordinality) || ']')::vector
-              FROM jsonb_array_elements_text($6::jsonb) WITH ORDINALITY AS embedding_value(value, ordinality)
+              FROM jsonb_array_elements_text($7::jsonb) WITH ORDINALITY AS embedding_value(value, ordinality)
             ) AS embedding
         )
         INSERT INTO prism_agent_memory_embeddings_l (
           memory_id,
+          workspace_id,
           project_id,
           embedding,
           model,
@@ -683,18 +760,21 @@ export class AgentRepository {
         )
         SELECT
           m.memory_id,
+          m.workspace_id,
           m.project_id,
           input_embedding.embedding,
-          $3,
           $4,
-          $5
+          $5,
+          $6
         FROM prism_agent_memories_l m
                CROSS JOIN input_embedding
-        WHERE m.project_id = $1
-          AND m.memory_id = $2
-          AND m.content_hash = $5
+        WHERE m.workspace_id = $1
+          AND m.project_id = $2
+          AND m.memory_id = $3
+          AND m.content_hash = $6
         ON CONFLICT (memory_id)
         DO UPDATE SET
+          workspace_id = EXCLUDED.workspace_id,
           project_id = EXCLUDED.project_id,
           embedding = EXCLUDED.embedding,
           model = EXCLUDED.model,
@@ -703,6 +783,7 @@ export class AgentRepository {
           embedded_at = NOW()
         RETURNING
           memory_id AS "memoryId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           model,
           dimensions,
@@ -711,6 +792,7 @@ export class AgentRepository {
           embedded_at AS "embeddedAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.memoryId,
         params.model,
@@ -726,6 +808,7 @@ export class AgentRepository {
   private mapAgentRunRow(row: AgentRunDbRow): AgentRunRow {
     return {
       runId: row.runId,
+      workspaceId: row.workspaceId,
       projectId: row.projectId,
       triggeredByUserId: row.triggeredByUserId,
       workItemId: row.workItemId,

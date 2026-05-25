@@ -7,8 +7,8 @@ import {
   WorkspaceInvitationRow,
   WorkspaceListRow,
   WorkspaceMemberRow,
-  WorkspaceProjectJobIdRow,
-  WorkspaceProjectJobRow,
+  WorkspaceJobIdRow,
+  WorkspaceJobRow,
   WorkspaceProjectSummaryRow,
   WorkspaceRow,
   WorkspaceUserRow,
@@ -37,7 +37,7 @@ export class WorkspaceRepository {
                           ON wm.workspace_id = w.workspace_id
         WHERE w.workspace_id = $1
           AND wm.user_id = $2
-          AND wm.role = 'admin'
+          AND wm.role IN ('owner', 'admin')
           AND w.deleted_at IS NULL
           AND w.status = 'active'
         LIMIT 1
@@ -282,6 +282,7 @@ export class WorkspaceRepository {
             p.workspace_id,
             COUNT(*)::int AS project_count
           FROM prism_projects_l p
+          WHERE p.status <> 'archived'
           GROUP BY p.workspace_id
         )
         SELECT
@@ -314,16 +315,30 @@ export class WorkspaceRepository {
           u.full_name AS "fullName",
           u.username,
           wm.role,
+          COALESCE(member_jobs.job_ids, ARRAY[]::text[]) AS "jobIds",
+          COALESCE(member_jobs.job_names, ARRAY[]::text[]) AS "jobNames",
           wm.joined_at AS "joinedAt"
         FROM prism_workspace_members_l wm
                INNER JOIN prism_users_l u
                           ON u.user_id = wm.user_id
+               LEFT JOIN LATERAL (
+                 SELECT
+                   array_agg(j.job_id::text ORDER BY j.name, j.job_id) AS job_ids,
+                   array_agg(j.name ORDER BY j.name, j.job_id) AS job_names
+                 FROM prism_workspace_member_job_map wmjm
+                        INNER JOIN prism_jobs_l j
+                                   ON j.workspace_id = wmjm.workspace_id
+                                  AND j.job_id = wmjm.job_id
+                 WHERE wmjm.workspace_id = wm.workspace_id
+                   AND wmjm.user_id = wm.user_id
+               ) member_jobs ON TRUE
         WHERE wm.workspace_id = $1
         ORDER BY
           CASE wm.role
-            WHEN 'admin' THEN 0
-            WHEN 'member' THEN 1
-            ELSE 2
+            WHEN 'owner' THEN 0
+            WHEN 'admin' THEN 1
+            WHEN 'member' THEN 2
+            ELSE 3
             END,
           u.username
       `,
@@ -350,13 +365,10 @@ export class WorkspaceRepository {
                INNER JOIN prism_workspace_members_l wm
                           ON wm.workspace_id = p.workspace_id
                          AND wm.user_id = $1
-               INNER JOIN prism_project_members_l pm
-                          ON pm.workspace_id = p.workspace_id
-                         AND pm.project_id = p.project_id
-                         AND pm.user_id = $1
         WHERE w.deleted_at IS NULL
           AND w.status = 'active'
           AND w.slug = $2
+          AND p.status <> 'archived'
         ORDER BY p.created_at DESC
       `,
       [userId, workspaceSlug],
@@ -375,10 +387,23 @@ export class WorkspaceRepository {
           u.full_name AS "fullName",
           u.username,
           wm.role,
+          COALESCE(member_jobs.job_ids, ARRAY[]::text[]) AS "jobIds",
+          COALESCE(member_jobs.job_names, ARRAY[]::text[]) AS "jobNames",
           wm.joined_at AS "joinedAt"
         FROM prism_workspace_members_l wm
                INNER JOIN prism_users_l u
                           ON u.user_id = wm.user_id
+               LEFT JOIN LATERAL (
+                 SELECT
+                   array_agg(j.job_id::text ORDER BY j.name, j.job_id) AS job_ids,
+                   array_agg(j.name ORDER BY j.name, j.job_id) AS job_names
+                 FROM prism_workspace_member_job_map wmjm
+                        INNER JOIN prism_jobs_l j
+                                   ON j.workspace_id = wmjm.workspace_id
+                                  AND j.job_id = wmjm.job_id
+                 WHERE wmjm.workspace_id = wm.workspace_id
+                   AND wmjm.user_id = wm.user_id
+               ) member_jobs ON TRUE
         WHERE wm.workspace_id = $1
           AND wm.user_id = $2
         LIMIT 1
@@ -387,26 +412,6 @@ export class WorkspaceRepository {
     );
 
     return members[0] ?? null;
-  }
-
-  async deleteProjectMembersByWorkspaceMemberUserId(
-    workspaceId: string,
-    userId: string,
-    manager?: EntityManager,
-  ): Promise<number> {
-    const deletedMembers = await this.getManager(manager).query<
-      Array<{ memberId: string }>
-    >(
-      `
-        DELETE FROM prism_project_members_l
-        WHERE workspace_id = $1
-          AND user_id = $2
-        RETURNING member_id AS "memberId"
-      `,
-      [workspaceId, userId],
-    );
-
-    return deletedMembers.length;
   }
 
   async deleteWorkspaceMemberByUserId(
@@ -448,12 +453,72 @@ export class WorkspaceRepository {
           u.full_name AS "fullName",
           u.username,
           wm.role,
+          COALESCE(
+            (
+              SELECT array_agg(j.job_id::text ORDER BY j.name, j.job_id)
+              FROM prism_workspace_member_job_map wmjm
+                     INNER JOIN prism_jobs_l j
+                                ON j.workspace_id = wmjm.workspace_id
+                               AND j.job_id = wmjm.job_id
+              WHERE wmjm.workspace_id = wm.workspace_id
+                AND wmjm.user_id = wm.user_id
+            ),
+            ARRAY[]::text[]
+          ) AS "jobIds",
+          COALESCE(
+            (
+              SELECT array_agg(j.name ORDER BY j.name, j.job_id)
+              FROM prism_workspace_member_job_map wmjm
+                     INNER JOIN prism_jobs_l j
+                                ON j.workspace_id = wmjm.workspace_id
+                               AND j.job_id = wmjm.job_id
+              WHERE wmjm.workspace_id = wm.workspace_id
+                AND wmjm.user_id = wm.user_id
+            ),
+            ARRAY[]::text[]
+          ) AS "jobNames",
           wm.joined_at AS "joinedAt"
       `,
       [workspaceId, userId, role],
     );
 
     return members[0];
+  }
+
+  async replaceWorkspaceMemberJobs(
+    workspaceId: string,
+    userId: string,
+    jobIds: string[],
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        DELETE FROM prism_workspace_member_job_map
+        WHERE workspace_id = $1
+          AND user_id = $2
+      `,
+      [workspaceId, userId],
+    );
+
+    if (jobIds.length === 0) {
+      return;
+    }
+
+    await this.getManager(manager).query(
+      `
+        INSERT INTO prism_workspace_member_job_map (
+          workspace_id,
+          user_id,
+          job_id
+        )
+        SELECT
+          $1,
+          $2,
+          input.job_id
+        FROM unnest($3::uuid[]) AS input(job_id)
+      `,
+      [workspaceId, userId, jobIds],
+    );
   }
 
   async updateWorkspaceOwner(
@@ -543,7 +608,7 @@ export class WorkspaceRepository {
     await this.getManager(manager).query(
       `
         INSERT INTO prism_workspace_members_l (workspace_id, user_id, role, joined_at)
-        VALUES ($1, $2, 'admin', CURRENT_TIMESTAMP)
+        VALUES ($1, $2, 'owner', CURRENT_TIMESTAMP)
       `,
       [workspaceId, userId],
     );
@@ -698,7 +763,7 @@ export class WorkspaceRepository {
     );
   }
 
-  async createProjectJobs(
+  async createWorkspaceJobs(
     params: {
       workspaceId: string;
       jobs: Array<{
@@ -707,7 +772,7 @@ export class WorkspaceRepository {
       }>;
     },
     manager?: EntityManager,
-  ): Promise<WorkspaceProjectJobRow[]> {
+  ): Promise<WorkspaceJobRow[]> {
     if (params.jobs.length === 0) {
       return [];
     }
@@ -715,9 +780,9 @@ export class WorkspaceRepository {
     const jobNames = params.jobs.map((job) => job.name);
     const jobDescriptions = params.jobs.map((job) => job.description);
 
-    return await this.getManager(manager).query<WorkspaceProjectJobRow[]>(
+    return await this.getManager(manager).query<WorkspaceJobRow[]>(
       `
-        INSERT INTO prism_project_jobs_l (
+        INSERT INTO prism_jobs_l (
           workspace_id,
           name,
           description
@@ -738,20 +803,20 @@ export class WorkspaceRepository {
     );
   }
 
-  async findProjectJobsByIds(
+  async findWorkspaceJobIds(
     workspaceId: string,
     jobIds: string[],
     manager?: EntityManager,
-  ): Promise<WorkspaceProjectJobIdRow[]> {
+  ): Promise<WorkspaceJobIdRow[]> {
     if (jobIds.length === 0) {
       return [];
     }
 
-    return this.getManager(manager).query<WorkspaceProjectJobIdRow[]>(
+    return this.getManager(manager).query<WorkspaceJobIdRow[]>(
       `
         SELECT
           job_id AS "jobId"
-        FROM prism_project_jobs_l
+        FROM prism_jobs_l
         WHERE workspace_id = $1
           AND job_id = ANY($2::uuid[])
       `,
@@ -759,11 +824,11 @@ export class WorkspaceRepository {
     );
   }
 
-  async findProjectJobsByWorkspaceId(
+  async findWorkspaceJobsByWorkspaceId(
     workspaceId: string,
     manager?: EntityManager,
-  ): Promise<WorkspaceProjectJobRow[]> {
-    return this.getManager(manager).query<WorkspaceProjectJobRow[]>(
+  ): Promise<WorkspaceJobRow[]> {
+    return this.getManager(manager).query<WorkspaceJobRow[]>(
       `
         SELECT
           job_id AS "jobId",
@@ -771,14 +836,14 @@ export class WorkspaceRepository {
           name,
           description,
           created_at AS "createdAt"
-        FROM prism_project_jobs_l
+        FROM prism_jobs_l
         WHERE workspace_id = $1
       `,
       [workspaceId],
     );
   }
 
-  async updateProjectJobs(
+  async updateWorkspaceJobs(
     params: {
       workspaceId: string;
       jobs: Array<{
@@ -788,7 +853,7 @@ export class WorkspaceRepository {
       }>;
     },
     manager?: EntityManager,
-  ): Promise<WorkspaceProjectJobRow[]> {
+  ): Promise<WorkspaceJobRow[]> {
     if (params.jobs.length === 0) {
       return [];
     }
@@ -797,9 +862,9 @@ export class WorkspaceRepository {
     const jobNames = params.jobs.map((job) => job.name);
     const jobDescriptions = params.jobs.map((job) => job.description);
 
-    return this.getManager(manager).query<WorkspaceProjectJobRow[]>(
+    return this.getManager(manager).query<WorkspaceJobRow[]>(
       `
-        UPDATE prism_project_jobs_l pj
+        UPDATE prism_jobs_l pj
         SET
           name = input.name,
           description = input.description

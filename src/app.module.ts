@@ -76,7 +76,7 @@ const featureRegistrations: FeatureRegistration[] = [
   },
   {
     module: SprintModule,
-    path: 'projects',
+    path: 'workspaces',
     requiresDb: true,
   },
 ];

@@ -23,13 +23,15 @@ export class EmbeddingJobRepository {
     >(
       `
         SELECT
-          p.project_id AS "projectId"
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId"
         FROM prism_projects_l p
                INNER JOIN prism_workspaces_l w
                           ON w.workspace_id = p.workspace_id
         WHERE p.project_id = $1
           AND w.deleted_at IS NULL
           AND w.status = 'active'
+          AND p.status <> 'archived'
         LIMIT 1
       `,
       [projectId],
@@ -48,7 +50,8 @@ export class EmbeddingJobRepository {
     >(
       `
         SELECT
-          p.project_id AS "projectId"
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId"
         FROM prism_projects_l p
                INNER JOIN prism_workspaces_l w
                           ON w.workspace_id = p.workspace_id
@@ -58,6 +61,7 @@ export class EmbeddingJobRepository {
           AND wm.user_id = $2
           AND w.deleted_at IS NULL
           AND w.status = 'active'
+          AND p.status <> 'archived'
         LIMIT 1
       `,
       [projectId, userId],
@@ -67,6 +71,7 @@ export class EmbeddingJobRepository {
   }
 
   async existsEmbeddingTarget(
+    workspaceId: string,
     projectId: string,
     jobType: EmbeddingJobType,
     targetId: string,
@@ -79,36 +84,44 @@ export class EmbeddingJobRepository {
         SELECT EXISTS (
           SELECT 1
           FROM prism_documents_l d
-          WHERE $2 = 'document'
-            AND d.project_id = $1
-            AND d.document_id = $3
+          WHERE $3 = 'document'
+            AND d.workspace_id = $1
+            AND d.project_id = $2
+            AND d.document_id = $4
           UNION ALL
           SELECT 1
           FROM prism_document_chunks_l dc
-          WHERE $2 = 'document_chunk'
-            AND dc.project_id = $1
-            AND dc.chunk_id = $3
+          WHERE $3 = 'document_chunk'
+            AND dc.workspace_id = $1
+            AND dc.project_id = $2
+            AND dc.chunk_id = $4
           UNION ALL
           SELECT 1
           FROM prism_work_items_l wi
-          WHERE $2 = 'work_item'
-            AND wi.project_id = $1
-            AND wi.item_id = $3
+          WHERE $3 = 'work_item'
+            AND wi.workspace_id = $1
+            AND wi.project_id = $2
+            AND wi.item_id = $4
           UNION ALL
           SELECT 1
           FROM prism_work_item_comments_l c
-          WHERE $2 = 'work_item_comment'
-            AND c.project_id = $1
-            AND c.comment_id = $3
+                 INNER JOIN prism_work_items_l wi
+                            ON wi.workspace_id = c.workspace_id
+                           AND wi.item_id = c.item_id
+          WHERE $3 = 'work_item_comment'
+            AND c.workspace_id = $1
+            AND wi.project_id = $2
+            AND c.comment_id = $4
           UNION ALL
           SELECT 1
           FROM prism_agent_memories_l m
-          WHERE $2 = 'agent_memory'
-            AND m.project_id = $1
-            AND m.memory_id = $3
+          WHERE $3 = 'agent_memory'
+            AND m.workspace_id = $1
+            AND m.project_id = $2
+            AND m.memory_id = $4
         ) AS "exists"
       `,
-      [projectId, jobType, targetId],
+      [workspaceId, projectId, jobType, targetId],
     );
 
     return targets[0]?.exists ?? false;
@@ -121,6 +134,7 @@ export class EmbeddingJobRepository {
     const jobs = await this.getManager(manager).query<EmbeddingJobRow[]>(
       `
         INSERT INTO prism_embedding_jobs_l (
+          workspace_id,
           project_id,
           job_type,
           target_id,
@@ -131,9 +145,10 @@ export class EmbeddingJobRepository {
           max_attempts,
           scheduled_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
         RETURNING
           embedding_job_id AS "embeddingJobId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           job_type AS "jobType",
           target_id AS "targetId",
@@ -151,6 +166,7 @@ export class EmbeddingJobRepository {
           created_at AS "createdAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.jobType,
         params.targetId,
@@ -175,16 +191,17 @@ export class EmbeddingJobRepository {
         WITH candidate_jobs AS (
           SELECT embedding_job_id
           FROM prism_embedding_jobs_l
-          WHERE project_id = $1
+          WHERE workspace_id = $1
+            AND project_id = $2
             AND status = 'queued'
             AND scheduled_at <= NOW()
             AND attempts < max_attempts
-            AND ($2::text[] IS NULL OR job_type = ANY($2::text[]))
-            AND ($3::text IS NULL OR model = $3)
+            AND ($3::text[] IS NULL OR job_type = ANY($3::text[]))
+            AND ($4::text IS NULL OR model = $4)
           ORDER BY scheduled_at ASC,
                    created_at ASC,
                    embedding_job_id ASC
-          LIMIT $4
+          LIMIT $5
           FOR UPDATE SKIP LOCKED
         )
         UPDATE prism_embedding_jobs_l j
@@ -198,6 +215,7 @@ export class EmbeddingJobRepository {
         WHERE j.embedding_job_id = candidate_jobs.embedding_job_id
         RETURNING
           j.embedding_job_id AS "embeddingJobId",
+          j.workspace_id AS "workspaceId",
           j.project_id AS "projectId",
           j.job_type AS "jobType",
           j.target_id AS "targetId",
@@ -215,6 +233,7 @@ export class EmbeddingJobRepository {
           j.created_at AS "createdAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.jobTypes ?? null,
         params.model ?? null,
@@ -231,28 +250,30 @@ export class EmbeddingJobRepository {
       `
         UPDATE prism_embedding_jobs_l
         SET
-          status = $3,
+          status = $4,
           error_message = CASE
-                            WHEN $3 IN ('queued', 'failed') THEN $4
+                            WHEN $4 IN ('queued', 'failed') THEN $5
                             ELSE NULL
                           END,
           scheduled_at = CASE
-                           WHEN $3 = 'queued' THEN $5
+                           WHEN $4 = 'queued' THEN $6
                            ELSE scheduled_at
                          END,
           started_at = CASE
-                         WHEN $3 = 'queued' THEN NULL
+                         WHEN $4 = 'queued' THEN NULL
                          ELSE started_at
                        END,
           completed_at = CASE
-                           WHEN $3 IN ('completed', 'failed', 'cancelled') THEN NOW()
-                           WHEN $3 = 'queued' THEN NULL
+                           WHEN $4 IN ('completed', 'failed', 'cancelled') THEN NOW()
+                           WHEN $4 = 'queued' THEN NULL
                            ELSE completed_at
                          END
-        WHERE project_id = $1
-          AND embedding_job_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND embedding_job_id = $3
         RETURNING
           embedding_job_id AS "embeddingJobId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           job_type AS "jobType",
           target_id AS "targetId",
@@ -270,6 +291,7 @@ export class EmbeddingJobRepository {
           created_at AS "createdAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.embeddingJobId,
         params.status,

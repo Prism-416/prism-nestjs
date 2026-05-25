@@ -55,6 +55,7 @@ export class DocumentUseCase {
     }
 
     return this.repo.searchDocuments({
+      workspaceId: project.workspaceId,
       projectId: project.projectId,
       query: query.query,
       limit: query.limit ?? 50,
@@ -76,6 +77,7 @@ export class DocumentUseCase {
     }
 
     const document = await this.repo.findDocumentById(
+      project.workspaceId,
       project.projectId,
       documentId,
     );
@@ -100,8 +102,41 @@ export class DocumentUseCase {
       throw new DocumentProjectNotFoundError();
     }
 
-    const document = await this.repo.findDocumentById(
+    return this.appendProjectDocumentChunks(
+      project.workspaceId,
       project.projectId,
+      documentId,
+      dto,
+    );
+  }
+
+  async appendDocumentChunksForInternal(
+    projectId: string,
+    documentId: string,
+    dto: AppendDocumentChunksDto,
+  ): Promise<AppendDocumentChunksResponseDto> {
+    const project = await this.repo.findProjectById(projectId);
+    if (!project) {
+      throw new DocumentProjectNotFoundError();
+    }
+
+    return this.appendProjectDocumentChunks(
+      project.workspaceId,
+      project.projectId,
+      documentId,
+      dto,
+    );
+  }
+
+  private async appendProjectDocumentChunks(
+    workspaceId: string,
+    projectId: string,
+    documentId: string,
+    dto: AppendDocumentChunksDto,
+  ): Promise<AppendDocumentChunksResponseDto> {
+    const document = await this.repo.findDocumentById(
+      workspaceId,
+      projectId,
       documentId,
     );
     if (!document) {
@@ -113,7 +148,8 @@ export class DocumentUseCase {
 
     try {
       const items = await this.repo.upsertDocumentChunks({
-        projectId: project.projectId,
+        workspaceId,
+        projectId,
         documentId: document.documentId,
         chunks: dto.chunks,
       });
@@ -145,8 +181,41 @@ export class DocumentUseCase {
       throw new DocumentProjectNotFoundError();
     }
 
-    const document = await this.repo.findDocumentById(
+    return this.appendProjectDocumentChunkEmbeddings(
+      project.workspaceId,
       project.projectId,
+      documentId,
+      dto,
+    );
+  }
+
+  async appendDocumentChunkEmbeddingsForInternal(
+    projectId: string,
+    documentId: string,
+    dto: AppendDocumentChunkEmbeddingsDto,
+  ): Promise<AppendDocumentChunkEmbeddingsResponseDto> {
+    const project = await this.repo.findProjectById(projectId);
+    if (!project) {
+      throw new DocumentProjectNotFoundError();
+    }
+
+    return this.appendProjectDocumentChunkEmbeddings(
+      project.workspaceId,
+      project.projectId,
+      documentId,
+      dto,
+    );
+  }
+
+  private async appendProjectDocumentChunkEmbeddings(
+    workspaceId: string,
+    projectId: string,
+    documentId: string,
+    dto: AppendDocumentChunkEmbeddingsDto,
+  ): Promise<AppendDocumentChunkEmbeddingsResponseDto> {
+    const document = await this.repo.findDocumentById(
+      workspaceId,
+      projectId,
       documentId,
     );
     if (!document) {
@@ -156,7 +225,8 @@ export class DocumentUseCase {
     this.assertUniqueEmbeddingChunkIds(dto);
 
     const items = await this.repo.upsertDocumentChunkEmbeddings({
-      projectId: project.projectId,
+      workspaceId,
+      projectId,
       documentId: document.documentId,
       embeddings: dto.embeddings.map((embedding) => ({
         ...embedding,
@@ -221,6 +291,7 @@ export class DocumentUseCase {
     try {
       document = await this.repo.createDocument({
         documentId,
+        workspaceId: project.workspaceId,
         projectId: project.projectId,
         title: dto.title ?? fileName,
         description: dto.description,
@@ -260,6 +331,7 @@ export class DocumentUseCase {
     }
 
     const deletedDocument = await this.repo.deleteDocument(
+      project.workspaceId,
       project.projectId,
       documentId,
     );

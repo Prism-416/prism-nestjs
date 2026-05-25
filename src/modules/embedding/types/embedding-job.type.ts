@@ -30,10 +30,12 @@ export type EmbeddingJobReportStatus =
 
 export type EmbeddingProjectRow = {
   projectId: string;
+  workspaceId: string;
 };
 
 export type EmbeddingJobRow = {
   embeddingJobId: string;
+  workspaceId: string;
   projectId: string;
   jobType: EmbeddingJobType;
   targetId: string;
@@ -52,6 +54,7 @@ export type EmbeddingJobRow = {
 };
 
 export type CreateEmbeddingJobParams = {
+  workspaceId: string;
   projectId: string;
   jobType: EmbeddingJobType;
   targetId: string;
@@ -64,6 +67,7 @@ export type CreateEmbeddingJobParams = {
 };
 
 export type ClaimEmbeddingJobsParams = {
+  workspaceId: string;
   projectId: string;
   jobTypes?: EmbeddingJobType[];
   model?: string;
@@ -71,6 +75,7 @@ export type ClaimEmbeddingJobsParams = {
 };
 
 export type UpdateEmbeddingJobParams = {
+  workspaceId: string;
   projectId: string;
   embeddingJobId: string;
   status: EmbeddingJobReportStatus;

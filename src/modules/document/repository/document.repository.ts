@@ -30,7 +30,8 @@ export class DocumentRepository {
     const projects = await this.getManager(manager).query<DocumentProjectRow[]>(
       `
         SELECT
-          p.project_id AS "projectId"
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId"
         FROM prism_projects_l p
                INNER JOIN prism_workspaces_l w
                           ON w.workspace_id = p.workspace_id
@@ -40,9 +41,34 @@ export class DocumentRepository {
           AND wm.user_id = $2
           AND w.deleted_at IS NULL
           AND w.status = 'active'
+          AND p.status <> 'archived'
         LIMIT 1
       `,
       [projectId, userId],
+    );
+
+    return projects[0] ?? null;
+  }
+
+  async findProjectById(
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<DocumentProjectRow | null> {
+    const projects = await this.getManager(manager).query<DocumentProjectRow[]>(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId"
+        FROM prism_projects_l p
+               INNER JOIN prism_workspaces_l w
+                          ON w.workspace_id = p.workspace_id
+        WHERE p.project_id = $1
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+          AND p.status <> 'archived'
+        LIMIT 1
+      `,
+      [projectId],
     );
 
     return projects[0] ?? null;
@@ -54,6 +80,7 @@ export class DocumentRepository {
   ): Promise<SearchDocumentsResult> {
     type SearchDocumentDbRow = {
       documentId: string | null;
+      workspaceId: string | null;
       projectId: string | null;
       title: string | null;
       description: string | null;
@@ -74,6 +101,7 @@ export class DocumentRepository {
         WITH filtered_documents AS (
           SELECT
             d.document_id,
+            d.workspace_id,
             d.project_id,
             d.title,
             d.description,
@@ -87,11 +115,12 @@ export class DocumentRepository {
             d.created_at,
             d.updated_at
           FROM prism_documents_l d
-          WHERE d.project_id = $1
+          WHERE d.workspace_id = $1
+            AND d.project_id = $2
             AND (
-              $2::text IS NULL
-              OR d.title ILIKE '%' || $2 || '%'
-              OR d.file_name ILIKE '%' || $2 || '%'
+              $3::text IS NULL
+              OR d.title ILIKE '%' || $3 || '%'
+              OR d.file_name ILIKE '%' || $3 || '%'
             )
         ),
         total_count AS (
@@ -102,11 +131,12 @@ export class DocumentRepository {
           SELECT *
           FROM filtered_documents
           ORDER BY created_at DESC, document_id DESC
-          LIMIT $3
-          OFFSET $4
+          LIMIT $4
+          OFFSET $5
         )
         SELECT
           pd.document_id AS "documentId",
+          pd.workspace_id AS "workspaceId",
           pd.project_id AS "projectId",
           pd.title,
           pd.description,
@@ -126,7 +156,13 @@ export class DocumentRepository {
         ORDER BY pd.created_at DESC NULLS LAST,
                  pd.document_id DESC NULLS LAST
       `,
-      [params.projectId, params.query ?? null, params.limit, params.offset],
+      [
+        params.workspaceId,
+        params.projectId,
+        params.query ?? null,
+        params.limit,
+        params.offset,
+      ],
     );
 
     return {
@@ -138,6 +174,7 @@ export class DocumentRepository {
         .map((row) =>
           this.mapDocumentRow({
             documentId: row.documentId,
+            workspaceId: row.workspaceId as string,
             projectId: row.projectId as string,
             title: row.title as string,
             description: row.description,
@@ -159,6 +196,7 @@ export class DocumentRepository {
   }
 
   async findDocumentById(
+    workspaceId: string,
     projectId: string,
     documentId: string,
     manager?: EntityManager,
@@ -167,6 +205,7 @@ export class DocumentRepository {
       `
         SELECT
           document_id AS "documentId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           title,
           description,
@@ -180,11 +219,12 @@ export class DocumentRepository {
           created_at AS "createdAt",
           updated_at AS "updatedAt"
         FROM prism_documents_l
-        WHERE project_id = $1
-          AND document_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND document_id = $3
         LIMIT 1
       `,
-      [projectId, documentId],
+      [workspaceId, projectId, documentId],
     );
 
     return documents[0] ? this.mapDocumentRow(documents[0]) : null;
@@ -198,6 +238,7 @@ export class DocumentRepository {
       `
         INSERT INTO prism_documents_l (
           document_id,
+          workspace_id,
           project_id,
           title,
           description,
@@ -222,10 +263,12 @@ export class DocumentRepository {
           $9,
           $10,
           $11,
-          $11
+          $12,
+          $12
         )
         RETURNING
           document_id AS "documentId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           title,
           description,
@@ -241,6 +284,7 @@ export class DocumentRepository {
       `,
       [
         params.documentId,
+        params.workspaceId,
         params.projectId,
         params.title,
         params.description ?? null,
@@ -278,11 +322,12 @@ export class DocumentRepository {
             (chunk.value ->> 'tokenCount')::int AS token_count,
             (chunk.value ->> 'charCount')::int AS char_count,
             chunk.ordinality
-          FROM jsonb_array_elements($3::jsonb) WITH ORDINALITY AS chunk(value, ordinality)
+          FROM jsonb_array_elements($4::jsonb) WITH ORDINALITY AS chunk(value, ordinality)
         ),
         upserted_chunks AS (
           INSERT INTO prism_document_chunks_l (
             document_id,
+            workspace_id,
             project_id,
             chunk_index,
             heading_path,
@@ -292,8 +337,9 @@ export class DocumentRepository {
             char_count
           )
           SELECT
-            $2,
+            $3,
             $1,
+            $2,
             input_chunks.chunk_index,
             input_chunks.heading_path,
             input_chunks.content,
@@ -303,6 +349,8 @@ export class DocumentRepository {
           FROM input_chunks
           ON CONFLICT (document_id, chunk_index)
           DO UPDATE SET
+            workspace_id = EXCLUDED.workspace_id,
+            project_id = EXCLUDED.project_id,
             heading_path = EXCLUDED.heading_path,
             content = EXCLUDED.content,
             content_hash = EXCLUDED.content_hash,
@@ -312,6 +360,7 @@ export class DocumentRepository {
           RETURNING
             chunk_id AS "chunkId",
             document_id AS "documentId",
+            workspace_id AS "workspaceId",
             project_id AS "projectId",
             chunk_index AS "chunkIndex",
             heading_path AS "headingPath",
@@ -324,6 +373,7 @@ export class DocumentRepository {
         SELECT
           upserted_chunks."chunkId",
           upserted_chunks."documentId",
+          upserted_chunks."workspaceId",
           upserted_chunks."projectId",
           upserted_chunks."chunkIndex",
           upserted_chunks."headingPath",
@@ -337,7 +387,12 @@ export class DocumentRepository {
                           ON input_chunks.chunk_index = upserted_chunks."chunkIndex"
         ORDER BY input_chunks.ordinality
       `,
-      [params.projectId, params.documentId, JSON.stringify(params.chunks)],
+      [
+        params.workspaceId,
+        params.projectId,
+        params.documentId,
+        JSON.stringify(params.chunks),
+      ],
     );
 
     return rows;
@@ -362,7 +417,7 @@ export class DocumentRepository {
               FROM jsonb_array_elements_text(embedding.value -> 'embedding') AS embedding_value(value)
             ) AS embedding,
             embedding.ordinality
-          FROM jsonb_array_elements($3::jsonb) WITH ORDINALITY AS embedding(value, ordinality)
+          FROM jsonb_array_elements($4::jsonb) WITH ORDINALITY AS embedding(value, ordinality)
         ),
         matched_embeddings AS (
           SELECT
@@ -375,8 +430,9 @@ export class DocumentRepository {
           FROM input_embeddings
                  INNER JOIN prism_document_chunks_l c
                             ON c.chunk_id = input_embeddings.chunk_id
-                           AND c.project_id = $1
-                           AND c.document_id = $2
+                           AND c.workspace_id = $1
+                           AND c.project_id = $2
+                           AND c.document_id = $3
                            AND c.content_hash = input_embeddings.content_hash
         ),
         validated_embeddings AS (
@@ -389,6 +445,7 @@ export class DocumentRepository {
         upserted_embeddings AS (
           INSERT INTO prism_document_chunk_embeddings_l (
             chunk_id,
+            workspace_id,
             project_id,
             embedding,
             model,
@@ -398,6 +455,7 @@ export class DocumentRepository {
           SELECT
             validated_embeddings.chunk_id,
             $1,
+            $2,
             validated_embeddings.embedding,
             validated_embeddings.model,
             validated_embeddings.dimensions,
@@ -405,6 +463,7 @@ export class DocumentRepository {
           FROM validated_embeddings
           ON CONFLICT (chunk_id)
           DO UPDATE SET
+            workspace_id = EXCLUDED.workspace_id,
             project_id = EXCLUDED.project_id,
             embedding = EXCLUDED.embedding,
             model = EXCLUDED.model,
@@ -413,6 +472,7 @@ export class DocumentRepository {
             embedded_at = NOW()
           RETURNING
             chunk_id AS "chunkId",
+            workspace_id AS "workspaceId",
             project_id AS "projectId",
             model,
             dimensions,
@@ -422,6 +482,7 @@ export class DocumentRepository {
         )
         SELECT
           upserted_embeddings."chunkId",
+          upserted_embeddings."workspaceId",
           upserted_embeddings."projectId",
           upserted_embeddings.model,
           upserted_embeddings.dimensions,
@@ -433,13 +494,19 @@ export class DocumentRepository {
                           ON input_embeddings.chunk_id = upserted_embeddings."chunkId"
         ORDER BY input_embeddings.ordinality
       `,
-      [params.projectId, params.documentId, JSON.stringify(params.embeddings)],
+      [
+        params.workspaceId,
+        params.projectId,
+        params.documentId,
+        JSON.stringify(params.embeddings),
+      ],
     );
 
     return rows;
   }
 
   async deleteDocument(
+    workspaceId: string,
     projectId: string,
     documentId: string,
     manager?: EntityManager,
@@ -449,13 +516,14 @@ export class DocumentRepository {
     >(
       `
         DELETE FROM prism_documents_l
-        WHERE project_id = $1
-          AND document_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND document_id = $3
         RETURNING
           storage_object_name AS "storageObjectName",
           storage_version_id AS "storageVersionId"
       `,
-      [projectId, documentId],
+      [workspaceId, projectId, documentId],
     );
 
     return documents[0] ?? null;

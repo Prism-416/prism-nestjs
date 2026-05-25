@@ -28,7 +28,7 @@ export class CreateSprintDto {
   @IsOptional()
   @IsString()
   @MaxLength(1000)
-  description?: string;
+  goal?: string;
 
   @ApiProperty({ format: 'date-time' })
   @IsDateString()
@@ -60,7 +60,7 @@ export class UpdateSprintMetadataDto {
   @IsOptional()
   @IsString()
   @MaxLength(1000)
-  description?: string;
+  goal?: string;
 
   @ApiPropertyOptional({ format: 'date-time' })
   @IsOptional()
@@ -85,13 +85,13 @@ export class SprintResponseDto {
   sprintId!: string;
 
   @ApiProperty()
-  projectId!: string;
+  workspaceId!: string;
 
   @ApiProperty()
   name!: string;
 
   @ApiProperty({ nullable: true })
-  description!: string | null;
+  goal!: string | null;
 
   @ApiProperty()
   startsAt!: Date;

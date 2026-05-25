@@ -20,6 +20,7 @@ import {
 } from '@/modules/workspace/utils';
 import {
   MAX_WORKSPACE_NAME_LENGTH,
+  WORKSPACE_ASSIGNABLE_MEMBER_ROLES,
   WORKSPACE_INVITATION_STATUSES,
   WORKSPACE_MEMBER_ROLES,
 } from '@/modules/workspace/constants';
@@ -43,13 +44,13 @@ export class CreateWorkspaceDto {
   description?: string;
 }
 
-export class CreateProjectJobDto {
+export class CreateWorkspaceJobDto {
   @ApiProperty()
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
-  @MaxLength(20)
+  @MaxLength(50)
   name!: string;
 
   @ApiProperty()
@@ -61,16 +62,16 @@ export class CreateProjectJobDto {
   description!: string;
 }
 
-export class CreateProjectJobsDto {
-  @ApiProperty({ type: [CreateProjectJobDto] })
+export class CreateWorkspaceJobsDto {
+  @ApiProperty({ type: [CreateWorkspaceJobDto] })
   @IsArray()
   @ArrayMinSize(1)
   @ValidateNested({ each: true })
-  @Type(() => CreateProjectJobDto)
-  jobs!: CreateProjectJobDto[];
+  @Type(() => CreateWorkspaceJobDto)
+  jobs!: CreateWorkspaceJobDto[];
 }
 
-export class UpdateProjectJobDto {
+export class UpdateWorkspaceJobDto {
   @ApiProperty()
   @IsUUID()
   jobId!: string;
@@ -80,7 +81,7 @@ export class UpdateProjectJobDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(1)
-  @MaxLength(20)
+  @MaxLength(50)
   name!: string;
 
   @ApiProperty()
@@ -92,14 +93,14 @@ export class UpdateProjectJobDto {
   description!: string;
 }
 
-export class UpdateProjectJobsDto {
-  @ApiProperty({ type: [UpdateProjectJobDto] })
+export class UpdateWorkspaceJobsDto {
+  @ApiProperty({ type: [UpdateWorkspaceJobDto] })
   @IsArray()
   @ArrayMinSize(1)
-  @ArrayUnique((job: UpdateProjectJobDto) => job.jobId)
+  @ArrayUnique((job: UpdateWorkspaceJobDto) => job.jobId)
   @ValidateNested({ each: true })
-  @Type(() => UpdateProjectJobDto)
-  jobs!: UpdateProjectJobDto[];
+  @Type(() => UpdateWorkspaceJobDto)
+  jobs!: UpdateWorkspaceJobDto[];
 }
 
 export class UpdateWorkspaceDto {
@@ -119,10 +120,18 @@ export class UpdateWorkspaceDto {
 }
 
 export class UpdateWorkspaceMemberRoleDto {
-  @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
+  @ApiProperty({ enum: WORKSPACE_ASSIGNABLE_MEMBER_ROLES })
   @IsString()
-  @IsIn(WORKSPACE_MEMBER_ROLES)
-  role!: (typeof WORKSPACE_MEMBER_ROLES)[number];
+  @IsIn(WORKSPACE_ASSIGNABLE_MEMBER_ROLES)
+  role!: (typeof WORKSPACE_ASSIGNABLE_MEMBER_ROLES)[number];
+}
+
+export class UpdateWorkspaceMemberJobsDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  jobIds!: string[];
 }
 
 export class TransferWorkspaceOwnerDto {
@@ -163,6 +172,12 @@ export class WorkspaceMemberResponseDto {
 
   @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
   role!: (typeof WORKSPACE_MEMBER_ROLES)[number];
+
+  @ApiProperty({ type: [String] })
+  jobIds!: string[];
+
+  @ApiProperty({ type: [String] })
+  jobNames!: string[];
 
   @ApiProperty({ nullable: true })
   joinedAt!: Date | null;
@@ -216,7 +231,7 @@ export class WorkspaceMemberCandidateSearchResponseDto {
   items!: WorkspaceMemberCandidateResponseDto[];
 }
 
-export class ProjectJobResponseDto {
+export class WorkspaceJobResponseDto {
   @ApiProperty()
   jobId!: string;
 
@@ -246,10 +261,10 @@ export class CreateWorkspaceInvitationDto {
   @MaxLength(320)
   email?: string;
 
-  @ApiProperty({ enum: WORKSPACE_MEMBER_ROLES })
+  @ApiProperty({ enum: WORKSPACE_ASSIGNABLE_MEMBER_ROLES })
   @IsString()
-  @IsIn(WORKSPACE_MEMBER_ROLES)
-  role!: (typeof WORKSPACE_MEMBER_ROLES)[number];
+  @IsIn(WORKSPACE_ASSIGNABLE_MEMBER_ROLES)
+  role!: (typeof WORKSPACE_ASSIGNABLE_MEMBER_ROLES)[number];
 }
 
 export class GetWorkspaceInvitationQueryDto {

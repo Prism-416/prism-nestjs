@@ -52,6 +52,7 @@ export class WorkItemUseCase {
     }
 
     const workItem = await this.workItemRepository.findWorkItemDetailById(
+      project.workspaceId,
       project.projectId,
       itemId,
     );
@@ -76,10 +77,10 @@ export class WorkItemUseCase {
     }
 
     return this.workItemRepository.searchWorkItems({
+      workspaceId: project.workspaceId,
       projectId: project.projectId,
       query: query.query,
       parentId: query.parentId,
-      type: query.type,
       priority: query.priority,
       status: query.status,
       assigneeUsername: query.assigneeUsername,
@@ -103,6 +104,7 @@ export class WorkItemUseCase {
     }
 
     const workItem = await this.workItemRepository.findWorkItemById(
+      project.workspaceId,
       project.projectId,
       itemId,
     );
@@ -111,6 +113,7 @@ export class WorkItemUseCase {
     }
 
     return this.workItemRepository.findChildWorkItems(
+      project.workspaceId,
       project.projectId,
       itemId,
     );
@@ -130,8 +133,41 @@ export class WorkItemUseCase {
       throw new ProjectNotFoundError();
     }
 
-    const workItem = await this.workItemRepository.findWorkItemById(
+    return this.upsertProjectWorkItemEmbedding(
+      project.workspaceId,
       project.projectId,
+      itemId,
+      dto,
+    );
+  }
+
+  async upsertWorkItemEmbeddingForInternal(
+    projectId: string,
+    itemId: string,
+    dto: UpsertWorkItemEmbeddingDto,
+  ): Promise<WorkItemEmbeddingResponseDto> {
+    const project = await this.projectRepository.findProjectById(projectId);
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    return this.upsertProjectWorkItemEmbedding(
+      project.workspaceId,
+      project.projectId,
+      itemId,
+      dto,
+    );
+  }
+
+  private async upsertProjectWorkItemEmbedding(
+    workspaceId: string,
+    projectId: string,
+    itemId: string,
+    dto: UpsertWorkItemEmbeddingDto,
+  ): Promise<WorkItemEmbeddingResponseDto> {
+    const workItem = await this.workItemRepository.findWorkItemById(
+      workspaceId,
+      projectId,
       itemId,
     );
     if (!workItem) {
@@ -139,7 +175,8 @@ export class WorkItemUseCase {
     }
 
     const embedding = await this.workItemRepository.upsertWorkItemEmbedding({
-      projectId: project.projectId,
+      workspaceId,
+      projectId,
       itemId,
       embeddedTitle: dto.embeddedTitle,
       embeddedDescription: dto.embeddedDescription,
@@ -173,6 +210,7 @@ export class WorkItemUseCase {
 
       if (dto.parentId) {
         const parent = await this.workItemRepository.findWorkItemById(
+          project.workspaceId,
           project.projectId,
           dto.parentId,
           manager,
@@ -183,8 +221,8 @@ export class WorkItemUseCase {
       }
 
       const assignees =
-        await this.workItemRepository.findProjectMembersByUsernames(
-          project.projectId,
+        await this.workItemRepository.findWorkspaceMembersByUsernames(
+          project.workspaceId,
           dto.assigneeUsernames ?? [],
           manager,
         );
@@ -195,13 +233,14 @@ export class WorkItemUseCase {
       try {
         const workItem = await this.workItemRepository.createWorkItem(
           {
+            workspaceId: project.workspaceId,
             projectId: project.projectId,
             parentId: dto.parentId,
             title: dto.title,
             description: dto.description,
-            type: dto.type,
             priority: dto.priority ?? WORK_ITEM_PRIORITIES[1],
             status: WORK_ITEM_STATUSES[0],
+            createdBy: userId,
           },
           manager,
         );
@@ -213,9 +252,10 @@ export class WorkItemUseCase {
         );
 
         await this.workItemRepository.createWorkItemAssignees(
-          project.projectId,
+          project.workspaceId,
           workItem.itemId,
-          assignees.map((assignee) => assignee.memberId),
+          assignees.map((assignee) => assignee.userId),
+          userId,
           manager,
         );
         await this.workItemRepository.createWorkItemLabels(
@@ -263,6 +303,7 @@ export class WorkItemUseCase {
 
       const currentWorkItem =
         await this.workItemRepository.findWorkItemRecordById(
+          project.workspaceId,
           project.projectId,
           itemId,
           manager,
@@ -278,6 +319,7 @@ export class WorkItemUseCase {
 
         if (dto.parentId) {
           const parent = await this.workItemRepository.findWorkItemById(
+            project.workspaceId,
             project.projectId,
             dto.parentId,
             manager,
@@ -290,8 +332,8 @@ export class WorkItemUseCase {
 
       if (dto.assigneeUsernames !== undefined) {
         const assignees =
-          await this.workItemRepository.findProjectMembersByUsernames(
-            project.projectId,
+          await this.workItemRepository.findWorkspaceMembersByUsernames(
+            project.workspaceId,
             dto.assigneeUsernames,
             manager,
           );
@@ -300,9 +342,10 @@ export class WorkItemUseCase {
         }
 
         await this.workItemRepository.replaceWorkItemAssignees(
-          project.projectId,
+          project.workspaceId,
           itemId,
-          assignees.map((assignee) => assignee.memberId),
+          assignees.map((assignee) => assignee.userId),
+          userId,
           manager,
         );
       }
@@ -325,6 +368,7 @@ export class WorkItemUseCase {
       try {
         await this.workItemRepository.updateWorkItem(
           {
+            workspaceId: project.workspaceId,
             projectId: project.projectId,
             itemId,
             hasParentId: dto.parentId !== undefined,
@@ -334,8 +378,6 @@ export class WorkItemUseCase {
             title: dto.title ?? null,
             hasDescription: dto.description !== undefined,
             description: dto.description ?? null,
-            hasType: dto.type !== undefined,
-            type: dto.type ?? null,
             hasPriority: dto.priority !== undefined,
             priority: dto.priority ?? null,
             hasStatus: dto.status !== undefined,
@@ -353,6 +395,7 @@ export class WorkItemUseCase {
 
       const updatedWorkItem =
         await this.workItemRepository.findWorkItemDetailById(
+          project.workspaceId,
           project.projectId,
           itemId,
           manager,
@@ -386,6 +429,7 @@ export class WorkItemUseCase {
       }
 
       const deleted = await this.workItemRepository.deleteWorkItem(
+        project.workspaceId,
         project.projectId,
         itemId,
         manager,

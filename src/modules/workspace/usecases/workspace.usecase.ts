@@ -7,16 +7,17 @@ import { UnitOfWork } from '@/core/database';
 import { ProjectSummaryResponseDto } from '@/modules/project/dto';
 import {
   AcceptWorkspaceInvitationDto,
-  CreateProjectJobsDto,
+  CreateWorkspaceJobsDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   DeclineWorkspaceInvitationDto,
   GetWorkspaceInvitationQueryDto,
-  ProjectJobResponseDto,
+  WorkspaceJobResponseDto,
   SearchWorkspaceMemberCandidatesQueryDto,
   TransferWorkspaceOwnerDto,
+  UpdateWorkspaceMemberJobsDto,
   UpdateWorkspaceMemberRoleDto,
-  UpdateProjectJobsDto,
+  UpdateWorkspaceJobsDto,
   UpdateWorkspaceDto,
   WorkspaceMemberCandidateSearchResponseDto,
   WorkspaceMemberCandidateResponseDto,
@@ -27,15 +28,16 @@ import {
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
 import {
-  isProjectJobNameUniqueViolation,
-  ProjectJobAlreadyExistsError,
-  ProjectJobNotFoundError,
+  isWorkspaceJobNameUniqueViolation,
+  WorkspaceJobAlreadyExistsError,
+  WorkspaceJobNotFoundError,
   WorkspaceNameAlreadyExistsError,
   WorkspaceMemberAlreadyExistsError,
   WorkspaceMemberNotFoundError,
   WorkspaceMemberUserNotFoundError,
   WorkspaceInvitationAlreadyAcceptedError,
   WorkspaceInvitationAlreadyDeclinedError,
+  WorkspaceInvitationCancelledError,
   WorkspaceInvitationExpiredError,
   WorkspaceInvitationNotFoundError,
   WorkspaceInvitationRecipientRequiredError,
@@ -53,6 +55,7 @@ import {
 import { WorkspaceInvitationStatus } from '@/modules/workspace/constants';
 import {
   WorkspaceInvitationRow,
+  WorkspaceInvitationEventRow,
   WorkspaceInvitationReceiver,
   WorkspaceMemberCandidateKind,
   WorkspaceMemberCandidateSearchReason,
@@ -242,12 +245,6 @@ export class WorkspaceUseCase {
         throw new WorkspaceOwnerRemovalError();
       }
 
-      await this.repo.deleteProjectMembersByWorkspaceMemberUserId(
-        workspace.workspaceId,
-        member.userId,
-        manager,
-      );
-
       const deleted = await this.repo.deleteWorkspaceMemberByUserId(
         workspace.workspaceId,
         member.userId,
@@ -297,6 +294,60 @@ export class WorkspaceUseCase {
     });
   }
 
+  async updateWorkspaceMemberJobs(
+    userId: string,
+    workspaceId: string,
+    targetUserId: string,
+    dto: UpdateWorkspaceMemberJobsDto,
+  ): Promise<WorkspaceMemberResponseDto> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+        workspaceId,
+        userId,
+        manager,
+      );
+      if (!workspace) {
+        throw new WorkspaceNotFoundError();
+      }
+
+      const member = await this.repo.findWorkspaceMember(
+        workspace.workspaceId,
+        targetUserId,
+        manager,
+      );
+      if (!member) {
+        throw new WorkspaceMemberNotFoundError();
+      }
+
+      const workspaceJobs = await this.repo.findWorkspaceJobIds(
+        workspace.workspaceId,
+        dto.jobIds,
+        manager,
+      );
+      if (workspaceJobs.length !== dto.jobIds.length) {
+        throw new WorkspaceJobNotFoundError();
+      }
+
+      await this.repo.replaceWorkspaceMemberJobs(
+        workspace.workspaceId,
+        member.userId,
+        dto.jobIds,
+        manager,
+      );
+
+      const updatedMember = await this.repo.findWorkspaceMember(
+        workspace.workspaceId,
+        member.userId,
+        manager,
+      );
+      if (!updatedMember) {
+        throw new WorkspaceMemberNotFoundError();
+      }
+
+      return updatedMember;
+    });
+  }
+
   async transferWorkspaceOwner(
     userId: string,
     workspaceId: string,
@@ -321,14 +372,19 @@ export class WorkspaceUseCase {
         throw new WorkspaceMemberNotFoundError();
       }
 
-      if (member.role !== 'admin') {
-        await this.repo.updateWorkspaceMemberRole(
-          workspace.workspaceId,
-          member.userId,
-          'admin',
-          manager,
-        );
-      }
+      await this.repo.updateWorkspaceMemberRole(
+        workspace.workspaceId,
+        workspace.ownerId,
+        'admin',
+        manager,
+      );
+
+      await this.repo.updateWorkspaceMemberRole(
+        workspace.workspaceId,
+        member.userId,
+        'owner',
+        manager,
+      );
 
       return this.repo.updateWorkspaceOwner(
         workspace.workspaceId,
@@ -338,10 +394,10 @@ export class WorkspaceUseCase {
     });
   }
 
-  async getProjectJobs(
+  async getWorkspaceJobs(
     userId: string,
     workspaceId: string,
-  ): Promise<ProjectJobResponseDto[]> {
+  ): Promise<WorkspaceJobResponseDto[]> {
     const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
       workspaceId,
       userId,
@@ -350,14 +406,14 @@ export class WorkspaceUseCase {
       throw new WorkspaceNotFoundError();
     }
 
-    return this.repo.findProjectJobsByWorkspaceId(workspaceId);
+    return this.repo.findWorkspaceJobsByWorkspaceId(workspaceId);
   }
 
-  async createProjectJobs(
+  async createWorkspaceJobs(
     userId: string,
     workspaceId: string,
-    dto: CreateProjectJobsDto,
-  ): Promise<ProjectJobResponseDto[]> {
+    dto: CreateWorkspaceJobsDto,
+  ): Promise<WorkspaceJobResponseDto[]> {
     const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
       workspaceId,
       userId,
@@ -368,7 +424,7 @@ export class WorkspaceUseCase {
 
     return this.uow.run(async (manager) => {
       try {
-        return await this.repo.createProjectJobs(
+        return await this.repo.createWorkspaceJobs(
           {
             workspaceId: workspace.workspaceId,
             jobs: dto.jobs.map((job) => ({
@@ -379,8 +435,8 @@ export class WorkspaceUseCase {
           manager,
         );
       } catch (error) {
-        if (isProjectJobNameUniqueViolation(error)) {
-          throw new ProjectJobAlreadyExistsError();
+        if (isWorkspaceJobNameUniqueViolation(error)) {
+          throw new WorkspaceJobAlreadyExistsError();
         }
 
         throw error;
@@ -388,11 +444,11 @@ export class WorkspaceUseCase {
     });
   }
 
-  async updateProjectJobs(
+  async updateWorkspaceJobs(
     userId: string,
     workspaceId: string,
-    dto: UpdateProjectJobsDto,
-  ): Promise<ProjectJobResponseDto[]> {
+    dto: UpdateWorkspaceJobsDto,
+  ): Promise<WorkspaceJobResponseDto[]> {
     const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
       workspaceId,
       userId,
@@ -403,19 +459,19 @@ export class WorkspaceUseCase {
 
     return this.uow.run(async (manager) => {
       const requestedJobIds = dto.jobs.map((job) => job.jobId);
-      const projectJobs = await this.repo.findProjectJobsByIds(
+      const workspaceJobs = await this.repo.findWorkspaceJobIds(
         workspace.workspaceId,
         requestedJobIds,
         manager,
       );
-      if (projectJobs.length !== requestedJobIds.length) {
-        throw new ProjectJobNotFoundError();
+      if (workspaceJobs.length !== requestedJobIds.length) {
+        throw new WorkspaceJobNotFoundError();
       }
 
-      let updatedJobs: ProjectJobResponseDto[];
+      let updatedJobs: WorkspaceJobResponseDto[];
 
       try {
-        updatedJobs = await this.repo.updateProjectJobs(
+        updatedJobs = await this.repo.updateWorkspaceJobs(
           {
             workspaceId: workspace.workspaceId,
             jobs: dto.jobs.map((job) => ({
@@ -427,15 +483,15 @@ export class WorkspaceUseCase {
           manager,
         );
       } catch (error) {
-        if (isProjectJobNameUniqueViolation(error)) {
-          throw new ProjectJobAlreadyExistsError();
+        if (isWorkspaceJobNameUniqueViolation(error)) {
+          throw new WorkspaceJobAlreadyExistsError();
         }
 
         throw error;
       }
 
       if (updatedJobs.length !== requestedJobIds.length) {
-        throw new ProjectJobNotFoundError();
+        throw new WorkspaceJobNotFoundError();
       }
 
       const jobById = new Map(updatedJobs.map((job) => [job.jobId, job]));
@@ -775,7 +831,7 @@ export class WorkspaceUseCase {
 
   private resolveWorkspaceInvitationStatus(
     invitation: WorkspaceInvitationRow,
-    latestEvent: { eventType: 'sent' | 'accepted' | 'denied' } | null,
+    latestEvent: Pick<WorkspaceInvitationEventRow, 'eventType'> | null,
   ): WorkspaceInvitationStatus {
     if (latestEvent?.eventType === 'accepted') {
       return 'accepted';
@@ -783,6 +839,14 @@ export class WorkspaceUseCase {
 
     if (latestEvent?.eventType === 'denied') {
       return 'declined';
+    }
+
+    if (latestEvent?.eventType === 'expired') {
+      return 'expired';
+    }
+
+    if (latestEvent?.eventType === 'cancelled') {
+      return 'cancelled';
     }
 
     if (invitation.expiresAt.getTime() < Date.now()) {
@@ -805,6 +869,10 @@ export class WorkspaceUseCase {
 
     if (status === 'expired') {
       throw new WorkspaceInvitationExpiredError();
+    }
+
+    if (status === 'cancelled') {
+      throw new WorkspaceInvitationCancelledError();
     }
   }
 

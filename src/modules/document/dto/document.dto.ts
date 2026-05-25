@@ -85,6 +85,9 @@ export class DocumentSummaryResponseDto {
   documentId!: string;
 
   @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
   projectId!: string;
 
   @ApiProperty()
@@ -200,6 +203,9 @@ export class DocumentChunkResponseDto {
   documentId!: string;
 
   @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
   projectId!: string;
 
   @ApiProperty()
@@ -292,6 +298,9 @@ export class AppendDocumentChunkEmbeddingsDto {
 export class DocumentChunkEmbeddingResponseDto {
   @ApiProperty()
   chunkId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
 
   @ApiProperty()
   projectId!: string;

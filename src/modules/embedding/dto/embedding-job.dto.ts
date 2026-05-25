@@ -173,6 +173,9 @@ export class EmbeddingJobResponseDto {
   embeddingJobId!: string;
 
   @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
   projectId!: string;
 
   @ApiProperty({ enum: EMBEDDING_JOB_TYPES })
