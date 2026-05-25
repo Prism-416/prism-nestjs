@@ -377,7 +377,7 @@ export class WorkItemRepository {
           $7,
           $8,
           NOW(),
-          CASE WHEN $7 = 'archived' THEN NOW() ELSE NULL END
+          CASE WHEN $9 THEN NOW() ELSE NULL END
         )
         RETURNING
           item_id AS "itemId",
@@ -400,6 +400,7 @@ export class WorkItemRepository {
         params.priority,
         params.status,
         params.createdBy,
+        params.status === 'archived',
       ],
     );
 
@@ -438,8 +439,8 @@ export class WorkItemRepository {
                                 ELSE status_changed_at
                               END,
           archived_at = CASE
-                          WHEN $12 AND $13 = 'archived' AND archived_at IS NULL THEN NOW()
-                          WHEN $12 AND $13 <> 'archived' THEN NULL
+                          WHEN $12 AND $14 AND archived_at IS NULL THEN NOW()
+                          WHEN $12 AND NOT $14 THEN NULL
                           ELSE archived_at
                         END,
           updated_at = NOW()
@@ -472,6 +473,7 @@ export class WorkItemRepository {
         params.priority,
         params.hasStatus,
         params.status,
+        params.status === 'archived',
       ],
     );
 
