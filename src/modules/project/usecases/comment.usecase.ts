@@ -50,6 +50,7 @@ export class CommentUseCase {
       }
 
       const workItem = await this.workItemRepository.findWorkItemById(
+        project.workspaceId,
         project.projectId,
         itemId,
         manager,
@@ -60,6 +61,7 @@ export class CommentUseCase {
 
       return this.commentRepository.createWorkItemComment(
         {
+          workspaceId: project.workspaceId,
           projectId: project.projectId,
           itemId,
           authorUserId: userId,
@@ -93,6 +95,7 @@ export class CommentUseCase {
       }
 
       const workItem = await this.workItemRepository.findWorkItemById(
+        project.workspaceId,
         project.projectId,
         itemId,
         manager,
@@ -103,6 +106,7 @@ export class CommentUseCase {
 
       const comment = await this.commentRepository.updateWorkItemComment(
         {
+          workspaceId: project.workspaceId,
           projectId: project.projectId,
           itemId,
           commentId,
@@ -141,6 +145,7 @@ export class CommentUseCase {
       }
 
       const workItem = await this.workItemRepository.findWorkItemById(
+        project.workspaceId,
         project.projectId,
         itemId,
         manager,
@@ -151,6 +156,7 @@ export class CommentUseCase {
 
       const deleted = await this.commentRepository.deleteWorkItemComment(
         {
+          workspaceId: project.workspaceId,
           projectId: project.projectId,
           itemId,
           commentId,
@@ -187,6 +193,7 @@ export class CommentUseCase {
     }
 
     const workItem = await this.workItemRepository.findWorkItemById(
+      project.workspaceId,
       project.projectId,
       itemId,
     );
@@ -195,6 +202,7 @@ export class CommentUseCase {
     }
 
     return this.commentRepository.searchWorkItemComments({
+      workspaceId: project.workspaceId,
       projectId: project.projectId,
       itemId,
       limit: query.limit ?? 50,
@@ -217,8 +225,45 @@ export class CommentUseCase {
       throw new ProjectNotFoundError();
     }
 
-    const workItem = await this.workItemRepository.findWorkItemById(
+    return this.upsertProjectWorkItemCommentEmbedding(
+      project.workspaceId,
       project.projectId,
+      itemId,
+      commentId,
+      dto,
+    );
+  }
+
+  async upsertWorkItemCommentEmbeddingForInternal(
+    projectId: string,
+    itemId: string,
+    commentId: string,
+    dto: UpsertWorkItemCommentEmbeddingDto,
+  ): Promise<WorkItemCommentEmbeddingResponseDto> {
+    const project = await this.projectRepository.findProjectById(projectId);
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    return this.upsertProjectWorkItemCommentEmbedding(
+      project.workspaceId,
+      project.projectId,
+      itemId,
+      commentId,
+      dto,
+    );
+  }
+
+  private async upsertProjectWorkItemCommentEmbedding(
+    workspaceId: string,
+    projectId: string,
+    itemId: string,
+    commentId: string,
+    dto: UpsertWorkItemCommentEmbeddingDto,
+  ): Promise<WorkItemCommentEmbeddingResponseDto> {
+    const workItem = await this.workItemRepository.findWorkItemById(
+      workspaceId,
+      projectId,
       itemId,
     );
     if (!workItem) {
@@ -226,7 +271,8 @@ export class CommentUseCase {
     }
 
     const comment = await this.commentRepository.findWorkItemCommentById(
-      project.projectId,
+      workspaceId,
+      projectId,
       itemId,
       commentId,
     );
@@ -236,7 +282,8 @@ export class CommentUseCase {
 
     const embedding =
       await this.commentRepository.upsertWorkItemCommentEmbedding({
-        projectId: project.projectId,
+        workspaceId,
+        projectId,
         itemId,
         commentId,
         embeddedBody: dto.embeddedBody,

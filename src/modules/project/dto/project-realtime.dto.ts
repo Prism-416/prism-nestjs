@@ -52,6 +52,8 @@ export class CommentDeletedPayloadDto {
 export class DocumentCreatedPayloadDto {
   documentId!: string;
 
+  workspaceId!: string;
+
   projectId!: string;
 
   title!: string;

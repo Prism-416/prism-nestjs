@@ -47,6 +47,9 @@ export class CommentResponseDto {
   commentId!: string;
 
   @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
   projectId!: string;
 
   @ApiProperty()
@@ -128,6 +131,9 @@ export class UpsertWorkItemCommentEmbeddingDto {
 export class WorkItemCommentEmbeddingResponseDto {
   @ApiProperty()
   commentId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
 
   @ApiProperty()
   projectId!: string;

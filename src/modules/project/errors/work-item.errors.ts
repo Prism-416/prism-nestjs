@@ -17,10 +17,7 @@ export class WorkItemNotFoundError extends NotExistsError {
 
 export class WorkItemAssigneeNotFoundError extends NotExistsError {
   constructor() {
-    super(
-      'Work item assignee project member not found.',
-      'WORK_ITEM_ASSIGNEE_NOT_FOUND',
-    );
+    super('Work item assignee not found.', 'WORK_ITEM_ASSIGNEE_NOT_FOUND');
   }
 }
 

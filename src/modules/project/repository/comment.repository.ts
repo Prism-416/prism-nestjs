@@ -22,23 +22,45 @@ export class CommentRepository {
   ): Promise<CommentRow> {
     const comments = await this.getManager(manager).query<CommentRow[]>(
       `
-        INSERT INTO prism_work_item_comments_l (
-          project_id,
-          item_id,
-          author_user_id,
-          body
+        WITH inserted_comment AS (
+          INSERT INTO prism_work_item_comments_l (
+            workspace_id,
+            item_id,
+            author_user_id,
+            body
+          )
+          VALUES ($1, $3, $4, $5)
+          RETURNING
+            comment_id,
+            workspace_id,
+            item_id,
+            author_user_id,
+            body,
+            created_at,
+            updated_at
         )
-        VALUES ($1, $2, $3, $4)
-        RETURNING
-          comment_id AS "commentId",
-          project_id AS "projectId",
-          item_id AS "itemId",
-          author_user_id AS "authorUserId",
-          body,
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
+        SELECT
+          c.comment_id AS "commentId",
+          c.workspace_id AS "workspaceId",
+          wi.project_id AS "projectId",
+          c.item_id AS "itemId",
+          c.author_user_id AS "authorUserId",
+          c.body,
+          c.created_at AS "createdAt",
+          c.updated_at AS "updatedAt"
+        FROM inserted_comment c
+               INNER JOIN prism_work_items_l wi
+                          ON wi.workspace_id = c.workspace_id
+                         AND wi.item_id = c.item_id
+                         AND wi.project_id = $2
       `,
-      [params.projectId, params.itemId, params.authorUserId, params.body],
+      [
+        params.workspaceId,
+        params.projectId,
+        params.itemId,
+        params.authorUserId,
+        params.body,
+      ],
     );
 
     return comments[0];
@@ -50,24 +72,41 @@ export class CommentRepository {
   ): Promise<CommentRow | null> {
     const comments = await this.getManager(manager).query<CommentRow[]>(
       `
-        UPDATE prism_work_item_comments_l
-        SET
-          body = $5,
-          updated_at = NOW()
-        WHERE project_id = $1
-          AND item_id = $2
-          AND comment_id = $3
-          AND author_user_id = $4
-        RETURNING
-          comment_id AS "commentId",
-          project_id AS "projectId",
-          item_id AS "itemId",
-          author_user_id AS "authorUserId",
-          body,
-          created_at AS "createdAt",
-          updated_at AS "updatedAt"
+        WITH updated_comment AS (
+          UPDATE prism_work_item_comments_l
+          SET
+            body = $6,
+            updated_at = NOW()
+          WHERE workspace_id = $1
+            AND item_id = $3
+            AND comment_id = $4
+            AND author_user_id = $5
+          RETURNING
+            comment_id,
+            workspace_id,
+            item_id,
+            author_user_id,
+            body,
+            created_at,
+            updated_at
+        )
+        SELECT
+          c.comment_id AS "commentId",
+          c.workspace_id AS "workspaceId",
+          wi.project_id AS "projectId",
+          c.item_id AS "itemId",
+          c.author_user_id AS "authorUserId",
+          c.body,
+          c.created_at AS "createdAt",
+          c.updated_at AS "updatedAt"
+        FROM updated_comment c
+               INNER JOIN prism_work_items_l wi
+                          ON wi.workspace_id = c.workspace_id
+                         AND wi.item_id = c.item_id
+                         AND wi.project_id = $2
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.itemId,
         params.commentId,
@@ -87,20 +126,31 @@ export class CommentRepository {
       Array<{ commentId: string }>
     >(
       `
-        DELETE FROM prism_work_item_comments_l
-        WHERE project_id = $1
-          AND item_id = $2
-          AND comment_id = $3
-          AND author_user_id = $4
-        RETURNING comment_id AS "commentId"
+        DELETE FROM prism_work_item_comments_l c
+        USING prism_work_items_l wi
+        WHERE c.workspace_id = $1
+          AND wi.workspace_id = c.workspace_id
+          AND wi.project_id = $2
+          AND c.item_id = $3
+          AND wi.item_id = c.item_id
+          AND c.comment_id = $4
+          AND c.author_user_id = $5
+        RETURNING c.comment_id AS "commentId"
       `,
-      [params.projectId, params.itemId, params.commentId, params.authorUserId],
+      [
+        params.workspaceId,
+        params.projectId,
+        params.itemId,
+        params.commentId,
+        params.authorUserId,
+      ],
     );
 
     return comments.length > 0;
   }
 
   async findWorkItemCommentById(
+    workspaceId: string,
     projectId: string,
     itemId: string,
     commentId: string,
@@ -110,14 +160,18 @@ export class CommentRepository {
       Array<Pick<CommentRow, 'commentId'>>
     >(
       `
-        SELECT comment_id AS "commentId"
-        FROM prism_work_item_comments_l
-        WHERE project_id = $1
-          AND item_id = $2
-          AND comment_id = $3
+        SELECT c.comment_id AS "commentId"
+        FROM prism_work_item_comments_l c
+               INNER JOIN prism_work_items_l wi
+                          ON wi.workspace_id = c.workspace_id
+                         AND wi.item_id = c.item_id
+        WHERE c.workspace_id = $1
+          AND wi.project_id = $2
+          AND c.item_id = $3
+          AND c.comment_id = $4
         LIMIT 1
       `,
-      [projectId, itemId, commentId],
+      [workspaceId, projectId, itemId, commentId],
     );
 
     return comments[0] ?? null;
@@ -131,20 +185,31 @@ export class CommentRepository {
       `
         SELECT
           c.comment_id AS "commentId",
-          c.project_id AS "projectId",
+          c.workspace_id AS "workspaceId",
+          wi.project_id AS "projectId",
           c.item_id AS "itemId",
           c.author_user_id AS "authorUserId",
           c.body,
           c.created_at AS "createdAt",
           c.updated_at AS "updatedAt"
         FROM prism_work_item_comments_l c
-        WHERE c.project_id = $1
-          AND c.item_id = $2
+               INNER JOIN prism_work_items_l wi
+                          ON wi.workspace_id = c.workspace_id
+                         AND wi.item_id = c.item_id
+        WHERE c.workspace_id = $1
+          AND wi.project_id = $2
+          AND c.item_id = $3
         ORDER BY c.created_at ASC, c.comment_id ASC
-        LIMIT $3
-        OFFSET $4
+        LIMIT $4
+        OFFSET $5
       `,
-      [params.projectId, params.itemId, params.limit, params.offset],
+      [
+        params.workspaceId,
+        params.projectId,
+        params.itemId,
+        params.limit,
+        params.offset,
+      ],
     );
 
     const counts = await this.getManager(manager).query<
@@ -152,11 +217,15 @@ export class CommentRepository {
     >(
       `
         SELECT COUNT(*)::int AS total
-        FROM prism_work_item_comments_l
-        WHERE project_id = $1
-          AND item_id = $2
+        FROM prism_work_item_comments_l c
+               INNER JOIN prism_work_items_l wi
+                          ON wi.workspace_id = c.workspace_id
+                         AND wi.item_id = c.item_id
+        WHERE c.workspace_id = $1
+          AND wi.project_id = $2
+          AND c.item_id = $3
       `,
-      [params.projectId, params.itemId],
+      [params.workspaceId, params.projectId, params.itemId],
     );
 
     return {
@@ -179,11 +248,12 @@ export class CommentRepository {
           SELECT
             (
               SELECT ('[' || string_agg(embedding_value.value, ',' ORDER BY embedding_value.ordinality) || ']')::vector
-              FROM jsonb_array_elements_text($8::jsonb) WITH ORDINALITY AS embedding_value(value, ordinality)
+              FROM jsonb_array_elements_text($9::jsonb) WITH ORDINALITY AS embedding_value(value, ordinality)
             ) AS embedding
         )
         INSERT INTO prism_work_item_comment_embeddings_l (
           comment_id,
+          workspace_id,
           project_id,
           item_id,
           embedding,
@@ -194,21 +264,27 @@ export class CommentRepository {
         )
         SELECT
           c.comment_id,
-          c.project_id,
+          c.workspace_id,
+          wi.project_id,
           c.item_id,
           input_embedding.embedding,
-          $4,
           $5,
           $6,
-          $7
+          $7,
+          $8
         FROM prism_work_item_comments_l c
+               INNER JOIN prism_work_items_l wi
+                          ON wi.workspace_id = c.workspace_id
+                         AND wi.item_id = c.item_id
                CROSS JOIN input_embedding
-        WHERE c.project_id = $1
-          AND c.item_id = $2
-          AND c.comment_id = $3
-          AND c.body = $4
+        WHERE c.workspace_id = $1
+          AND wi.project_id = $2
+          AND c.item_id = $3
+          AND c.comment_id = $4
+          AND c.body = $5
         ON CONFLICT (comment_id)
         DO UPDATE SET
+          workspace_id = EXCLUDED.workspace_id,
           project_id = EXCLUDED.project_id,
           item_id = EXCLUDED.item_id,
           embedding = EXCLUDED.embedding,
@@ -219,6 +295,7 @@ export class CommentRepository {
           embedded_at = NOW()
         RETURNING
           comment_id AS "commentId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           item_id AS "itemId",
           embedded_body AS "embeddedBody",
@@ -229,6 +306,7 @@ export class CommentRepository {
           embedded_at AS "embeddedAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.itemId,
         params.commentId,

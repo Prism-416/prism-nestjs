@@ -1,4 +1,3 @@
-export const WORK_ITEM_TYPES = ['epic', 'story', 'task'] as const;
 export const WORK_ITEM_PRIORITIES = [
   'low',
   'medium',
@@ -10,19 +9,18 @@ export const WORK_ITEM_STATUSES = [
   'in_progress',
   'in_review',
   'done',
+  'archived',
 ] as const;
-
-export type WorkItemType = (typeof WORK_ITEM_TYPES)[number];
 export type WorkItemPriority = (typeof WORK_ITEM_PRIORITIES)[number];
 export type WorkItemStatus = (typeof WORK_ITEM_STATUSES)[number];
 
 export type WorkItemRow = {
   itemId: string;
+  workspaceId: string;
   projectId: string;
   parentId: string | null;
   title: string;
   description: string;
-  type: WorkItemType;
   priority: WorkItemPriority;
   status: WorkItemStatus;
   statusChangedAt: Date;
@@ -30,7 +28,7 @@ export type WorkItemRow = {
 };
 
 export type WorkItemAssigneeRow = {
-  memberId: string;
+  userId: string;
   username: string;
 };
 
@@ -46,6 +44,7 @@ export type WorkItemDetailRow = WorkItemRow & {
 
 export type WorkItemEmbeddingRow = {
   itemId: string;
+  workspaceId: string;
   projectId: string;
   embeddedTitle: string;
   embeddedDescription: string;
@@ -57,10 +56,10 @@ export type WorkItemEmbeddingRow = {
 };
 
 export type SearchWorkItemsParams = {
+  workspaceId: string;
   projectId: string;
   query?: string;
   parentId?: string;
-  type?: WorkItemType;
   priority?: WorkItemPriority;
   status?: WorkItemStatus;
   assigneeUsername?: string;
@@ -70,6 +69,7 @@ export type SearchWorkItemsParams = {
 };
 
 export type UpsertWorkItemEmbeddingParams = {
+  workspaceId: string;
   projectId: string;
   itemId: string;
   embeddedTitle: string;

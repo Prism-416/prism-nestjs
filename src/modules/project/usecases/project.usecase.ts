@@ -3,21 +3,14 @@ import { UnitOfWork } from '@/core/database';
 import {
   CreateProjectDto,
   GetProjectsQueryDto,
-  ProjectMemberListResponseDto,
-  ProjectMemberResponseDto,
   ProjectResponseDto,
   ProjectSummaryResponseDto,
   UpdateProjectDto,
-  UpsertProjectMembersDto,
 } from '@/modules/project/dto';
 import {
-  ProjectJobNotFoundError,
-  ProjectMemberNotFoundError,
   isProjectSlugUniqueViolation,
-  ProjectMemberWorkspaceMemberNotFoundError,
   ProjectNotFoundError,
   ProjectSlugAlreadyExistsError,
-  ProjectMemberSelfRemovalError,
 } from '@/modules/project/errors';
 import { ProjectRepository } from '@/modules/project/repository';
 import { ProjectRealtimePublisherService } from '@/modules/project/services';
@@ -97,21 +90,6 @@ export class ProjectUseCase {
     return project;
   }
 
-  async getProjectMembers(
-    userId: string,
-    projectId: string,
-  ): Promise<ProjectMemberListResponseDto[]> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new ProjectNotFoundError();
-    }
-
-    return this.repo.findProjectMembersByProjectId(projectId);
-  }
-
   async createProject(
     userId: string,
     dto: CreateProjectDto,
@@ -142,15 +120,6 @@ export class ProjectUseCase {
         throw new WorkspaceNotFoundError();
       }
 
-      await this.repo.createProjectMember(
-        {
-          workspaceId: project.workspaceId,
-          projectId: project.projectId,
-          userId,
-        },
-        manager,
-      );
-
       return project;
     });
   }
@@ -172,8 +141,6 @@ export class ProjectUseCase {
       projectId,
       name: dto.name ?? project.name,
       description: dto.description ?? project.description,
-      timezone: dto.timezone ?? project.timezone,
-      locale: dto.locale ?? project.locale,
     });
 
     this.realtimePublisher.publishProjectUpdated(updatedProject);
@@ -191,119 +158,5 @@ export class ProjectUseCase {
     }
 
     this.realtimePublisher.publishProjectDeleted({ projectId });
-  }
-
-  async removeProjectMember(
-    userId: string,
-    projectId: string,
-    memberId: string,
-  ): Promise<void> {
-    await this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndAdminUserId(
-        projectId,
-        userId,
-        manager,
-      );
-      if (!project) {
-        throw new ProjectNotFoundError();
-      }
-
-      const member = await this.repo.findProjectMemberById(
-        project.workspaceId,
-        project.projectId,
-        memberId,
-        manager,
-      );
-      if (!member) {
-        throw new ProjectMemberNotFoundError();
-      }
-
-      if (member.userId === userId) {
-        throw new ProjectMemberSelfRemovalError();
-      }
-
-      const deleted = await this.repo.deleteProjectMemberById(
-        project.workspaceId,
-        project.projectId,
-        memberId,
-        manager,
-      );
-      if (!deleted) {
-        throw new ProjectMemberNotFoundError();
-      }
-    });
-  }
-
-  async upsertProjectMembers(
-    userId: string,
-    projectId: string,
-    dto: UpsertProjectMembersDto,
-  ): Promise<ProjectMemberResponseDto[]> {
-    return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndAdminUserId(
-        projectId,
-        userId,
-        manager,
-      );
-      if (!project) {
-        throw new ProjectNotFoundError();
-      }
-
-      const requestedUserIds = dto.members.map((member) => member.userId);
-      const workspaceMembers = await this.repo.findWorkspaceMembersByUserIds(
-        project.workspaceId,
-        requestedUserIds,
-        manager,
-      );
-      if (workspaceMembers.length !== requestedUserIds.length) {
-        throw new ProjectMemberWorkspaceMemberNotFoundError();
-      }
-
-      const requestedJobIds = [
-        ...new Set(dto.members.flatMap((member) => member.jobIds)),
-      ];
-      const projectJobs = await this.repo.findProjectJobsByIds(
-        project.workspaceId,
-        requestedJobIds,
-        manager,
-      );
-      if (projectJobs.length !== requestedJobIds.length) {
-        throw new ProjectJobNotFoundError();
-      }
-
-      const projectMembers = await this.repo.upsertProjectMembers(
-        {
-          workspaceId: project.workspaceId,
-          projectId: project.projectId,
-          userIds: requestedUserIds,
-        },
-        manager,
-      );
-      const memberByUserId = new Map(
-        projectMembers.map((member) => [member.userId, member]),
-      );
-
-      await this.repo.replaceProjectMemberJobs(
-        {
-          members: dto.members.map((member) => ({
-            memberId: memberByUserId.get(member.userId)!.memberId,
-            jobIds: member.jobIds,
-          })),
-        },
-        manager,
-      );
-
-      return dto.members.map((member) => {
-        const projectMember = memberByUserId.get(member.userId)!;
-        return {
-          memberId: projectMember.memberId,
-          workspaceId: projectMember.workspaceId,
-          projectId: projectMember.projectId,
-          userId: projectMember.userId,
-          jobIds: member.jobIds,
-          assignedAt: projectMember.assignedAt,
-        };
-      });
-    });
   }
 }

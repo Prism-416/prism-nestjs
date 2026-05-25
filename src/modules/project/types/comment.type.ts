@@ -1,5 +1,6 @@
 export type CommentRow = {
   commentId: string;
+  workspaceId: string;
   projectId: string;
   itemId: string;
   authorUserId: string;
@@ -10,6 +11,7 @@ export type CommentRow = {
 
 export type WorkItemCommentEmbeddingRow = {
   commentId: string;
+  workspaceId: string;
   projectId: string;
   itemId: string;
   embeddedBody: string;
@@ -21,6 +23,7 @@ export type WorkItemCommentEmbeddingRow = {
 };
 
 export type SearchCommentsParams = {
+  workspaceId: string;
   projectId: string;
   itemId: string;
   limit: number;
@@ -28,6 +31,7 @@ export type SearchCommentsParams = {
 };
 
 export type CreateCommentParams = {
+  workspaceId: string;
   projectId: string;
   itemId: string;
   authorUserId: string;
@@ -35,6 +39,7 @@ export type CreateCommentParams = {
 };
 
 export type UpdateCommentParams = {
+  workspaceId: string;
   projectId: string;
   itemId: string;
   commentId: string;
@@ -43,6 +48,7 @@ export type UpdateCommentParams = {
 };
 
 export type DeleteCommentParams = {
+  workspaceId: string;
   projectId: string;
   itemId: string;
   commentId: string;
@@ -50,6 +56,7 @@ export type DeleteCommentParams = {
 };
 
 export type UpsertWorkItemCommentEmbeddingParams = {
+  workspaceId: string;
   projectId: string;
   itemId: string;
   commentId: string;

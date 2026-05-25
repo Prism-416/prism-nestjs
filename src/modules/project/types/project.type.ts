@@ -4,8 +4,6 @@ export type ProjectRow = {
   name: string;
   slug: string;
   description: string | null;
-  timezone: string;
-  locale: string;
   createdAt: Date;
 };
 
@@ -16,22 +14,4 @@ export type ProjectSummaryRow = Pick<
 
 export type ProjectWorkspaceMemberUserRow = {
   userId: string;
-};
-
-export type ProjectJobIdRow = {
-  jobId: string;
-};
-
-export type ProjectMemberRow = {
-  memberId: string;
-  workspaceId: string;
-  projectId: string;
-  userId: string;
-  assignedAt: Date;
-};
-
-export type ProjectMemberListRow = ProjectMemberRow & {
-  fullName: string;
-  username: string;
-  jobNames: string[];
 };

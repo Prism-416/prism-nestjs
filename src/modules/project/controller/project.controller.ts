@@ -16,13 +16,10 @@ import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
   CreateProjectDto,
-  ProjectMemberListResponseDto,
   GetProjectsQueryDto,
-  ProjectMemberResponseDto,
   ProjectResponseDto,
   ProjectSummaryResponseDto,
   UpdateProjectDto,
-  UpsertProjectMembersDto,
 } from '@/modules/project/dto';
 import { ProjectUseCase } from '@/modules/project/usecases';
 
@@ -84,17 +81,6 @@ export class ProjectController {
     return this.usecase.getProject(String(user.sub), projectId);
   }
 
-  @Get(':projectId/members')
-  @Authenticated()
-  @ApiOperation({ summary: 'Retrieve project members' })
-  @ApiDataResponse(ProjectMemberListResponseDto, { isArray: true })
-  async getProjectMembers(
-    @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
-  ): Promise<ProjectMemberListResponseDto[]> {
-    return this.usecase.getProjectMembers(String(user.sub), projectId);
-  }
-
   @Post()
   @Authenticated()
   @ApiOperation({ summary: 'Create Project' })
@@ -128,36 +114,5 @@ export class ProjectController {
     @Param('projectId') projectId: string,
   ): Promise<void> {
     await this.usecase.deleteProject(String(user.sub), projectId);
-  }
-
-  @Delete(':projectId/members/:memberId')
-  @Authenticated()
-  @HttpCode(HttpStatus.NO_CONTENT)
-  @ApiOperation({ summary: 'Remove a project member' })
-  @ApiNoContentResponse({
-    description: 'Successfully removed the project member',
-  })
-  async removeProjectMember(
-    @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
-    @Param('memberId') memberId: string,
-  ): Promise<void> {
-    await this.usecase.removeProjectMember(
-      String(user.sub),
-      projectId,
-      memberId,
-    );
-  }
-
-  @Patch(':projectId/members')
-  @Authenticated()
-  @ApiOperation({ summary: 'Upsert project members in batch' })
-  @ApiDataResponse(ProjectMemberResponseDto, { isArray: true })
-  async upsertProjectMembers(
-    @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
-    @Body() dto: UpsertProjectMembersDto,
-  ): Promise<ProjectMemberResponseDto[]> {
-    return this.usecase.upsertProjectMembers(String(user.sub), projectId, dto);
   }
 }

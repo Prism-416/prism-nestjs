@@ -24,11 +24,11 @@ export class WorkItemRepository {
   ): Promise<SearchWorkItemsResult> {
     type SearchWorkItemRow = {
       itemId: string | null;
+      workspaceId: string | null;
       projectId: string | null;
       parentId: string | null;
       title: string | null;
       description: string | null;
-      type: WorkItemRow['type'] | null;
       priority: WorkItemPriority | null;
       status: WorkItemStatus | null;
       statusChangedAt: Date | null;
@@ -43,24 +43,24 @@ export class WorkItemRepository {
         WITH filtered_items AS (
           SELECT
             wi.item_id,
+            wi.workspace_id,
             wi.project_id,
             wi.parent_id,
             wi.title,
             wi.description,
-            wi.type,
             wi.priority,
             wi.status,
             wi.status_changed_at,
             wi.created_at
           FROM prism_work_items_l wi
-          WHERE wi.project_id = $1
+          WHERE wi.workspace_id = $1
+            AND wi.project_id = $2
             AND (
-              $2::text IS NULL
-              OR wi.title ILIKE '%' || $2 || '%'
-              OR wi.description ILIKE '%' || $2 || '%'
+              $3::text IS NULL
+              OR wi.title ILIKE '%' || $3 || '%'
+              OR wi.description ILIKE '%' || $3 || '%'
             )
-            AND ($3::uuid IS NULL OR wi.parent_id = $3)
-            AND ($4::text IS NULL OR wi.type = $4)
+            AND ($4::uuid IS NULL OR wi.parent_id = $4)
             AND ($5::text IS NULL OR wi.priority = $5)
             AND ($6::text IS NULL OR wi.status = $6)
             AND (
@@ -68,12 +68,9 @@ export class WorkItemRepository {
               OR EXISTS (
                 SELECT 1
                 FROM prism_work_item_member_map wimm
-                       INNER JOIN prism_project_members_l pm
-                                  ON pm.project_id = wimm.project_id
-                                 AND pm.member_id = wimm.member_id
                        INNER JOIN prism_users_l u
-                                  ON u.user_id = pm.user_id
-                WHERE wimm.project_id = wi.project_id
+                                  ON u.user_id = wimm.user_id
+                WHERE wimm.workspace_id = wi.workspace_id
                   AND wimm.item_id = wi.item_id
                   AND u.username = $7
               )
@@ -105,11 +102,11 @@ export class WorkItemRepository {
         )
         SELECT
           pi.item_id AS "itemId",
+          pi.workspace_id AS "workspaceId",
           pi.project_id AS "projectId",
           pi.parent_id AS "parentId",
           pi.title,
           pi.description,
-          pi.type,
           pi.priority,
           pi.status,
           pi.status_changed_at AS "statusChangedAt",
@@ -118,12 +115,9 @@ export class WorkItemRepository {
             (
               SELECT array_agg(u.username ORDER BY u.username)
               FROM prism_work_item_member_map wimm
-                     INNER JOIN prism_project_members_l pm
-                                ON pm.project_id = wimm.project_id
-                               AND pm.member_id = wimm.member_id
                      INNER JOIN prism_users_l u
-                                ON u.user_id = pm.user_id
-              WHERE wimm.project_id = pi.project_id
+                                ON u.user_id = wimm.user_id
+              WHERE wimm.workspace_id = pi.workspace_id
                 AND wimm.item_id = pi.item_id
             ),
             ARRAY[]::text[]
@@ -147,10 +141,10 @@ export class WorkItemRepository {
         ORDER BY pi.created_at DESC NULLS LAST, pi.item_id DESC NULLS LAST
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.query ?? null,
         params.parentId ?? null,
-        params.type ?? null,
         params.priority ?? null,
         params.status ?? null,
         params.assigneeUsername ?? null,
@@ -168,11 +162,11 @@ export class WorkItemRepository {
         )
         .map((row) => ({
           itemId: row.itemId,
+          workspaceId: row.workspaceId as string,
           projectId: row.projectId as string,
           parentId: row.parentId,
           title: row.title as string,
           description: row.description as string,
-          type: row.type as WorkItemRow['type'],
           priority: row.priority as WorkItemPriority,
           status: row.status as WorkItemStatus,
           statusChangedAt: row.statusChangedAt as Date,
@@ -187,6 +181,7 @@ export class WorkItemRepository {
   }
 
   async findWorkItemById(
+    workspaceId: string,
     projectId: string,
     itemId: string,
     manager?: EntityManager,
@@ -197,17 +192,19 @@ export class WorkItemRepository {
       `
         SELECT item_id AS "itemId"
         FROM prism_work_items_l
-        WHERE project_id = $1
-          AND item_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND item_id = $3
         LIMIT 1
       `,
-      [projectId, itemId],
+      [workspaceId, projectId, itemId],
     );
 
     return items[0] ?? null;
   }
 
   async findWorkItemRecordById(
+    workspaceId: string,
     projectId: string,
     itemId: string,
     manager?: EntityManager,
@@ -216,27 +213,29 @@ export class WorkItemRepository {
       `
         SELECT
           item_id AS "itemId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           parent_id AS "parentId",
           title,
           description,
-          type,
           priority,
           status,
           status_changed_at AS "statusChangedAt",
           created_at AS "createdAt"
         FROM prism_work_items_l
-        WHERE project_id = $1
-          AND item_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND item_id = $3
         LIMIT 1
       `,
-      [projectId, itemId],
+      [workspaceId, projectId, itemId],
     );
 
     return items[0] ?? null;
   }
 
   async findWorkItemDetailById(
+    workspaceId: string,
     projectId: string,
     itemId: string,
     manager?: EntityManager,
@@ -245,11 +244,11 @@ export class WorkItemRepository {
       `
         SELECT
           wi.item_id AS "itemId",
+          wi.workspace_id AS "workspaceId",
           wi.project_id AS "projectId",
           wi.parent_id AS "parentId",
           wi.title,
           wi.description,
-          wi.type,
           wi.priority,
           wi.status,
           wi.status_changed_at AS "statusChangedAt",
@@ -258,12 +257,9 @@ export class WorkItemRepository {
             (
               SELECT array_agg(u.username ORDER BY u.username)
               FROM prism_work_item_member_map wimm
-                     INNER JOIN prism_project_members_l pm
-                                ON pm.project_id = wimm.project_id
-                               AND pm.member_id = wimm.member_id
                      INNER JOIN prism_users_l u
-                                ON u.user_id = pm.user_id
-              WHERE wimm.project_id = wi.project_id
+                                ON u.user_id = wimm.user_id
+              WHERE wimm.workspace_id = wi.workspace_id
                 AND wimm.item_id = wi.item_id
             ),
             ARRAY[]::text[]
@@ -281,17 +277,19 @@ export class WorkItemRepository {
             ARRAY[]::text[]
           ) AS "labelNames"
         FROM prism_work_items_l wi
-        WHERE wi.project_id = $1
-          AND wi.item_id = $2
+        WHERE wi.workspace_id = $1
+          AND wi.project_id = $2
+          AND wi.item_id = $3
         LIMIT 1
       `,
-      [projectId, itemId],
+      [workspaceId, projectId, itemId],
     );
 
     return items[0] ?? null;
   }
 
   async findChildWorkItems(
+    workspaceId: string,
     projectId: string,
     parentId: string,
     manager?: EntityManager,
@@ -300,11 +298,11 @@ export class WorkItemRepository {
       `
         SELECT
           wi.item_id AS "itemId",
+          wi.workspace_id AS "workspaceId",
           wi.project_id AS "projectId",
           wi.parent_id AS "parentId",
           wi.title,
           wi.description,
-          wi.type,
           wi.priority,
           wi.status,
           wi.status_changed_at AS "statusChangedAt",
@@ -313,12 +311,9 @@ export class WorkItemRepository {
             (
               SELECT array_agg(u.username ORDER BY u.username)
               FROM prism_work_item_member_map wimm
-                     INNER JOIN prism_project_members_l pm
-                                ON pm.project_id = wimm.project_id
-                               AND pm.member_id = wimm.member_id
                      INNER JOIN prism_users_l u
-                                ON u.user_id = pm.user_id
-              WHERE wimm.project_id = wi.project_id
+                                ON u.user_id = wimm.user_id
+              WHERE wimm.workspace_id = wi.workspace_id
                 AND wimm.item_id = wi.item_id
             ),
             ARRAY[]::text[]
@@ -336,59 +331,75 @@ export class WorkItemRepository {
             ARRAY[]::text[]
           ) AS "labelNames"
         FROM prism_work_items_l wi
-        WHERE wi.project_id = $1
-          AND wi.parent_id = $2
+        WHERE wi.workspace_id = $1
+          AND wi.project_id = $2
+          AND wi.parent_id = $3
         ORDER BY wi.created_at ASC, wi.item_id ASC
       `,
-      [projectId, parentId],
+      [workspaceId, projectId, parentId],
     );
   }
 
   async createWorkItem(
     params: {
+      workspaceId: string;
       projectId: string;
       parentId?: string;
       title: string;
       description: string;
-      type: WorkItemRow['type'];
       priority: WorkItemPriority;
       status: WorkItemStatus;
+      createdBy: string;
     },
     manager?: EntityManager,
   ): Promise<WorkItemRow> {
     const items = await this.getManager(manager).query<WorkItemRow[]>(
       `
         INSERT INTO prism_work_items_l (
+          workspace_id,
           project_id,
           parent_id,
           title,
           description,
-          type,
           priority,
           status,
-          status_changed_at
+          created_by,
+          status_changed_at,
+          archived_at
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        VALUES (
+          $1,
+          $2,
+          $3,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          NOW(),
+          CASE WHEN $7 = 'archived' THEN NOW() ELSE NULL END
+        )
         RETURNING
           item_id AS "itemId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           parent_id AS "parentId",
           title,
           description,
-          type,
           priority,
           status,
           status_changed_at AS "statusChangedAt",
           created_at AS "createdAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.parentId ?? null,
         params.title,
         params.description,
-        params.type,
         params.priority,
         params.status,
+        params.createdBy,
       ],
     );
 
@@ -397,6 +408,7 @@ export class WorkItemRepository {
 
   async updateWorkItem(
     params: {
+      workspaceId: string;
       projectId: string;
       itemId: string;
       hasParentId: boolean;
@@ -405,8 +417,6 @@ export class WorkItemRepository {
       title: string | null;
       hasDescription: boolean;
       description: string | null;
-      hasType: boolean;
-      type: WorkItemRow['type'] | null;
       hasPriority: boolean;
       priority: WorkItemPriority | null;
       hasStatus: boolean;
@@ -418,31 +428,38 @@ export class WorkItemRepository {
       `
         UPDATE prism_work_items_l
         SET
-          parent_id = CASE WHEN $3 THEN $4 ELSE parent_id END,
-          title = CASE WHEN $5 THEN $6 ELSE title END,
-          description = CASE WHEN $7 THEN $8 ELSE description END,
-          type = CASE WHEN $9 THEN $10 ELSE type END,
-          priority = CASE WHEN $11 THEN $12 ELSE priority END,
-          status = CASE WHEN $13 THEN $14 ELSE status END,
+          parent_id = CASE WHEN $4 THEN $5 ELSE parent_id END,
+          title = CASE WHEN $6 THEN $7 ELSE title END,
+          description = CASE WHEN $8 THEN $9 ELSE description END,
+          priority = CASE WHEN $10 THEN $11 ELSE priority END,
+          status = CASE WHEN $12 THEN $13 ELSE status END,
           status_changed_at = CASE
-                                WHEN $13 AND status <> $14 THEN NOW()
+                                WHEN $12 AND status <> $13 THEN NOW()
                                 ELSE status_changed_at
-                              END
-        WHERE project_id = $1
-          AND item_id = $2
+                              END,
+          archived_at = CASE
+                          WHEN $12 AND $13 = 'archived' AND archived_at IS NULL THEN NOW()
+                          WHEN $12 AND $13 <> 'archived' THEN NULL
+                          ELSE archived_at
+                        END,
+          updated_at = NOW()
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND item_id = $3
         RETURNING
           item_id AS "itemId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           parent_id AS "parentId",
           title,
           description,
-          type,
           priority,
           status,
           status_changed_at AS "statusChangedAt",
           created_at AS "createdAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.itemId,
         params.hasParentId,
@@ -451,8 +468,6 @@ export class WorkItemRepository {
         params.title,
         params.hasDescription,
         params.description,
-        params.hasType,
-        params.type,
         params.hasPriority,
         params.priority,
         params.hasStatus,
@@ -464,6 +479,7 @@ export class WorkItemRepository {
   }
 
   async deleteWorkItem(
+    workspaceId: string,
     projectId: string,
     itemId: string,
     manager?: EntityManager,
@@ -473,18 +489,19 @@ export class WorkItemRepository {
     >(
       `
         DELETE FROM prism_work_items_l
-        WHERE project_id = $1
-          AND item_id = $2
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND item_id = $3
         RETURNING item_id AS "itemId"
       `,
-      [projectId, itemId],
+      [workspaceId, projectId, itemId],
     );
 
     return items.length > 0;
   }
 
-  async findProjectMembersByUsernames(
-    projectId: string,
+  async findWorkspaceMembersByUsernames(
+    workspaceId: string,
     usernames: string[],
     manager?: EntityManager,
   ): Promise<WorkItemAssigneeRow[]> {
@@ -495,62 +512,72 @@ export class WorkItemRepository {
     return this.getManager(manager).query<WorkItemAssigneeRow[]>(
       `
         SELECT
-          pm.member_id AS "memberId",
+          wm.user_id AS "userId",
           u.username
-        FROM prism_project_members_l pm
+        FROM prism_workspace_members_l wm
                INNER JOIN prism_users_l u
-                          ON u.user_id = pm.user_id
-        WHERE pm.project_id = $1
+                          ON u.user_id = wm.user_id
+        WHERE wm.workspace_id = $1
           AND u.username = ANY($2::text[])
         ORDER BY array_position($2::text[], u.username)
       `,
-      [projectId, usernames],
+      [workspaceId, usernames],
     );
   }
 
   async createWorkItemAssignees(
-    projectId: string,
+    workspaceId: string,
     itemId: string,
-    memberIds: string[],
+    userIds: string[],
+    assignedBy: string,
     manager?: EntityManager,
   ): Promise<void> {
-    if (memberIds.length === 0) {
+    if (userIds.length === 0) {
       return;
     }
 
     await this.getManager(manager).query(
       `
         INSERT INTO prism_work_item_member_map (
-          project_id,
+          workspace_id,
           item_id,
-          member_id
+          user_id,
+          assigned_by
         )
         SELECT
           $1,
           $2,
-          input.member_id
-        FROM unnest($3::uuid[]) AS input(member_id)
+          input.user_id,
+          $4
+        FROM unnest($3::uuid[]) AS input(user_id)
       `,
-      [projectId, itemId, memberIds],
+      [workspaceId, itemId, userIds, assignedBy],
     );
   }
 
   async replaceWorkItemAssignees(
-    projectId: string,
+    workspaceId: string,
     itemId: string,
-    memberIds: string[],
+    userIds: string[],
+    assignedBy: string,
     manager?: EntityManager,
   ): Promise<void> {
     await this.getManager(manager).query(
       `
         DELETE FROM prism_work_item_member_map
-        WHERE project_id = $1
+        WHERE workspace_id = $1
           AND item_id = $2
       `,
-      [projectId, itemId],
+      [workspaceId, itemId],
     );
 
-    await this.createWorkItemAssignees(projectId, itemId, memberIds, manager);
+    await this.createWorkItemAssignees(
+      workspaceId,
+      itemId,
+      userIds,
+      assignedBy,
+      manager,
+    );
   }
 
   async ensureWorkItemLabels(
@@ -649,11 +676,12 @@ export class WorkItemRepository {
           SELECT
             (
               SELECT ('[' || string_agg(embedding_value.value, ',' ORDER BY embedding_value.ordinality) || ']')::vector
-              FROM jsonb_array_elements_text($8::jsonb) WITH ORDINALITY AS embedding_value(value, ordinality)
+              FROM jsonb_array_elements_text($9::jsonb) WITH ORDINALITY AS embedding_value(value, ordinality)
             ) AS embedding
         )
         INSERT INTO prism_work_item_embeddings_l (
           item_id,
+          workspace_id,
           project_id,
           embedding,
           embedded_title,
@@ -664,21 +692,24 @@ export class WorkItemRepository {
         )
         SELECT
           wi.item_id,
+          wi.workspace_id,
           wi.project_id,
           input_embedding.embedding,
-          $3,
           $4,
           $5,
           $6,
-          $7
+          $7,
+          $8
         FROM prism_work_items_l wi
                CROSS JOIN input_embedding
-        WHERE wi.project_id = $1
-          AND wi.item_id = $2
-          AND wi.title = $3
-          AND wi.description = $4
+        WHERE wi.workspace_id = $1
+          AND wi.project_id = $2
+          AND wi.item_id = $3
+          AND wi.title = $4
+          AND wi.description = $5
         ON CONFLICT (item_id)
         DO UPDATE SET
+          workspace_id = EXCLUDED.workspace_id,
           project_id = EXCLUDED.project_id,
           embedding = EXCLUDED.embedding,
           embedded_title = EXCLUDED.embedded_title,
@@ -689,6 +720,7 @@ export class WorkItemRepository {
           embedded_at = NOW()
         RETURNING
           item_id AS "itemId",
+          workspace_id AS "workspaceId",
           project_id AS "projectId",
           embedded_title AS "embeddedTitle",
           embedded_description AS "embeddedDescription",
@@ -699,6 +731,7 @@ export class WorkItemRepository {
           embedded_at AS "embeddedAt"
       `,
       [
+        params.workspaceId,
         params.projectId,
         params.itemId,
         params.embeddedTitle,
