@@ -61,6 +61,7 @@ export class AgentUseCase {
     }
 
     return this.repo.searchAgentRuns({
+      workspaceId: project.workspaceId,
       projectId: project.projectId,
       status: query.status,
       agentType: query.agentType,
@@ -87,6 +88,7 @@ export class AgentUseCase {
 
       if (dto.workItemId !== undefined) {
         const workItem = await this.repo.findWorkItemById(
+          project.workspaceId,
           project.projectId,
           dto.workItemId,
           manager,
@@ -98,6 +100,7 @@ export class AgentUseCase {
 
       if (dto.parentRunId !== undefined) {
         const parentRun = await this.repo.findAgentRunById(
+          project.workspaceId,
           project.projectId,
           dto.parentRunId,
           manager,
@@ -109,6 +112,7 @@ export class AgentUseCase {
 
       return this.repo.createAgentRun(
         {
+          workspaceId: project.workspaceId,
           projectId: project.projectId,
           triggeredByUserId: userId,
           workItemId: dto.workItemId,
@@ -138,6 +142,7 @@ export class AgentUseCase {
       }
 
       const run = await this.repo.findAgentRunById(
+        project.workspaceId,
         project.projectId,
         runId,
         manager,
@@ -153,6 +158,7 @@ export class AgentUseCase {
       const cancelledRun = await this.repo.cancelAgentRun(
         {
           projectId: project.projectId,
+          workspaceId: project.workspaceId,
           runId,
           cancellableStatuses: AGENT_RUN_CANCELLABLE_STATUSES,
         },
@@ -179,12 +185,20 @@ export class AgentUseCase {
       throw new AgentProjectNotFoundError();
     }
 
-    const run = await this.repo.findAgentRunById(project.projectId, runId);
+    const run = await this.repo.findAgentRunById(
+      project.workspaceId,
+      project.projectId,
+      runId,
+    );
     if (!run) {
       throw new AgentRunNotFoundError();
     }
 
-    return this.repo.findAgentStepsByRunId(project.projectId, run.runId);
+    return this.repo.findAgentStepsByRunId(
+      project.workspaceId,
+      project.projectId,
+      run.runId,
+    );
   }
 
   async getAgentRunActions(
@@ -200,12 +214,20 @@ export class AgentUseCase {
       throw new AgentProjectNotFoundError();
     }
 
-    const run = await this.repo.findAgentRunById(project.projectId, runId);
+    const run = await this.repo.findAgentRunById(
+      project.workspaceId,
+      project.projectId,
+      runId,
+    );
     if (!run) {
       throw new AgentRunNotFoundError();
     }
 
-    return this.repo.findAgentActionsByRunId(project.projectId, run.runId);
+    return this.repo.findAgentActionsByRunId(
+      project.workspaceId,
+      project.projectId,
+      run.runId,
+    );
   }
 
   async getAgentAction(
@@ -222,6 +244,7 @@ export class AgentUseCase {
     }
 
     const action = await this.repo.findAgentActionById(
+      project.workspaceId,
       project.projectId,
       actionId,
     );
@@ -248,6 +271,7 @@ export class AgentUseCase {
       }
 
       const action = await this.repo.findAgentActionById(
+        project.workspaceId,
         project.projectId,
         actionId,
         manager,
@@ -265,6 +289,7 @@ export class AgentUseCase {
 
       const approvedAction = await this.repo.approveAgentAction(
         {
+          workspaceId: project.workspaceId,
           projectId: project.projectId,
           actionId,
           approvedByUserId: userId,
@@ -305,6 +330,7 @@ export class AgentUseCase {
       }
 
       const action = await this.repo.findAgentActionById(
+        project.workspaceId,
         project.projectId,
         actionId,
         manager,
@@ -322,6 +348,7 @@ export class AgentUseCase {
 
       const cancelledAction = await this.repo.cancelAgentAction(
         {
+          workspaceId: project.workspaceId,
           projectId: project.projectId,
           actionId,
           cancellableStatuses: AGENT_ACTION_CANCELLABLE_STATUSES,
@@ -359,6 +386,7 @@ export class AgentUseCase {
     }
 
     const action = await this.repo.findAgentActionById(
+      project.workspaceId,
       project.projectId,
       actionId,
     );
@@ -382,8 +410,37 @@ export class AgentUseCase {
       throw new AgentProjectNotFoundError();
     }
 
+    return this.upsertProjectAgentMemory(
+      project.workspaceId,
+      project.projectId,
+      dto,
+    );
+  }
+
+  async upsertAgentMemoryForInternal(
+    projectId: string,
+    dto: UpsertAgentMemoryDto,
+  ): Promise<AgentMemoryResponseDto> {
+    const project = await this.repo.findProjectById(projectId);
+    if (!project) {
+      throw new AgentProjectNotFoundError();
+    }
+
+    return this.upsertProjectAgentMemory(
+      project.workspaceId,
+      project.projectId,
+      dto,
+    );
+  }
+
+  private async upsertProjectAgentMemory(
+    workspaceId: string,
+    projectId: string,
+    dto: UpsertAgentMemoryDto,
+  ): Promise<AgentMemoryResponseDto> {
     const memory = await this.repo.upsertAgentMemory({
-      projectId: project.projectId,
+      workspaceId,
+      projectId,
       memoryId: dto.memoryId,
       runId: dto.runId,
       stepId: dto.stepId,
@@ -413,8 +470,41 @@ export class AgentUseCase {
       throw new AgentProjectNotFoundError();
     }
 
-    const memory = await this.repo.findAgentMemoryById(
+    return this.upsertProjectAgentMemoryEmbedding(
+      project.workspaceId,
       project.projectId,
+      memoryId,
+      dto,
+    );
+  }
+
+  async upsertAgentMemoryEmbeddingForInternal(
+    projectId: string,
+    memoryId: string,
+    dto: UpsertAgentMemoryEmbeddingDto,
+  ): Promise<AgentMemoryEmbeddingResponseDto> {
+    const project = await this.repo.findProjectById(projectId);
+    if (!project) {
+      throw new AgentProjectNotFoundError();
+    }
+
+    return this.upsertProjectAgentMemoryEmbedding(
+      project.workspaceId,
+      project.projectId,
+      memoryId,
+      dto,
+    );
+  }
+
+  private async upsertProjectAgentMemoryEmbedding(
+    workspaceId: string,
+    projectId: string,
+    memoryId: string,
+    dto: UpsertAgentMemoryEmbeddingDto,
+  ): Promise<AgentMemoryEmbeddingResponseDto> {
+    const memory = await this.repo.findAgentMemoryById(
+      workspaceId,
+      projectId,
       memoryId,
     );
     if (!memory) {
@@ -422,7 +512,8 @@ export class AgentUseCase {
     }
 
     const embedding = await this.repo.upsertAgentMemoryEmbedding({
-      projectId: project.projectId,
+      workspaceId,
+      projectId,
       memoryId,
       contentHash: dto.contentHash,
       model: dto.model,
@@ -449,7 +540,11 @@ export class AgentUseCase {
       throw new AgentProjectNotFoundError();
     }
 
-    const run = await this.repo.findAgentRunById(project.projectId, runId);
+    const run = await this.repo.findAgentRunById(
+      project.workspaceId,
+      project.projectId,
+      runId,
+    );
     if (!run) {
       throw new AgentRunNotFoundError();
     }
