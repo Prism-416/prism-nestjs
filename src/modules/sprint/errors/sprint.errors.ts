@@ -1,12 +1,12 @@
 import { DomainError, DuplicateError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
-const SPRINT_NAME_UNIQUE_CONSTRAINT = 'uq_sprints_project_name';
+const SPRINT_NAME_UNIQUE_CONSTRAINT = 'uq_sprints_workspace_name';
 const SPRINT_PERIOD_CHECK_CONSTRAINT = 'ck_sprints_period';
 
-export class SprintProjectNotFoundError extends NotExistsError {
+export class SprintWorkspaceNotFoundError extends NotExistsError {
   constructor() {
-    super('Project not found.', 'PROJECT_NOT_FOUND');
+    super('Workspace not found.', 'WORKSPACE_NOT_FOUND');
   }
 }
 

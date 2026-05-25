@@ -1,16 +1,21 @@
-export const SPRINT_STATUSES = ['backlog', 'in_progress', 'done'] as const;
+export const SPRINT_STATUSES = [
+  'planned',
+  'active',
+  'closed',
+  'cancelled',
+] as const;
 
 export type SprintStatus = (typeof SPRINT_STATUSES)[number];
 
-export type SprintProjectRow = {
-  projectId: string;
+export type SprintWorkspaceRow = {
+  workspaceId: string;
 };
 
 export type SprintRow = {
   sprintId: string;
-  projectId: string;
+  workspaceId: string;
   name: string;
-  description: string | null;
+  goal: string | null;
   startsAt: Date;
   endsAt: Date;
   status: SprintStatus;

@@ -25,20 +25,20 @@ import {
 } from '@/modules/project/dto';
 import { SprintUseCase } from '@/modules/sprint/usecases';
 
-@ApiTags('Project Sprint')
-@Controller(':projectId/sprints')
+@ApiTags('Workspace Sprint')
+@Controller(':workspaceId/sprints')
 export class SprintController {
   constructor(private readonly usecase: SprintUseCase) {}
 
   @Get()
   @Authenticated()
-  @ApiOperation({ summary: 'Retrieve project sprints' })
+  @ApiOperation({ summary: 'Retrieve workspace sprints' })
   @ApiDataResponse(SprintResponseDto, { isArray: true })
   async getSprints(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
   ): Promise<SprintResponseDto[]> {
-    return this.usecase.getSprints(String(user.sub), projectId);
+    return this.usecase.getSprints(String(user.sub), workspaceId);
   }
 
   @Get(':sprintId/work-items')
@@ -47,13 +47,13 @@ export class SprintController {
   @ApiDataResponse(SearchWorkItemsResponseDto)
   async getSprintWorkItems(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('sprintId') sprintId: string,
     @Query() query: SearchWorkItemsQueryDto,
   ): Promise<SearchWorkItemsResponseDto> {
     return this.usecase.getSprintWorkItems(
       String(user.sub),
-      projectId,
+      workspaceId,
       sprintId,
       query,
     );
@@ -65,12 +65,12 @@ export class SprintController {
   @ApiDataResponse(SprintResponseDto)
   async getSprintMetadata(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('sprintId') sprintId: string,
   ): Promise<SprintResponseDto> {
     return this.usecase.getSprintMetadata(
       String(user.sub),
-      projectId,
+      workspaceId,
       sprintId,
     );
   }
@@ -81,10 +81,10 @@ export class SprintController {
   @ApiDataResponse(SprintResponseDto, { status: HttpStatus.CREATED })
   async createSprint(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Body() dto: CreateSprintDto,
   ): Promise<SprintResponseDto> {
-    return this.usecase.createSprint(String(user.sub), projectId, dto);
+    return this.usecase.createSprint(String(user.sub), workspaceId, dto);
   }
 
   @Patch(':sprintId')
@@ -93,13 +93,13 @@ export class SprintController {
   @ApiDataResponse(SprintResponseDto)
   async updateSprintMetadata(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('sprintId') sprintId: string,
     @Body() dto: UpdateSprintMetadataDto,
   ): Promise<SprintResponseDto> {
     return this.usecase.updateSprintMetadata(
       String(user.sub),
-      projectId,
+      workspaceId,
       sprintId,
       dto,
     );
@@ -112,9 +112,9 @@ export class SprintController {
   @ApiNoContentResponse({ description: 'Successfully deleted sprint' })
   async deleteSprint(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('sprintId') sprintId: string,
   ): Promise<void> {
-    await this.usecase.deleteSprint(String(user.sub), projectId, sprintId);
+    await this.usecase.deleteSprint(String(user.sub), workspaceId, sprintId);
   }
 }
