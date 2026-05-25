@@ -18,18 +18,19 @@ import type { JwtPayload } from '@/core/auth/jwt-token.service';
 import { ProjectSummaryResponseDto } from '@/modules/project/dto';
 import {
   AcceptWorkspaceInvitationDto,
-  CreateProjectJobsDto,
+  CreateWorkspaceJobsDto,
   CreateWorkspaceDto,
   CreateWorkspaceInvitationDto,
   DeclineWorkspaceInvitationDto,
   GetWorkspaceInvitationQueryDto,
-  ProjectJobResponseDto,
+  WorkspaceJobResponseDto,
   SearchWorkspaceMemberCandidatesQueryDto,
   WorkspaceMemberCandidateSearchResponseDto,
   WorkspaceInvitationPreviewResponseDto,
   TransferWorkspaceOwnerDto,
+  UpdateWorkspaceMemberJobsDto,
   UpdateWorkspaceMemberRoleDto,
-  UpdateProjectJobsDto,
+  UpdateWorkspaceJobsDto,
   UpdateWorkspaceDto,
   WorkspaceSummaryResponseDto,
   WorkspaceMemberResponseDto,
@@ -157,6 +158,24 @@ export class WorkspaceController {
     );
   }
 
+  @Put(':workspaceId/members/:userId/jobs')
+  @Authenticated()
+  @ApiOperation({ summary: 'Update workspace member job assignments' })
+  @ApiDataResponse(WorkspaceMemberResponseDto)
+  async updateWorkspaceMemberJobs(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Param('userId') targetUserId: string,
+    @Body() dto: UpdateWorkspaceMemberJobsDto,
+  ): Promise<WorkspaceMemberResponseDto> {
+    return this.usecase.updateWorkspaceMemberJobs(
+      String(user.sub),
+      workspaceId,
+      targetUserId,
+      dto,
+    );
+  }
+
   @Put(':workspaceId/owner')
   @Authenticated()
   @ApiOperation({ summary: 'Transfer workspace ownership' })
@@ -176,41 +195,41 @@ export class WorkspaceController {
   @Get(':workspaceId/jobs')
   @Authenticated()
   @ApiOperation({
-    summary: 'Retrieve project jobs in a workspace the user belongs to',
+    summary: 'Retrieve workspace jobs in a workspace the user belongs to',
   })
-  @ApiDataResponse(ProjectJobResponseDto, { isArray: true })
-  async getProjectJobs(
+  @ApiDataResponse(WorkspaceJobResponseDto, { isArray: true })
+  async getWorkspaceJobs(
     @CurrentUser() user: JwtPayload,
     @Param('workspaceId') workspaceId: string,
-  ): Promise<ProjectJobResponseDto[]> {
-    return this.usecase.getProjectJobs(String(user.sub), workspaceId);
+  ): Promise<WorkspaceJobResponseDto[]> {
+    return this.usecase.getWorkspaceJobs(String(user.sub), workspaceId);
   }
 
   @Post(':workspaceId/jobs')
   @Authenticated()
-  @ApiOperation({ summary: 'Create project jobs in a workspace' })
-  @ApiDataResponse(ProjectJobResponseDto, {
+  @ApiOperation({ summary: 'Create workspace jobs in a workspace' })
+  @ApiDataResponse(WorkspaceJobResponseDto, {
     status: HttpStatus.CREATED,
     isArray: true,
   })
-  async createProjectJobs(
+  async createWorkspaceJobs(
     @CurrentUser() user: JwtPayload,
     @Param('workspaceId') workspaceId: string,
-    @Body() dto: CreateProjectJobsDto,
-  ): Promise<ProjectJobResponseDto[]> {
-    return this.usecase.createProjectJobs(String(user.sub), workspaceId, dto);
+    @Body() dto: CreateWorkspaceJobsDto,
+  ): Promise<WorkspaceJobResponseDto[]> {
+    return this.usecase.createWorkspaceJobs(String(user.sub), workspaceId, dto);
   }
 
   @Patch(':workspaceId/jobs')
   @Authenticated()
-  @ApiOperation({ summary: 'Update project jobs in a workspace in batch' })
-  @ApiDataResponse(ProjectJobResponseDto, { isArray: true })
-  async updateProjectJobs(
+  @ApiOperation({ summary: 'Update workspace jobs in a workspace in batch' })
+  @ApiDataResponse(WorkspaceJobResponseDto, { isArray: true })
+  async updateWorkspaceJobs(
     @CurrentUser() user: JwtPayload,
     @Param('workspaceId') workspaceId: string,
-    @Body() dto: UpdateProjectJobsDto,
-  ): Promise<ProjectJobResponseDto[]> {
-    return this.usecase.updateProjectJobs(String(user.sub), workspaceId, dto);
+    @Body() dto: UpdateWorkspaceJobsDto,
+  ): Promise<WorkspaceJobResponseDto[]> {
+    return this.usecase.updateWorkspaceJobs(String(user.sub), workspaceId, dto);
   }
 
   @Post(':workspaceId/invitations')

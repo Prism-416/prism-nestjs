@@ -2,7 +2,7 @@ import { DomainError, DuplicateError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
 const WORKSPACE_SLUG_UNIQUE_CONSTRAINT = 'uq_workspaces_slug';
-const PROJECT_JOB_NAME_UNIQUE_CONSTRAINT = 'uq_project_jobs_workspace_name';
+const WORKSPACE_JOB_NAME_UNIQUE_CONSTRAINT = 'uq_jobs_workspace_name';
 
 export class WorkspaceSlugAlreadyExistsError extends DuplicateError {
   constructor() {
@@ -105,6 +105,16 @@ export class WorkspaceInvitationAlreadyDeclinedError extends DomainError {
   }
 }
 
+export class WorkspaceInvitationCancelledError extends DomainError {
+  constructor() {
+    super(
+      'Workspace invitation has been cancelled.',
+      'WORKSPACE_INVITATION_CANCELLED',
+      400,
+    );
+  }
+}
+
 export class WorkspaceInvitationRecipientRequiredError extends DomainError {
   constructor() {
     super(
@@ -125,15 +135,15 @@ export class WorkspaceInvitationSignupRequiredError extends DomainError {
   }
 }
 
-export class ProjectJobAlreadyExistsError extends DuplicateError {
+export class WorkspaceJobAlreadyExistsError extends DuplicateError {
   constructor() {
-    super('Project job already exists.', 'PROJECT_JOB_ALREADY_EXISTS');
+    super('Workspace job already exists.', 'WORKSPACE_JOB_ALREADY_EXISTS');
   }
 }
 
-export class ProjectJobNotFoundError extends NotExistsError {
+export class WorkspaceJobNotFoundError extends NotExistsError {
   constructor() {
-    super('Project job not found.', 'PROJECT_JOB_NOT_FOUND');
+    super('Workspace job not found.', 'WORKSPACE_JOB_NOT_FOUND');
   }
 }
 
@@ -152,7 +162,7 @@ export function isWorkspaceSlugUniqueViolation(error: unknown): boolean {
   );
 }
 
-export function isProjectJobNameUniqueViolation(error: unknown): boolean {
+export function isWorkspaceJobNameUniqueViolation(error: unknown): boolean {
   if (!(error instanceof QueryFailedError)) {
     return false;
   }
@@ -163,6 +173,6 @@ export function isProjectJobNameUniqueViolation(error: unknown): boolean {
 
   return (
     driverError?.code === '23505' &&
-    driverError.constraint === PROJECT_JOB_NAME_UNIQUE_CONSTRAINT
+    driverError.constraint === WORKSPACE_JOB_NAME_UNIQUE_CONSTRAINT
   );
 }
