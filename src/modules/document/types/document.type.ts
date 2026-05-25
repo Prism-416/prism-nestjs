@@ -1,5 +1,6 @@
 export type DocumentRow = {
   documentId: string;
+  workspaceId: string;
   projectId: string;
   title: string;
   description: string | null;
@@ -17,6 +18,7 @@ export type DocumentRow = {
 export type DocumentChunkRow = {
   chunkId: string;
   documentId: string;
+  workspaceId: string;
   projectId: string;
   chunkIndex: number;
   headingPath: string[] | null;
@@ -29,6 +31,7 @@ export type DocumentChunkRow = {
 
 export type DocumentChunkEmbeddingRow = {
   chunkId: string;
+  workspaceId: string;
   projectId: string;
   model: string;
   dimensions: number;
@@ -39,6 +42,7 @@ export type DocumentChunkEmbeddingRow = {
 
 export type DocumentProjectRow = {
   projectId: string;
+  workspaceId: string;
 };
 
 export type DeletedDocumentRow = {
@@ -55,6 +59,7 @@ export type DocumentUploadFile = {
 
 export type CreateDocumentParams = {
   documentId: string;
+  workspaceId: string;
   projectId: string;
   title: string;
   description?: string;
@@ -68,6 +73,7 @@ export type CreateDocumentParams = {
 };
 
 export type SearchDocumentsParams = {
+  workspaceId: string;
   projectId: string;
   query?: string;
   limit: number;
@@ -91,6 +97,7 @@ export type UpsertDocumentChunkInput = {
 };
 
 export type UpsertDocumentChunksParams = {
+  workspaceId: string;
   projectId: string;
   documentId: string;
   chunks: UpsertDocumentChunkInput[];
@@ -105,6 +112,7 @@ export type UpsertDocumentChunkEmbeddingInput = {
 };
 
 export type UpsertDocumentChunkEmbeddingsParams = {
+  workspaceId: string;
   projectId: string;
   documentId: string;
   embeddings: UpsertDocumentChunkEmbeddingInput[];
