@@ -15,6 +15,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import {
+  normalizeNullableTrimmedString,
   normalizeOptionalTrimmedString,
   normalizeTrimmedString,
 } from '@/modules/workspace/utils';
@@ -53,13 +54,12 @@ export class CreateWorkspaceJobDto {
   @MaxLength(50)
   name!: string;
 
-  @ApiProperty()
-  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @ApiPropertyOptional({ nullable: true })
+  @Transform(({ value }) => normalizeNullableTrimmedString(value as unknown))
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
   @MaxLength(1000)
-  description!: string;
+  description?: string | null;
 }
 
 export class CreateWorkspaceJobsDto {
@@ -84,13 +84,12 @@ export class UpdateWorkspaceJobDto {
   @MaxLength(50)
   name!: string;
 
-  @ApiProperty()
-  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @ApiPropertyOptional({ nullable: true })
+  @Transform(({ value }) => normalizeNullableTrimmedString(value as unknown))
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
   @MaxLength(1000)
-  description!: string;
+  description?: string | null;
 }
 
 export class UpdateWorkspaceJobsDto {
@@ -241,8 +240,8 @@ export class WorkspaceJobResponseDto {
   @ApiProperty()
   name!: string;
 
-  @ApiProperty()
-  description!: string;
+  @ApiProperty({ nullable: true })
+  description!: string | null;
 
   @ApiProperty()
   createdAt!: Date;

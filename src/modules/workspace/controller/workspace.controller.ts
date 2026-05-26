@@ -232,6 +232,19 @@ export class WorkspaceController {
     return this.usecase.updateWorkspaceJobs(String(user.sub), workspaceId, dto);
   }
 
+  @Delete(':workspaceId/jobs/:jobId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete a workspace job' })
+  @ApiNoContentResponse({ description: 'Successfully deleted workspace job' })
+  async deleteWorkspaceJob(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Param('jobId') jobId: string,
+  ): Promise<void> {
+    await this.usecase.deleteWorkspaceJob(String(user.sub), workspaceId, jobId);
+  }
+
   @Post(':workspaceId/invitations')
   @Authenticated()
   @ApiOperation({

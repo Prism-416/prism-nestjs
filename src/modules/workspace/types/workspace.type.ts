@@ -81,7 +81,7 @@ export type WorkspaceJobRow = {
   jobId: string;
   workspaceId: string;
   name: string;
-  description: string;
+  description: string | null;
   createdAt: Date;
 };
 

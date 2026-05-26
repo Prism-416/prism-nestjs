@@ -768,7 +768,7 @@ export class WorkspaceRepository {
       workspaceId: string;
       jobs: Array<{
         name: string;
-        description: string;
+        description: string | null;
       }>;
     },
     manager?: EntityManager,
@@ -843,47 +843,56 @@ export class WorkspaceRepository {
     );
   }
 
-  async updateWorkspaceJobs(
+  async updateWorkspaceJob(
     params: {
       workspaceId: string;
-      jobs: Array<{
-        jobId: string;
-        name: string;
-        description: string;
-      }>;
+      jobId: string;
+      name: string;
+      description: string | null;
     },
     manager?: EntityManager,
-  ): Promise<WorkspaceJobRow[]> {
-    if (params.jobs.length === 0) {
-      return [];
-    }
-
-    const jobIds = params.jobs.map((job) => job.jobId);
-    const jobNames = params.jobs.map((job) => job.name);
-    const jobDescriptions = params.jobs.map((job) => job.description);
-
-    return this.getManager(manager).query<WorkspaceJobRow[]>(
+  ): Promise<WorkspaceJobRow | null> {
+    const jobs = await this.getManager(manager).query<WorkspaceJobRow[]>(
       `
-        UPDATE prism_jobs_l pj
-        SET
-          name = input.name,
-          description = input.description
-        FROM unnest(
-          $2::uuid[],
-          $3::text[],
-          $4::text[]
-        ) AS input(job_id, name, description)
-        WHERE pj.workspace_id = $1
-          AND pj.job_id = input.job_id
-        RETURNING
-          pj.job_id AS "jobId",
-          pj.workspace_id AS "workspaceId",
-          pj.name,
-          pj.description,
-          pj.created_at AS "createdAt"
+        WITH updated AS (
+          UPDATE prism_jobs_l
+          SET
+            name = $3,
+            description = $4
+          WHERE workspace_id = $1
+            AND job_id = $2
+          RETURNING job_id, workspace_id, name, description, created_at
+        )
+        SELECT
+          job_id AS "jobId",
+          workspace_id AS "workspaceId",
+          name,
+          description,
+          created_at AS "createdAt"
+        FROM updated
       `,
-      [params.workspaceId, jobIds, jobNames, jobDescriptions],
+      [params.workspaceId, params.jobId, params.name, params.description],
     );
+
+    return jobs[0] ?? null;
+  }
+
+  async deleteWorkspaceJob(
+    workspaceId: string,
+    jobId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const [deletedJob] = await this.getManager(manager).query<Array<{ jobId: string }>>(
+      `
+        DELETE FROM prism_jobs_l
+        WHERE workspace_id = $1
+          AND job_id = $2
+        RETURNING job_id AS "jobId"
+      `,
+      [workspaceId, jobId],
+    );
+
+    return Boolean(deletedJob);
   }
 
   async createWorkspaceInvitationEvent(
