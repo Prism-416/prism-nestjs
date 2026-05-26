@@ -21,8 +21,8 @@ import {
 import { EmbeddingJobUseCase } from '@/modules/embedding/usecases';
 import { RequireInternalScopes } from '@/modules/admin';
 
-@ApiTags('Project Embedding Job')
-@Controller(':projectId/embedding-jobs')
+@ApiTags('Workspace Embedding Job')
+@Controller(':workspaceId/embedding-jobs')
 export class EmbeddingJobController {
   constructor(private readonly usecase: EmbeddingJobUseCase) {}
 
@@ -32,10 +32,10 @@ export class EmbeddingJobController {
   @ApiDataResponse(EmbeddingJobResponseDto, { status: HttpStatus.CREATED })
   async createEmbeddingJob(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Body() dto: CreateEmbeddingJobDto,
   ): Promise<EmbeddingJobResponseDto> {
-    return this.usecase.createEmbeddingJob(String(user.sub), projectId, dto);
+    return this.usecase.createEmbeddingJob(String(user.sub), workspaceId, dto);
   }
 
   @Post('claim')
@@ -45,10 +45,10 @@ export class EmbeddingJobController {
   @ApiDataResponse(ClaimEmbeddingJobsResponseDto)
   async claimEmbeddingJobs(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Body() dto: ClaimEmbeddingJobsDto,
   ): Promise<ClaimEmbeddingJobsResponseDto> {
-    return this.usecase.claimEmbeddingJobs(String(user.sub), projectId, dto);
+    return this.usecase.claimEmbeddingJobs(String(user.sub), workspaceId, dto);
   }
 
   @Post('internal/claim')
@@ -57,10 +57,10 @@ export class EmbeddingJobController {
   @ApiOperation({ summary: 'Claim queued embedding jobs for internal workers' })
   @ApiDataResponse(ClaimEmbeddingJobsResponseDto)
   async claimEmbeddingJobsForInternal(
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Body() dto: ClaimEmbeddingJobsDto,
   ): Promise<ClaimEmbeddingJobsResponseDto> {
-    return this.usecase.claimEmbeddingJobsForInternal(projectId, dto);
+    return this.usecase.claimEmbeddingJobsForInternal(workspaceId, dto);
   }
 
   @Patch(':embeddingJobId')
@@ -69,13 +69,13 @@ export class EmbeddingJobController {
   @ApiDataResponse(EmbeddingJobResponseDto)
   async updateEmbeddingJob(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('embeddingJobId') embeddingJobId: string,
     @Body() dto: UpdateEmbeddingJobDto,
   ): Promise<EmbeddingJobResponseDto> {
     return this.usecase.updateEmbeddingJob(
       String(user.sub),
-      projectId,
+      workspaceId,
       embeddingJobId,
       dto,
     );
@@ -86,12 +86,12 @@ export class EmbeddingJobController {
   @ApiOperation({ summary: 'Update embedding job status for internal workers' })
   @ApiDataResponse(EmbeddingJobResponseDto)
   async updateEmbeddingJobForInternal(
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('embeddingJobId') embeddingJobId: string,
     @Body() dto: UpdateEmbeddingJobDto,
   ): Promise<EmbeddingJobResponseDto> {
     return this.usecase.updateEmbeddingJobForInternal(
-      projectId,
+      workspaceId,
       embeddingJobId,
       dto,
     );

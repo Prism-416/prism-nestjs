@@ -60,6 +60,12 @@ function normalizeOptionalTrimmedStringArray(value: unknown): unknown {
 }
 
 export class CreateEmbeddingJobDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  projectId?: string;
+
   @ApiProperty({ enum: EMBEDDING_JOB_TYPES })
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
   @IsString()
@@ -119,6 +125,12 @@ export class CreateEmbeddingJobDto {
 }
 
 export class ClaimEmbeddingJobsDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  projectId?: string;
+
   @ApiPropertyOptional({ enum: EMBEDDING_JOB_TYPES, isArray: true })
   @Transform(({ value }) => normalizeOptionalTrimmedStringArray(value))
   @IsOptional()
@@ -175,8 +187,8 @@ export class EmbeddingJobResponseDto {
   @ApiProperty()
   workspaceId!: string;
 
-  @ApiProperty()
-  projectId!: string;
+  @ApiProperty({ nullable: true })
+  projectId!: string | null;
 
   @ApiProperty({ enum: EMBEDDING_JOB_TYPES })
   jobType!: EmbeddingJobType;

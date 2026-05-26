@@ -8,12 +8,19 @@ import {
 } from '@/modules/embedding/dto';
 import {
   EmbeddingJobNotFoundError,
+  EmbeddingJobProjectNotAllowedError,
+  EmbeddingJobProjectRequiredError,
   EmbeddingJobRequeueScheduledAtRequiredError,
   EmbeddingJobTargetNotFoundError,
   EmbeddingProjectNotFoundError,
+  EmbeddingWorkspaceNotFoundError,
 } from '@/modules/embedding/errors';
 import { EmbeddingJobRepository } from '@/modules/embedding/repository';
-import { EMBEDDING_JOB_DIMENSIONS } from '@/modules/embedding/types';
+import {
+  EMBEDDING_JOB_DIMENSIONS,
+  EmbeddingJobType,
+  EmbeddingWorkspaceRow,
+} from '@/modules/embedding/types';
 
 @Injectable()
 export class EmbeddingJobUseCase {
@@ -21,20 +28,19 @@ export class EmbeddingJobUseCase {
 
   async createEmbeddingJob(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     dto: CreateEmbeddingJobDto,
   ): Promise<EmbeddingJobResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
+    const projectId = await this.resolveProjectScope(
+      workspace.workspaceId,
+      dto.jobType,
+      dto.projectId,
     );
-    if (!project) {
-      throw new EmbeddingProjectNotFoundError();
-    }
 
     const targetExists = await this.repo.existsEmbeddingTarget(
-      project.workspaceId,
-      project.projectId,
+      workspace.workspaceId,
+      projectId ?? null,
       dto.jobType,
       dto.targetId,
     );
@@ -43,8 +49,8 @@ export class EmbeddingJobUseCase {
     }
 
     return this.repo.createEmbeddingJob({
-      workspaceId: project.workspaceId,
-      projectId: project.projectId,
+      workspaceId: workspace.workspaceId,
+      projectId,
       jobType: dto.jobType,
       targetId: dto.targetId,
       model: dto.model,
@@ -58,88 +64,63 @@ export class EmbeddingJobUseCase {
 
   async claimEmbeddingJobs(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     dto: ClaimEmbeddingJobsDto,
   ): Promise<ClaimEmbeddingJobsResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new EmbeddingProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
-    return this.claimProjectEmbeddingJobs(
-      project.workspaceId,
-      project.projectId,
-      dto,
-    );
+    return this.claimWorkspaceEmbeddingJobs(workspace.workspaceId, dto);
   }
 
   async claimEmbeddingJobsForInternal(
-    projectId: string,
+    workspaceId: string,
     dto: ClaimEmbeddingJobsDto,
   ): Promise<ClaimEmbeddingJobsResponseDto> {
-    const project = await this.repo.findProjectById(projectId);
-    if (!project) {
-      throw new EmbeddingProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspace(workspaceId);
 
-    return this.claimProjectEmbeddingJobs(
-      project.workspaceId,
-      project.projectId,
-      dto,
-    );
+    return this.claimWorkspaceEmbeddingJobs(workspace.workspaceId, dto);
   }
 
   async updateEmbeddingJob(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     embeddingJobId: string,
     dto: UpdateEmbeddingJobDto,
   ): Promise<EmbeddingJobResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new EmbeddingProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
-    return this.updateProjectEmbeddingJob(
-      project.workspaceId,
-      project.projectId,
+    return this.updateWorkspaceEmbeddingJob(
+      workspace.workspaceId,
       embeddingJobId,
       dto,
     );
   }
 
   async updateEmbeddingJobForInternal(
-    projectId: string,
+    workspaceId: string,
     embeddingJobId: string,
     dto: UpdateEmbeddingJobDto,
   ): Promise<EmbeddingJobResponseDto> {
-    const project = await this.repo.findProjectById(projectId);
-    if (!project) {
-      throw new EmbeddingProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspace(workspaceId);
 
-    return this.updateProjectEmbeddingJob(
-      project.workspaceId,
-      project.projectId,
+    return this.updateWorkspaceEmbeddingJob(
+      workspace.workspaceId,
       embeddingJobId,
       dto,
     );
   }
 
-  private async claimProjectEmbeddingJobs(
+  private async claimWorkspaceEmbeddingJobs(
     workspaceId: string,
-    projectId: string,
     dto: ClaimEmbeddingJobsDto,
   ): Promise<ClaimEmbeddingJobsResponseDto> {
+    if (dto.projectId !== undefined) {
+      await this.ensureProjectInWorkspace(workspaceId, dto.projectId);
+    }
+
     const items = await this.repo.claimEmbeddingJobs({
       workspaceId,
-      projectId,
+      projectId: dto.projectId,
       jobTypes: dto.jobTypes,
       model: dto.model,
       limit: dto.limit ?? 10,
@@ -151,9 +132,8 @@ export class EmbeddingJobUseCase {
     };
   }
 
-  private async updateProjectEmbeddingJob(
+  private async updateWorkspaceEmbeddingJob(
     workspaceId: string,
-    projectId: string,
     embeddingJobId: string,
     dto: UpdateEmbeddingJobDto,
   ): Promise<EmbeddingJobResponseDto> {
@@ -163,7 +143,6 @@ export class EmbeddingJobUseCase {
 
     const job = await this.repo.updateEmbeddingJob({
       workspaceId,
-      projectId,
       embeddingJobId,
       status: dto.status,
       errorMessage: dto.errorMessage,
@@ -174,5 +153,65 @@ export class EmbeddingJobUseCase {
     }
 
     return job;
+  }
+
+  private async resolveProjectScope(
+    workspaceId: string,
+    jobType: EmbeddingJobType,
+    projectId?: string,
+  ): Promise<string | undefined> {
+    if (jobType === 'agent_memory') {
+      if (projectId !== undefined) {
+        throw new EmbeddingJobProjectNotAllowedError();
+      }
+
+      return undefined;
+    }
+
+    if (projectId === undefined) {
+      throw new EmbeddingJobProjectRequiredError();
+    }
+
+    await this.ensureProjectInWorkspace(workspaceId, projectId);
+    return projectId;
+  }
+
+  private async ensureProjectInWorkspace(
+    workspaceId: string,
+    projectId: string,
+  ): Promise<void> {
+    const project = await this.repo.findProjectByWorkspaceIdAndId(
+      workspaceId,
+      projectId,
+    );
+    if (!project) {
+      throw new EmbeddingProjectNotFoundError();
+    }
+  }
+
+  private async getWorkspaceForUser(
+    userId: string,
+    workspaceId: string,
+  ): Promise<EmbeddingWorkspaceRow> {
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new EmbeddingWorkspaceNotFoundError();
+    }
+
+    return workspace;
+  }
+
+  private async getWorkspace(
+    workspaceId: string,
+  ): Promise<EmbeddingWorkspaceRow> {
+    const workspace = await this.repo.findWorkspaceById(workspaceId);
+    if (!workspace) {
+      throw new EmbeddingWorkspaceNotFoundError();
+    }
+
+    return workspace;
   }
 }
