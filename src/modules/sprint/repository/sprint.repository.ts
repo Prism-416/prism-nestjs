@@ -165,6 +165,7 @@ export class SprintRepository {
       description: string | null;
       priority: WorkItemPriority | null;
       status: WorkItemStatus | null;
+      sortOrder: number | null;
       statusChangedAt: Date | null;
       createdAt: Date | null;
       assigneeUsernames: string[];
@@ -186,6 +187,7 @@ export class SprintRepository {
             wi.description,
             wi.priority,
             wi.status,
+            wi.sort_order,
             wi.status_changed_at,
             wi.created_at
           FROM prism_sprint_work_item_map swim
@@ -236,7 +238,7 @@ export class SprintRepository {
         paged_items AS (
           SELECT *
           FROM filtered_items
-          ORDER BY created_at DESC, item_id DESC
+          ORDER BY sort_order ASC, created_at DESC, item_id DESC
           LIMIT $9
           OFFSET $10
         )
@@ -249,6 +251,7 @@ export class SprintRepository {
           pi.description,
           pi.priority,
           pi.status,
+          pi.sort_order AS "sortOrder",
           pi.status_changed_at AS "statusChangedAt",
           pi.created_at AS "createdAt",
           COALESCE(
@@ -278,7 +281,7 @@ export class SprintRepository {
         FROM total_count tc
                LEFT JOIN paged_items pi
                          ON TRUE
-        ORDER BY pi.created_at DESC NULLS LAST, pi.item_id DESC NULLS LAST
+        ORDER BY pi.sort_order ASC NULLS LAST, pi.created_at DESC NULLS LAST, pi.item_id DESC NULLS LAST
       `,
       [
         params.workspaceId,
@@ -309,6 +312,7 @@ export class SprintRepository {
           description: row.description as string,
           priority: row.priority as WorkItemPriority,
           status: row.status as WorkItemStatus,
+          sortOrder: row.sortOrder as number,
           statusChangedAt: row.statusChangedAt as Date,
           createdAt: row.createdAt as Date,
           assigneeUsernames: row.assigneeUsernames,

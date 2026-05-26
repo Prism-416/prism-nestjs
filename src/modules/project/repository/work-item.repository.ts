@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  ReorderWorkItemParams,
   SearchWorkItemsParams,
   SearchWorkItemsResult,
   UpsertWorkItemEmbeddingParams,
@@ -31,6 +32,7 @@ export class WorkItemRepository {
       description: string | null;
       priority: WorkItemPriority | null;
       status: WorkItemStatus | null;
+      sortOrder: number | null;
       statusChangedAt: Date | null;
       createdAt: Date | null;
       assigneeUsernames: string[];
@@ -50,6 +52,7 @@ export class WorkItemRepository {
             wi.description,
             wi.priority,
             wi.status,
+            wi.sort_order,
             wi.status_changed_at,
             wi.created_at
           FROM prism_work_items_l wi
@@ -61,6 +64,7 @@ export class WorkItemRepository {
               OR wi.description ILIKE '%' || $3 || '%'
             )
             AND ($4::uuid IS NULL OR wi.parent_id = $4)
+            AND (NOT $11::boolean OR wi.parent_id IS NULL)
             AND ($5::text IS NULL OR wi.priority = $5)
             AND ($6::text IS NULL OR wi.status = $6)
             AND (
@@ -96,7 +100,7 @@ export class WorkItemRepository {
         paged_items AS (
           SELECT *
           FROM filtered_items
-          ORDER BY created_at DESC, item_id DESC
+          ORDER BY sort_order ASC, created_at DESC, item_id DESC
           LIMIT $9
           OFFSET $10
         )
@@ -109,6 +113,7 @@ export class WorkItemRepository {
           pi.description,
           pi.priority,
           pi.status,
+          pi.sort_order AS "sortOrder",
           pi.status_changed_at AS "statusChangedAt",
           pi.created_at AS "createdAt",
           COALESCE(
@@ -138,7 +143,7 @@ export class WorkItemRepository {
         FROM total_count tc
                LEFT JOIN paged_items pi
                          ON TRUE
-        ORDER BY pi.created_at DESC NULLS LAST, pi.item_id DESC NULLS LAST
+        ORDER BY pi.sort_order ASC NULLS LAST, pi.created_at DESC NULLS LAST, pi.item_id DESC NULLS LAST
       `,
       [
         params.workspaceId,
@@ -151,6 +156,7 @@ export class WorkItemRepository {
         params.labelName ?? null,
         params.limit,
         params.offset,
+        params.topLevel ?? false,
       ],
     );
 
@@ -169,6 +175,7 @@ export class WorkItemRepository {
           description: row.description as string,
           priority: row.priority as WorkItemPriority,
           status: row.status as WorkItemStatus,
+          sortOrder: row.sortOrder as number,
           statusChangedAt: row.statusChangedAt as Date,
           createdAt: row.createdAt as Date,
           assigneeUsernames: row.assigneeUsernames,
@@ -220,6 +227,7 @@ export class WorkItemRepository {
           description,
           priority,
           status,
+          sort_order AS "sortOrder",
           status_changed_at AS "statusChangedAt",
           created_at AS "createdAt"
         FROM prism_work_items_l
@@ -251,6 +259,7 @@ export class WorkItemRepository {
           wi.description,
           wi.priority,
           wi.status,
+          wi.sort_order AS "sortOrder",
           wi.status_changed_at AS "statusChangedAt",
           wi.created_at AS "createdAt",
           COALESCE(
@@ -288,6 +297,63 @@ export class WorkItemRepository {
     return items[0] ?? null;
   }
 
+  async findWorkItemDetailsByIds(
+    workspaceId: string,
+    projectId: string,
+    itemIds: string[],
+    manager?: EntityManager,
+  ): Promise<WorkItemDetailRow[]> {
+    if (itemIds.length === 0) {
+      return [];
+    }
+
+    return this.getManager(manager).query<WorkItemDetailRow[]>(
+      `
+        SELECT
+          wi.item_id AS "itemId",
+          wi.workspace_id AS "workspaceId",
+          wi.project_id AS "projectId",
+          wi.parent_id AS "parentId",
+          wi.title,
+          wi.description,
+          wi.priority,
+          wi.status,
+          wi.sort_order AS "sortOrder",
+          wi.status_changed_at AS "statusChangedAt",
+          wi.created_at AS "createdAt",
+          COALESCE(
+            (
+              SELECT array_agg(u.username ORDER BY u.username)
+              FROM prism_work_item_member_map wimm
+                     INNER JOIN prism_users_l u
+                                ON u.user_id = wimm.user_id
+              WHERE wimm.workspace_id = wi.workspace_id
+                AND wimm.item_id = wi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "assigneeUsernames",
+          COALESCE(
+            (
+              SELECT array_agg(wil.label ORDER BY wil.label)
+              FROM prism_work_item_label_map wilm
+                     INNER JOIN prism_work_item_labels_l wil
+                                ON wil.project_id = wilm.project_id
+                               AND wil.label_id = wilm.label_id
+              WHERE wilm.project_id = wi.project_id
+                AND wilm.item_id = wi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "labelNames"
+        FROM prism_work_items_l wi
+        WHERE wi.workspace_id = $1
+          AND wi.project_id = $2
+          AND wi.item_id = ANY($3::uuid[])
+        ORDER BY array_position($3::uuid[], wi.item_id)
+      `,
+      [workspaceId, projectId, itemIds],
+    );
+  }
+
   async findChildWorkItems(
     workspaceId: string,
     projectId: string,
@@ -305,6 +371,7 @@ export class WorkItemRepository {
           wi.description,
           wi.priority,
           wi.status,
+          wi.sort_order AS "sortOrder",
           wi.status_changed_at AS "statusChangedAt",
           wi.created_at AS "createdAt",
           COALESCE(
@@ -334,7 +401,7 @@ export class WorkItemRepository {
         WHERE wi.workspace_id = $1
           AND wi.project_id = $2
           AND wi.parent_id = $3
-        ORDER BY wi.created_at ASC, wi.item_id ASC
+        ORDER BY wi.sort_order ASC, wi.created_at ASC, wi.item_id ASC
       `,
       [workspaceId, projectId, parentId],
     );
@@ -363,6 +430,7 @@ export class WorkItemRepository {
           description,
           priority,
           status,
+          sort_order,
           created_by,
           status_changed_at,
           archived_at
@@ -375,6 +443,17 @@ export class WorkItemRepository {
           $5,
           $6,
           $7,
+          COALESCE(
+            (
+              SELECT MAX(existing.sort_order) + 1
+              FROM prism_work_items_l existing
+              WHERE existing.workspace_id = $1
+                AND existing.project_id = $2
+                AND existing.parent_id IS NOT DISTINCT FROM $3::uuid
+                AND existing.status = $7
+            ),
+            0
+          ),
           $8,
           NOW(),
           CASE WHEN $9 THEN NOW() ELSE NULL END
@@ -388,6 +467,7 @@ export class WorkItemRepository {
           description,
           priority,
           status,
+          sort_order AS "sortOrder",
           status_changed_at AS "statusChangedAt",
           created_at AS "createdAt"
       `,
@@ -427,15 +507,30 @@ export class WorkItemRepository {
   ): Promise<WorkItemRow> {
     const items = await this.getManager(manager).query<WorkItemRow[]>(
       `
-        UPDATE prism_work_items_l
+        UPDATE prism_work_items_l wi
         SET
           parent_id = CASE WHEN $4 THEN $5 ELSE parent_id END,
           title = CASE WHEN $6 THEN $7 ELSE title END,
           description = CASE WHEN $8 THEN $9 ELSE description END,
           priority = CASE WHEN $10 THEN $11 ELSE priority END,
+          sort_order = CASE
+                         WHEN $12 AND wi.status <> $13 THEN COALESCE(
+                           (
+                             SELECT MAX(existing.sort_order) + 1
+                             FROM prism_work_items_l existing
+                             WHERE existing.workspace_id = wi.workspace_id
+                               AND existing.project_id = wi.project_id
+                               AND existing.parent_id IS NOT DISTINCT FROM wi.parent_id
+                               AND existing.status = $13
+                               AND existing.item_id <> wi.item_id
+                           ),
+                           0
+                         )
+                         ELSE wi.sort_order
+                       END,
           status = CASE WHEN $12 THEN $13 ELSE status END,
           status_changed_at = CASE
-                                WHEN $12 AND status <> $13 THEN NOW()
+                                WHEN $12 AND wi.status <> $13 THEN NOW()
                                 ELSE status_changed_at
                               END,
           archived_at = CASE
@@ -456,6 +551,7 @@ export class WorkItemRepository {
           description,
           priority,
           status,
+          sort_order AS "sortOrder",
           status_changed_at AS "statusChangedAt",
           created_at AS "createdAt"
       `,
@@ -478,6 +574,72 @@ export class WorkItemRepository {
     );
 
     return items[0];
+  }
+
+  async findTopLevelWorkItemIds(
+    workspaceId: string,
+    projectId: string,
+    itemIds: string[],
+    manager?: EntityManager,
+  ): Promise<string[]> {
+    const items = await this.getManager(manager).query<
+      Array<{ itemId: string }>
+    >(
+      `
+        SELECT item_id AS "itemId"
+        FROM prism_work_items_l
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND parent_id IS NULL
+          AND item_id = ANY($3::uuid[])
+      `,
+      [workspaceId, projectId, itemIds],
+    );
+
+    return items.map((item) => item.itemId);
+  }
+
+  async reorderTopLevelWorkItems(
+    workspaceId: string,
+    projectId: string,
+    items: ReorderWorkItemParams[],
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        UPDATE prism_work_items_l wi
+        SET
+          status = ordering.status,
+          sort_order = ordering.sort_order,
+          status_changed_at = CASE
+                                WHEN wi.status <> ordering.status THEN NOW()
+                                ELSE wi.status_changed_at
+                              END,
+          archived_at = CASE
+                          WHEN ordering.status = 'archived' AND wi.archived_at IS NULL THEN NOW()
+                          WHEN ordering.status <> 'archived' THEN NULL
+                          ELSE wi.archived_at
+                        END,
+          updated_at = NOW()
+        FROM jsonb_to_recordset($3::jsonb)
+             AS ordering(item_id uuid, status varchar, sort_order integer)
+        WHERE wi.workspace_id = $1
+          AND wi.project_id = $2
+          AND wi.parent_id IS NULL
+          AND wi.item_id = ordering.item_id
+      `,
+      [
+        workspaceId,
+        projectId,
+        JSON.stringify(
+          items.map((item) => ({
+            item_id: item.itemId,
+            status: item.status,
+            sort_order: item.sortOrder,
+          })),
+        ),
+      ],
+    );
   }
 
   async deleteWorkItem(

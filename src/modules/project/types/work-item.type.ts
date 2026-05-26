@@ -23,6 +23,7 @@ export type WorkItemRow = {
   description: string;
   priority: WorkItemPriority;
   status: WorkItemStatus;
+  sortOrder: number;
   statusChangedAt: Date;
   createdAt: Date;
 };
@@ -60,6 +61,7 @@ export type SearchWorkItemsParams = {
   projectId: string;
   query?: string;
   parentId?: string;
+  topLevel?: boolean;
   priority?: WorkItemPriority;
   status?: WorkItemStatus;
   assigneeUsername?: string;
@@ -85,4 +87,10 @@ export type SearchWorkItemsResult = {
   total: number;
   limit: number;
   offset: number;
+};
+
+export type ReorderWorkItemParams = {
+  itemId: string;
+  status: WorkItemStatus;
+  sortOrder: number;
 };

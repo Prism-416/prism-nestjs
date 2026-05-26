@@ -17,6 +17,7 @@ import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
   CreateWorkItemDto,
+  ReorderWorkItemsDto,
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
   UpdateWorkItemDto,
@@ -99,6 +100,18 @@ export class WorkItemController {
     @Body() dto: CreateWorkItemDto,
   ): Promise<WorkItemResponseDto> {
     return this.usecase.createWorkItem(String(user.sub), projectId, dto);
+  }
+
+  @Patch('reorder')
+  @Authenticated()
+  @ApiOperation({ summary: 'Reorder top-level work items' })
+  @ApiDataResponse(WorkItemResponseDto, { isArray: true })
+  async reorderWorkItems(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: ReorderWorkItemsDto,
+  ): Promise<WorkItemResponseDto[]> {
+    return this.usecase.reorderWorkItems(String(user.sub), projectId, dto);
   }
 
   @Patch(':itemId')

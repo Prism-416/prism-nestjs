@@ -9,6 +9,7 @@ export const PROJECT_REALTIME_EVENTS = {
   PROJECT_DELETED: 'project.deleted',
   WORK_ITEM_CREATED: 'work_item.created',
   WORK_ITEM_UPDATED: 'work_item.updated',
+  WORK_ITEMS_REORDERED: 'work_item.reordered',
   WORK_ITEM_DELETED: 'work_item.deleted',
   COMMENT_CREATED: 'comment.created',
   COMMENT_UPDATED: 'comment.updated',

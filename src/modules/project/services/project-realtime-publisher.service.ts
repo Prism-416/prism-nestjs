@@ -11,6 +11,7 @@ import {
   ProjectUpdatedPayloadDto,
   WorkItemCreatedPayloadDto,
   WorkItemDeletedPayloadDto,
+  WorkItemsReorderedPayloadDto,
   WorkItemUpdatedPayloadDto,
 } from '@/modules/project/dto';
 import { buildProjectRoom } from '@/modules/project/utils';
@@ -51,6 +52,14 @@ export class ProjectRealtimePublisherService {
     this.emitToProject(
       payload.projectId,
       PROJECT_REALTIME_EVENTS.WORK_ITEM_UPDATED,
+      payload,
+    );
+  }
+
+  publishWorkItemsReordered(payload: WorkItemsReorderedPayloadDto): void {
+    this.emitToProject(
+      payload.projectId,
+      PROJECT_REALTIME_EVENTS.WORK_ITEMS_REORDERED,
       payload,
     );
   }
