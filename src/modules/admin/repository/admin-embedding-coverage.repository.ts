@@ -41,13 +41,19 @@ export class AdminEmbeddingCoverageRepository {
       AdminEmbeddingCoverageSummaryRow[]
     >(
       `
-        WITH active_projects AS (
-          SELECT p.project_id
-          FROM prism_projects_l p
-                 INNER JOIN prism_workspaces_l w
-                            ON w.workspace_id = p.workspace_id
+        WITH active_workspaces AS (
+          SELECT w.workspace_id
+          FROM prism_workspaces_l w
           WHERE w.deleted_at IS NULL
             AND w.status = 'active'
+        ),
+        active_projects AS (
+          SELECT p.workspace_id,
+                 p.project_id
+          FROM prism_projects_l p
+                 INNER JOIN active_workspaces aw
+                            ON aw.workspace_id = p.workspace_id
+          WHERE p.status <> 'archived'
         ),
         coverage AS (
           SELECT
@@ -79,27 +85,32 @@ export class AdminEmbeddingCoverageRepository {
           UNION ALL
           SELECT
             'work_item_comment'::TEXT AS target_type,
-            c.project_id,
+            wi.project_id,
             wice.comment_id IS NOT NULL AS has_embedding,
             wice.comment_id IS NOT NULL
               AND wice.embedded_body IS DISTINCT FROM c.body AS is_stale
           FROM prism_work_item_comments_l c
+                 INNER JOIN prism_work_items_l wi
+                            ON wi.workspace_id = c.workspace_id
+                           AND wi.item_id = c.item_id
                  INNER JOIN active_projects ap
-                            ON ap.project_id = c.project_id
+                            ON ap.workspace_id = wi.workspace_id
+                           AND ap.project_id = wi.project_id
                  LEFT JOIN prism_work_item_comment_embeddings_l wice
                            ON wice.comment_id = c.comment_id
           UNION ALL
           SELECT
             'agent_memory'::TEXT AS target_type,
-            m.project_id,
+            NULL::UUID AS project_id,
             ame.memory_id IS NOT NULL AS has_embedding,
             ame.memory_id IS NOT NULL
               AND ame.content_hash IS DISTINCT FROM m.content_hash AS is_stale
           FROM prism_agent_memories_l m
-                 INNER JOIN active_projects ap
-                            ON ap.project_id = m.project_id
+                 INNER JOIN active_workspaces aw
+                            ON aw.workspace_id = m.workspace_id
                  LEFT JOIN prism_agent_memory_embeddings_l ame
-                           ON ame.memory_id = m.memory_id
+                           ON ame.workspace_id = m.workspace_id
+                          AND ame.memory_id = m.memory_id
         )
         SELECT
           NOW() AS "generatedAt",

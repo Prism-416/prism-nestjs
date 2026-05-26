@@ -1,8 +1,8 @@
 import { DomainError, NotExistsError } from '@/core/errors';
 
-export class AgentProjectNotFoundError extends NotExistsError {
+export class AgentWorkspaceNotFoundError extends NotExistsError {
   constructor() {
-    super('Project not found.', 'AGENT_PROJECT_NOT_FOUND');
+    super('Workspace not found.', 'AGENT_WORKSPACE_NOT_FOUND');
   }
 }
 
@@ -65,7 +65,7 @@ export class AgentMemoryNotFoundError extends NotExistsError {
 export class AgentMemoryTargetMismatchError extends DomainError {
   constructor() {
     super(
-      'Agent memory target does not match the current project state.',
+      'Agent memory target does not match the current workspace state.',
       'AGENT_MEMORY_TARGET_MISMATCH',
       409,
     );

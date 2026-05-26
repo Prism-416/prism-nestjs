@@ -111,9 +111,6 @@ export class AgentRunResponseDto {
   @ApiProperty()
   workspaceId!: string;
 
-  @ApiProperty()
-  projectId!: string;
-
   @ApiProperty({ nullable: true })
   triggeredByUserId!: string | null;
 
@@ -204,9 +201,6 @@ export class AgentActionResponseDto {
 
   @ApiProperty()
   workspaceId!: string;
-
-  @ApiProperty()
-  projectId!: string;
 
   @ApiProperty()
   actionType!: string;
@@ -339,9 +333,6 @@ export class AgentMemoryResponseDto {
   @ApiProperty()
   workspaceId!: string;
 
-  @ApiProperty()
-  projectId!: string;
-
   @ApiProperty({ nullable: true })
   runId!: string | null;
 
@@ -409,9 +400,6 @@ export class AgentMemoryEmbeddingResponseDto {
 
   @ApiProperty()
   workspaceId!: string;
-
-  @ApiProperty()
-  projectId!: string;
 
   @ApiProperty()
   model!: string;

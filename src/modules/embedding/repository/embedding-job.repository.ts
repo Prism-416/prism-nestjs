@@ -5,8 +5,9 @@ import {
   ClaimEmbeddingJobsParams,
   CreateEmbeddingJobParams,
   EmbeddingJobRow,
-  EmbeddingProjectRow,
   EmbeddingJobType,
+  EmbeddingProjectRow,
+  EmbeddingWorkspaceRow,
   UpdateEmbeddingJobParams,
 } from '@/modules/embedding/types';
 
@@ -14,57 +15,73 @@ import {
 export class EmbeddingJobRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  async findProjectById(
-    projectId: string,
+  async findWorkspaceById(
+    workspaceId: string,
     manager?: EntityManager,
-  ): Promise<EmbeddingProjectRow | null> {
-    const projects = await this.getManager(manager).query<
-      EmbeddingProjectRow[]
+  ): Promise<EmbeddingWorkspaceRow | null> {
+    const workspaces = await this.getManager(manager).query<
+      EmbeddingWorkspaceRow[]
     >(
       `
         SELECT
-          p.project_id AS "projectId",
-          p.workspace_id AS "workspaceId"
-        FROM prism_projects_l p
-               INNER JOIN prism_workspaces_l w
-                          ON w.workspace_id = p.workspace_id
-        WHERE p.project_id = $1
+          w.workspace_id AS "workspaceId"
+        FROM prism_workspaces_l w
+        WHERE w.workspace_id = $1
           AND w.deleted_at IS NULL
           AND w.status = 'active'
-          AND p.status <> 'archived'
         LIMIT 1
       `,
-      [projectId],
+      [workspaceId],
     );
 
-    return projects[0] ?? null;
+    return workspaces[0] ?? null;
   }
 
-  async findProjectByIdAndMemberUserId(
-    projectId: string,
+  async findWorkspaceByIdAndMemberUserId(
+    workspaceId: string,
     userId: string,
     manager?: EntityManager,
-  ): Promise<EmbeddingProjectRow | null> {
-    const projects = await this.getManager(manager).query<
-      EmbeddingProjectRow[]
+  ): Promise<EmbeddingWorkspaceRow | null> {
+    const workspaces = await this.getManager(manager).query<
+      EmbeddingWorkspaceRow[]
     >(
       `
         SELECT
-          p.project_id AS "projectId",
-          p.workspace_id AS "workspaceId"
-        FROM prism_projects_l p
-               INNER JOIN prism_workspaces_l w
-                          ON w.workspace_id = p.workspace_id
+          w.workspace_id AS "workspaceId"
+        FROM prism_workspaces_l w
                INNER JOIN prism_workspace_members_l wm
-                          ON wm.workspace_id = p.workspace_id
-        WHERE p.project_id = $1
+                          ON wm.workspace_id = w.workspace_id
+        WHERE w.workspace_id = $1
           AND wm.user_id = $2
           AND w.deleted_at IS NULL
           AND w.status = 'active'
+        LIMIT 1
+      `,
+      [workspaceId, userId],
+    );
+
+    return workspaces[0] ?? null;
+  }
+
+  async findProjectByWorkspaceIdAndId(
+    workspaceId: string,
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<EmbeddingProjectRow | null> {
+    const projects = await this.getManager(manager).query<
+      EmbeddingProjectRow[]
+    >(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId"
+        FROM prism_projects_l p
+        WHERE p.workspace_id = $1
+          AND p.project_id = $2
           AND p.status <> 'archived'
         LIMIT 1
       `,
-      [projectId, userId],
+      [workspaceId, projectId],
     );
 
     return projects[0] ?? null;
@@ -72,7 +89,7 @@ export class EmbeddingJobRepository {
 
   async existsEmbeddingTarget(
     workspaceId: string,
-    projectId: string,
+    projectId: string | null,
     jobType: EmbeddingJobType,
     targetId: string,
     manager?: EntityManager,
@@ -85,6 +102,7 @@ export class EmbeddingJobRepository {
           SELECT 1
           FROM prism_documents_l d
           WHERE $3 = 'document'
+            AND $2::uuid IS NOT NULL
             AND d.workspace_id = $1
             AND d.project_id = $2
             AND d.document_id = $4
@@ -92,6 +110,7 @@ export class EmbeddingJobRepository {
           SELECT 1
           FROM prism_document_chunks_l dc
           WHERE $3 = 'document_chunk'
+            AND $2::uuid IS NOT NULL
             AND dc.workspace_id = $1
             AND dc.project_id = $2
             AND dc.chunk_id = $4
@@ -99,6 +118,7 @@ export class EmbeddingJobRepository {
           SELECT 1
           FROM prism_work_items_l wi
           WHERE $3 = 'work_item'
+            AND $2::uuid IS NOT NULL
             AND wi.workspace_id = $1
             AND wi.project_id = $2
             AND wi.item_id = $4
@@ -109,6 +129,7 @@ export class EmbeddingJobRepository {
                             ON wi.workspace_id = c.workspace_id
                            AND wi.item_id = c.item_id
           WHERE $3 = 'work_item_comment'
+            AND $2::uuid IS NOT NULL
             AND c.workspace_id = $1
             AND wi.project_id = $2
             AND c.comment_id = $4
@@ -117,7 +138,6 @@ export class EmbeddingJobRepository {
           FROM prism_agent_memories_l m
           WHERE $3 = 'agent_memory'
             AND m.workspace_id = $1
-            AND m.project_id = $2
             AND m.memory_id = $4
         ) AS "exists"
       `,
@@ -167,7 +187,7 @@ export class EmbeddingJobRepository {
       `,
       [
         params.workspaceId,
-        params.projectId,
+        params.projectId ?? null,
         params.jobType,
         params.targetId,
         params.model,
@@ -192,7 +212,7 @@ export class EmbeddingJobRepository {
           SELECT embedding_job_id
           FROM prism_embedding_jobs_l
           WHERE workspace_id = $1
-            AND project_id = $2
+            AND ($2::uuid IS NULL OR project_id = $2)
             AND status = 'queued'
             AND scheduled_at <= NOW()
             AND attempts < max_attempts
@@ -234,7 +254,7 @@ export class EmbeddingJobRepository {
       `,
       [
         params.workspaceId,
-        params.projectId,
+        params.projectId ?? null,
         params.jobTypes ?? null,
         params.model ?? null,
         params.limit,
@@ -250,27 +270,26 @@ export class EmbeddingJobRepository {
       `
         UPDATE prism_embedding_jobs_l
         SET
-          status = $4,
+          status = $3,
           error_message = CASE
-                            WHEN $4 IN ('queued', 'failed') THEN $5
+                            WHEN $3 IN ('queued', 'failed') THEN $4
                             ELSE NULL
                           END,
           scheduled_at = CASE
-                           WHEN $4 = 'queued' THEN $6
+                           WHEN $3 = 'queued' THEN $5
                            ELSE scheduled_at
                          END,
           started_at = CASE
-                         WHEN $4 = 'queued' THEN NULL
+                         WHEN $3 = 'queued' THEN NULL
                          ELSE started_at
                        END,
           completed_at = CASE
-                           WHEN $4 IN ('completed', 'failed', 'cancelled') THEN NOW()
-                           WHEN $4 = 'queued' THEN NULL
+                           WHEN $3 IN ('completed', 'failed', 'cancelled') THEN NOW()
+                           WHEN $3 = 'queued' THEN NULL
                            ELSE completed_at
                          END
         WHERE workspace_id = $1
-          AND project_id = $2
-          AND embedding_job_id = $3
+          AND embedding_job_id = $2
         RETURNING
           embedding_job_id AS "embeddingJobId",
           workspace_id AS "workspaceId",
@@ -292,7 +311,6 @@ export class EmbeddingJobRepository {
       `,
       [
         params.workspaceId,
-        params.projectId,
         params.embeddingJobId,
         params.status,
         params.errorMessage ?? null,

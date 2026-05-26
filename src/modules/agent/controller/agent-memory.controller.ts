@@ -11,8 +11,8 @@ import {
 } from '@/modules/agent/dto';
 import { AgentUseCase } from '@/modules/agent/usecases';
 
-@ApiTags('Project Agent')
-@Controller(':projectId/agent-memories')
+@ApiTags('Workspace Agent')
+@Controller(':workspaceId/agent-memories')
 export class AgentMemoryController {
   constructor(private readonly usecase: AgentUseCase) {}
 
@@ -22,10 +22,10 @@ export class AgentMemoryController {
   @ApiDataResponse(AgentMemoryResponseDto, { status: HttpStatus.CREATED })
   async upsertAgentMemory(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Body() dto: UpsertAgentMemoryDto,
   ): Promise<AgentMemoryResponseDto> {
-    return this.usecase.upsertAgentMemory(String(user.sub), projectId, dto);
+    return this.usecase.upsertAgentMemory(String(user.sub), workspaceId, dto);
   }
 
   @Put(':memoryId/embedding')
@@ -34,13 +34,13 @@ export class AgentMemoryController {
   @ApiDataResponse(AgentMemoryEmbeddingResponseDto)
   async upsertAgentMemoryEmbedding(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('memoryId') memoryId: string,
     @Body() dto: UpsertAgentMemoryEmbeddingDto,
   ): Promise<AgentMemoryEmbeddingResponseDto> {
     return this.usecase.upsertAgentMemoryEmbedding(
       String(user.sub),
-      projectId,
+      workspaceId,
       memoryId,
       dto,
     );
