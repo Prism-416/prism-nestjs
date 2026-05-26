@@ -16,8 +16,8 @@ import {
 } from '@/modules/agent/dto';
 import { AgentUseCase } from '@/modules/agent/usecases';
 
-@ApiTags('Project Agent')
-@Controller(':projectId/agent-actions')
+@ApiTags('Workspace Agent')
+@Controller(':workspaceId/agent-actions')
 export class AgentActionController {
   constructor(private readonly usecase: AgentUseCase) {}
 
@@ -28,12 +28,12 @@ export class AgentActionController {
   @ApiDataResponse(AgentActionResponseDto)
   async approveAgentAction(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('actionId') actionId: string,
   ): Promise<AgentActionResponseDto> {
     return this.usecase.approveAgentAction(
       String(user.sub),
-      projectId,
+      workspaceId,
       actionId,
     );
   }
@@ -45,12 +45,12 @@ export class AgentActionController {
   @ApiDataResponse(AgentActionResponseDto)
   async cancelAgentAction(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('actionId') actionId: string,
   ): Promise<AgentActionResponseDto> {
     return this.usecase.cancelAgentAction(
       String(user.sub),
-      projectId,
+      workspaceId,
       actionId,
     );
   }
@@ -61,10 +61,10 @@ export class AgentActionController {
   @ApiDataResponse(AgentActionResponseDto)
   async getAgentAction(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('actionId') actionId: string,
   ): Promise<AgentActionResponseDto> {
-    return this.usecase.getAgentAction(String(user.sub), projectId, actionId);
+    return this.usecase.getAgentAction(String(user.sub), workspaceId, actionId);
   }
 
   @Get(':actionId/events')
@@ -73,12 +73,12 @@ export class AgentActionController {
   @ApiDataResponse(AgentActionEventResponseDto, { isArray: true })
   async getAgentActionEvents(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('actionId') actionId: string,
   ): Promise<AgentActionEventResponseDto[]> {
     return this.usecase.getAgentActionEvents(
       String(user.sub),
-      projectId,
+      workspaceId,
       actionId,
     );
   }

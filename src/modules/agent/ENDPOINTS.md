@@ -1,37 +1,37 @@
 # Agent Endpoint Requirements
 
-This module is backed by the agent tables in `.sql/ddl.sql`:
+This module is backed by the agent tables in `.sql/ddl_v2.sql`:
 
 - `prism_agent_runs_l`
 - `prism_agent_steps_l`
 - `prism_agent_actions_l`
 - `prism_agent_action_events_l`
 
-All external endpoints should be authenticated and project-scoped under
-`/projects/:projectId`. Every use case should first verify that the current
-user belongs to the requested project through the active workspace membership
-path used by the existing project-scoped modules.
+All external endpoints should be authenticated and workspace-scoped under
+`/workspaces/:workspaceId`. Every use case should first verify that the current
+user belongs to the requested workspace through the active workspace membership
+path used by the existing workspace-scoped modules.
 
 ## Candidate External Endpoints
 
 ```text
-GET  /projects/:projectId/agent-runs
-POST /projects/:projectId/agent-runs
-GET  /projects/:projectId/agent-runs/:runId
-POST /projects/:projectId/agent-runs/:runId/cancel
+GET  /workspaces/:workspaceId/agent-runs
+POST /workspaces/:workspaceId/agent-runs
+GET  /workspaces/:workspaceId/agent-runs/:runId
+POST /workspaces/:workspaceId/agent-runs/:runId/cancel
 
-GET  /projects/:projectId/agent-runs/:runId/steps
-GET  /projects/:projectId/agent-runs/:runId/actions
+GET  /workspaces/:workspaceId/agent-runs/:runId/steps
+GET  /workspaces/:workspaceId/agent-runs/:runId/actions
 
-GET  /projects/:projectId/agent-actions/:actionId
-GET  /projects/:projectId/agent-actions/:actionId/events
-POST /projects/:projectId/agent-actions/:actionId/approve
-POST /projects/:projectId/agent-actions/:actionId/cancel
+GET  /workspaces/:workspaceId/agent-actions/:actionId
+GET  /workspaces/:workspaceId/agent-actions/:actionId/events
+POST /workspaces/:workspaceId/agent-actions/:actionId/approve
+POST /workspaces/:workspaceId/agent-actions/:actionId/cancel
 ```
 
 ## Run Requirements
 
-- List runs by project with filters for `status`, `agentType`, `workItemId`,
+- List runs by workspace with filters for `status`, `agentType`, `workItemId`,
   and pagination.
 - Create a manual run with `agentType`, `objective`, optional `workItemId`,
   optional `parentRunId`, and optional `systemPromptVersion`.
@@ -45,16 +45,15 @@ Validation requirements:
 - `status` should use the DDL values: `queued`, `running`, `waiting`,
   `completed`, `failed`, `cancelled`.
 - If `workItemId` is supplied, validate that the work item belongs to the same
-  project. The DDL references `prism_work_items_l(item_id)` directly, so the API
-  layer must enforce the project boundary.
+  workspace.
 - If `parentRunId` is supplied, validate that the parent run belongs to the same
-  project.
+  workspace.
 
 ## Step Requirements
 
 - Steps are read-only for the first public API pass.
 - List steps for a run ordered by `stepOrder`.
-- Ensure the run belongs to the requested project before returning steps.
+- Ensure the run belongs to the requested workspace before returning steps.
 - Future internal writers should preserve the `(run_id, step_order)` uniqueness.
 
 ## Action Requirements
@@ -68,7 +67,7 @@ Validation requirements:
 
 Validation requirements:
 
-- Ensure each action belongs to the requested project.
+- Ensure each action belongs to the requested workspace.
 - If an action has a `stepId`, ensure that step belongs to the action run.
 - Keep status-transition rules in the use case instead of the controller.
 

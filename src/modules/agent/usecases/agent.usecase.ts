@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
+import type { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
 import {
-  AgentMemoryEmbeddingResponseDto,
-  AgentMemoryResponseDto,
   AgentActionEventResponseDto,
   AgentActionResponseDto,
+  AgentMemoryEmbeddingResponseDto,
+  AgentMemoryResponseDto,
   AgentRunResponseDto,
   AgentStepResponseDto,
   CreateAgentRunDto,
@@ -14,22 +15,23 @@ import {
   UpsertAgentMemoryEmbeddingDto,
 } from '@/modules/agent/dto';
 import {
-  AgentActionNotFoundError,
   AgentActionNotApprovableError,
   AgentActionNotCancellableError,
+  AgentActionNotFoundError,
   AgentMemoryEmbeddingTargetMismatchError,
   AgentMemoryNotFoundError,
   AgentMemoryTargetMismatchError,
   AgentParentRunNotFoundError,
-  AgentProjectNotFoundError,
   AgentRunNotCancellableError,
   AgentRunNotFoundError,
+  AgentWorkspaceNotFoundError,
   AgentWorkItemNotFoundError,
 } from '@/modules/agent/errors';
 import { AgentRepository } from '@/modules/agent/repository';
 import {
   AGENT_EMBEDDING_DIMENSIONS,
   AgentRunStatus,
+  AgentWorkspaceRow,
 } from '@/modules/agent/types';
 
 const AGENT_RUN_CANCELLABLE_STATUSES: AgentRunStatus[] = [
@@ -49,20 +51,13 @@ export class AgentUseCase {
 
   async searchAgentRuns(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     query: SearchAgentRunsQueryDto,
   ): Promise<SearchAgentRunsResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
     return this.repo.searchAgentRuns({
-      workspaceId: project.workspaceId,
-      projectId: project.projectId,
+      workspaceId: workspace.workspaceId,
       status: query.status,
       agentType: query.agentType,
       workItemId: query.workItemId,
@@ -73,23 +68,19 @@ export class AgentUseCase {
 
   async createAgentRun(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     dto: CreateAgentRunDto,
   ): Promise<AgentRunResponseDto> {
     return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndMemberUserId(
-        projectId,
+      const workspace = await this.getWorkspaceForUser(
         userId,
+        workspaceId,
         manager,
       );
-      if (!project) {
-        throw new AgentProjectNotFoundError();
-      }
 
       if (dto.workItemId !== undefined) {
         const workItem = await this.repo.findWorkItemById(
-          project.workspaceId,
-          project.projectId,
+          workspace.workspaceId,
           dto.workItemId,
           manager,
         );
@@ -100,8 +91,7 @@ export class AgentUseCase {
 
       if (dto.parentRunId !== undefined) {
         const parentRun = await this.repo.findAgentRunById(
-          project.workspaceId,
-          project.projectId,
+          workspace.workspaceId,
           dto.parentRunId,
           manager,
         );
@@ -112,8 +102,7 @@ export class AgentUseCase {
 
       return this.repo.createAgentRun(
         {
-          workspaceId: project.workspaceId,
-          projectId: project.projectId,
+          workspaceId: workspace.workspaceId,
           triggeredByUserId: userId,
           workItemId: dto.workItemId,
           parentRunId: dto.parentRunId,
@@ -128,22 +117,18 @@ export class AgentUseCase {
 
   async cancelAgentRun(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     runId: string,
   ): Promise<AgentRunResponseDto> {
     return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndMemberUserId(
-        projectId,
+      const workspace = await this.getWorkspaceForUser(
         userId,
+        workspaceId,
         manager,
       );
-      if (!project) {
-        throw new AgentProjectNotFoundError();
-      }
 
       const run = await this.repo.findAgentRunById(
-        project.workspaceId,
-        project.projectId,
+        workspace.workspaceId,
         runId,
         manager,
       );
@@ -157,8 +142,7 @@ export class AgentUseCase {
 
       const cancelledRun = await this.repo.cancelAgentRun(
         {
-          projectId: project.projectId,
-          workspaceId: project.workspaceId,
+          workspaceId: workspace.workspaceId,
           runId,
           cancellableStatuses: AGENT_RUN_CANCELLABLE_STATUSES,
         },
@@ -174,78 +158,43 @@ export class AgentUseCase {
 
   async getAgentRunSteps(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     runId: string,
   ): Promise<AgentStepResponseDto[]> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
-    const run = await this.repo.findAgentRunById(
-      project.workspaceId,
-      project.projectId,
-      runId,
-    );
+    const run = await this.repo.findAgentRunById(workspace.workspaceId, runId);
     if (!run) {
       throw new AgentRunNotFoundError();
     }
 
-    return this.repo.findAgentStepsByRunId(
-      project.workspaceId,
-      project.projectId,
-      run.runId,
-    );
+    return this.repo.findAgentStepsByRunId(workspace.workspaceId, run.runId);
   }
 
   async getAgentRunActions(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     runId: string,
   ): Promise<AgentActionResponseDto[]> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
-    const run = await this.repo.findAgentRunById(
-      project.workspaceId,
-      project.projectId,
-      runId,
-    );
+    const run = await this.repo.findAgentRunById(workspace.workspaceId, runId);
     if (!run) {
       throw new AgentRunNotFoundError();
     }
 
-    return this.repo.findAgentActionsByRunId(
-      project.workspaceId,
-      project.projectId,
-      run.runId,
-    );
+    return this.repo.findAgentActionsByRunId(workspace.workspaceId, run.runId);
   }
 
   async getAgentAction(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     actionId: string,
   ): Promise<AgentActionResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
     const action = await this.repo.findAgentActionById(
-      project.workspaceId,
-      project.projectId,
+      workspace.workspaceId,
       actionId,
     );
     if (!action) {
@@ -257,22 +206,18 @@ export class AgentUseCase {
 
   async approveAgentAction(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     actionId: string,
   ): Promise<AgentActionResponseDto> {
     return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndMemberUserId(
-        projectId,
+      const workspace = await this.getWorkspaceForUser(
         userId,
+        workspaceId,
         manager,
       );
-      if (!project) {
-        throw new AgentProjectNotFoundError();
-      }
 
       const action = await this.repo.findAgentActionById(
-        project.workspaceId,
-        project.projectId,
+        workspace.workspaceId,
         actionId,
         manager,
       );
@@ -289,8 +234,7 @@ export class AgentUseCase {
 
       const approvedAction = await this.repo.approveAgentAction(
         {
-          workspaceId: project.workspaceId,
-          projectId: project.projectId,
+          workspaceId: workspace.workspaceId,
           actionId,
           approvedByUserId: userId,
           approvableStatuses: AGENT_ACTION_APPROVABLE_STATUSES,
@@ -316,22 +260,18 @@ export class AgentUseCase {
 
   async cancelAgentAction(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     actionId: string,
   ): Promise<AgentActionResponseDto> {
     return this.uow.run(async (manager) => {
-      const project = await this.repo.findProjectByIdAndMemberUserId(
-        projectId,
+      const workspace = await this.getWorkspaceForUser(
         userId,
+        workspaceId,
         manager,
       );
-      if (!project) {
-        throw new AgentProjectNotFoundError();
-      }
 
       const action = await this.repo.findAgentActionById(
-        project.workspaceId,
-        project.projectId,
+        workspace.workspaceId,
         actionId,
         manager,
       );
@@ -348,8 +288,7 @@ export class AgentUseCase {
 
       const cancelledAction = await this.repo.cancelAgentAction(
         {
-          workspaceId: project.workspaceId,
-          projectId: project.projectId,
+          workspaceId: workspace.workspaceId,
           actionId,
           cancellableStatuses: AGENT_ACTION_CANCELLABLE_STATUSES,
         },
@@ -374,20 +313,13 @@ export class AgentUseCase {
 
   async getAgentActionEvents(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     actionId: string,
   ): Promise<AgentActionEventResponseDto[]> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
     const action = await this.repo.findAgentActionById(
-      project.workspaceId,
-      project.projectId,
+      workspace.workspaceId,
       actionId,
     );
     if (!action) {
@@ -399,48 +331,29 @@ export class AgentUseCase {
 
   async upsertAgentMemory(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     dto: UpsertAgentMemoryDto,
   ): Promise<AgentMemoryResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
-    return this.upsertProjectAgentMemory(
-      project.workspaceId,
-      project.projectId,
-      dto,
-    );
+    return this.upsertWorkspaceAgentMemory(workspace.workspaceId, dto);
   }
 
   async upsertAgentMemoryForInternal(
-    projectId: string,
+    workspaceId: string,
     dto: UpsertAgentMemoryDto,
   ): Promise<AgentMemoryResponseDto> {
-    const project = await this.repo.findProjectById(projectId);
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspace(workspaceId);
 
-    return this.upsertProjectAgentMemory(
-      project.workspaceId,
-      project.projectId,
-      dto,
-    );
+    return this.upsertWorkspaceAgentMemory(workspace.workspaceId, dto);
   }
 
-  private async upsertProjectAgentMemory(
+  private async upsertWorkspaceAgentMemory(
     workspaceId: string,
-    projectId: string,
     dto: UpsertAgentMemoryDto,
   ): Promise<AgentMemoryResponseDto> {
     const memory = await this.repo.upsertAgentMemory({
       workspaceId,
-      projectId,
       memoryId: dto.memoryId,
       runId: dto.runId,
       stepId: dto.stepId,
@@ -458,62 +371,45 @@ export class AgentUseCase {
 
   async upsertAgentMemoryEmbedding(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     memoryId: string,
     dto: UpsertAgentMemoryEmbeddingDto,
   ): Promise<AgentMemoryEmbeddingResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
-    return this.upsertProjectAgentMemoryEmbedding(
-      project.workspaceId,
-      project.projectId,
+    return this.upsertWorkspaceAgentMemoryEmbedding(
+      workspace.workspaceId,
       memoryId,
       dto,
     );
   }
 
   async upsertAgentMemoryEmbeddingForInternal(
-    projectId: string,
+    workspaceId: string,
     memoryId: string,
     dto: UpsertAgentMemoryEmbeddingDto,
   ): Promise<AgentMemoryEmbeddingResponseDto> {
-    const project = await this.repo.findProjectById(projectId);
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspace(workspaceId);
 
-    return this.upsertProjectAgentMemoryEmbedding(
-      project.workspaceId,
-      project.projectId,
+    return this.upsertWorkspaceAgentMemoryEmbedding(
+      workspace.workspaceId,
       memoryId,
       dto,
     );
   }
 
-  private async upsertProjectAgentMemoryEmbedding(
+  private async upsertWorkspaceAgentMemoryEmbedding(
     workspaceId: string,
-    projectId: string,
     memoryId: string,
     dto: UpsertAgentMemoryEmbeddingDto,
   ): Promise<AgentMemoryEmbeddingResponseDto> {
-    const memory = await this.repo.findAgentMemoryById(
-      workspaceId,
-      projectId,
-      memoryId,
-    );
+    const memory = await this.repo.findAgentMemoryById(workspaceId, memoryId);
     if (!memory) {
       throw new AgentMemoryNotFoundError();
     }
 
     const embedding = await this.repo.upsertAgentMemoryEmbedding({
       workspaceId,
-      projectId,
       memoryId,
       contentHash: dto.contentHash,
       model: dto.model,
@@ -529,26 +425,42 @@ export class AgentUseCase {
 
   async getAgentRun(
     userId: string,
-    projectId: string,
+    workspaceId: string,
     runId: string,
   ): Promise<AgentRunResponseDto> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new AgentProjectNotFoundError();
-    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
-    const run = await this.repo.findAgentRunById(
-      project.workspaceId,
-      project.projectId,
-      runId,
-    );
+    const run = await this.repo.findAgentRunById(workspace.workspaceId, runId);
     if (!run) {
       throw new AgentRunNotFoundError();
     }
 
     return run;
+  }
+
+  private async getWorkspaceForUser(
+    userId: string,
+    workspaceId: string,
+    manager?: EntityManager,
+  ): Promise<AgentWorkspaceRow> {
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
+      userId,
+      manager,
+    );
+    if (!workspace) {
+      throw new AgentWorkspaceNotFoundError();
+    }
+
+    return workspace;
+  }
+
+  private async getWorkspace(workspaceId: string): Promise<AgentWorkspaceRow> {
+    const workspace = await this.repo.findWorkspaceById(workspaceId);
+    if (!workspace) {
+      throw new AgentWorkspaceNotFoundError();
+    }
+
+    return workspace;
   }
 }

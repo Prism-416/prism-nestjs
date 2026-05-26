@@ -20,7 +20,7 @@ export const AGENT_MEMORY_TYPES = [
   'agent_summary',
   'agent_plan',
   'agent_result',
-  'project_fact',
+  'workspace_fact',
   'user_preference',
 ] as const;
 
@@ -30,8 +30,7 @@ export type AgentRunTriggerType = (typeof AGENT_RUN_TRIGGER_TYPES)[number];
 export type AgentRunStatus = (typeof AGENT_RUN_STATUSES)[number];
 export type AgentMemoryType = (typeof AGENT_MEMORY_TYPES)[number];
 
-export type AgentProjectRow = {
-  projectId: string;
+export type AgentWorkspaceRow = {
   workspaceId: string;
 };
 
@@ -42,7 +41,6 @@ export type AgentWorkItemRow = {
 export type AgentRunRow = {
   runId: string;
   workspaceId: string;
-  projectId: string;
   triggeredByUserId: string | null;
   workItemId: string | null;
   parentRunId: string | null;
@@ -58,7 +56,6 @@ export type AgentRunRow = {
 
 export type SearchAgentRunsParams = {
   workspaceId: string;
-  projectId: string;
   status?: AgentRunStatus;
   agentType?: string;
   workItemId?: string;
@@ -68,7 +65,6 @@ export type SearchAgentRunsParams = {
 
 export type CreateAgentRunParams = {
   workspaceId: string;
-  projectId: string;
   triggeredByUserId: string;
   workItemId?: string;
   parentRunId?: string;
@@ -79,14 +75,12 @@ export type CreateAgentRunParams = {
 
 export type CancelAgentRunParams = {
   workspaceId: string;
-  projectId: string;
   runId: string;
   cancellableStatuses: AgentRunStatus[];
 };
 
 export type ApproveAgentActionParams = {
   workspaceId: string;
-  projectId: string;
   actionId: string;
   approvedByUserId: string;
   approvableStatuses: string[];
@@ -94,7 +88,6 @@ export type ApproveAgentActionParams = {
 
 export type CancelAgentActionParams = {
   workspaceId: string;
-  projectId: string;
   actionId: string;
   cancellableStatuses: string[];
 };
@@ -136,7 +129,6 @@ export type AgentActionRow = {
   runId: string;
   stepId: string | null;
   workspaceId: string;
-  projectId: string;
   actionType: string;
   targetType: string;
   targetId: string | null;
@@ -165,7 +157,6 @@ export type AgentActionEventRow = {
 export type AgentMemoryRow = {
   memoryId: string;
   workspaceId: string;
-  projectId: string;
   runId: string | null;
   stepId: string | null;
   memoryType: AgentMemoryType;
@@ -178,7 +169,6 @@ export type AgentMemoryRow = {
 export type AgentMemoryEmbeddingRow = {
   memoryId: string;
   workspaceId: string;
-  projectId: string;
   model: string;
   dimensions: number;
   contentHash: string;
@@ -188,7 +178,6 @@ export type AgentMemoryEmbeddingRow = {
 
 export type UpsertAgentMemoryParams = {
   workspaceId: string;
-  projectId: string;
   memoryId?: string;
   runId?: string;
   stepId?: string;
@@ -200,7 +189,6 @@ export type UpsertAgentMemoryParams = {
 
 export type UpsertAgentMemoryEmbeddingParams = {
   workspaceId: string;
-  projectId: string;
   memoryId: string;
   contentHash: string;
   model: string;

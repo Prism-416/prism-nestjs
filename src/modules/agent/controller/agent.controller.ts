@@ -22,21 +22,21 @@ import {
 } from '@/modules/agent/dto';
 import { AgentUseCase } from '@/modules/agent/usecases';
 
-@ApiTags('Project Agent')
-@Controller(':projectId/agent-runs')
+@ApiTags('Workspace Agent')
+@Controller(':workspaceId/agent-runs')
 export class AgentController {
   constructor(private readonly usecase: AgentUseCase) {}
 
   @Get()
   @Authenticated()
-  @ApiOperation({ summary: 'Search project agent runs' })
+  @ApiOperation({ summary: 'Search workspace agent runs' })
   @ApiDataResponse(SearchAgentRunsResponseDto)
   async searchAgentRuns(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Query() query: SearchAgentRunsQueryDto,
   ): Promise<SearchAgentRunsResponseDto> {
-    return this.usecase.searchAgentRuns(String(user.sub), projectId, query);
+    return this.usecase.searchAgentRuns(String(user.sub), workspaceId, query);
   }
 
   @Post()
@@ -45,10 +45,10 @@ export class AgentController {
   @ApiDataResponse(AgentRunResponseDto, { status: HttpStatus.CREATED })
   async createAgentRun(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Body() dto: CreateAgentRunDto,
   ): Promise<AgentRunResponseDto> {
-    return this.usecase.createAgentRun(String(user.sub), projectId, dto);
+    return this.usecase.createAgentRun(String(user.sub), workspaceId, dto);
   }
 
   @Post(':runId/cancel')
@@ -58,10 +58,10 @@ export class AgentController {
   @ApiDataResponse(AgentRunResponseDto)
   async cancelAgentRun(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('runId') runId: string,
   ): Promise<AgentRunResponseDto> {
-    return this.usecase.cancelAgentRun(String(user.sub), projectId, runId);
+    return this.usecase.cancelAgentRun(String(user.sub), workspaceId, runId);
   }
 
   @Get(':runId/steps')
@@ -70,10 +70,10 @@ export class AgentController {
   @ApiDataResponse(AgentStepResponseDto, { isArray: true })
   async getAgentRunSteps(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('runId') runId: string,
   ): Promise<AgentStepResponseDto[]> {
-    return this.usecase.getAgentRunSteps(String(user.sub), projectId, runId);
+    return this.usecase.getAgentRunSteps(String(user.sub), workspaceId, runId);
   }
 
   @Get(':runId/actions')
@@ -82,10 +82,14 @@ export class AgentController {
   @ApiDataResponse(AgentActionResponseDto, { isArray: true })
   async getAgentRunActions(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('runId') runId: string,
   ): Promise<AgentActionResponseDto[]> {
-    return this.usecase.getAgentRunActions(String(user.sub), projectId, runId);
+    return this.usecase.getAgentRunActions(
+      String(user.sub),
+      workspaceId,
+      runId,
+    );
   }
 
   @Get(':runId')
@@ -94,9 +98,9 @@ export class AgentController {
   @ApiDataResponse(AgentRunResponseDto)
   async getAgentRun(
     @CurrentUser() user: JwtPayload,
-    @Param('projectId') projectId: string,
+    @Param('workspaceId') workspaceId: string,
     @Param('runId') runId: string,
   ): Promise<AgentRunResponseDto> {
-    return this.usecase.getAgentRun(String(user.sub), projectId, runId);
+    return this.usecase.getAgentRun(String(user.sub), workspaceId, runId);
   }
 }

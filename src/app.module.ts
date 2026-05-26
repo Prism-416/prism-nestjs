@@ -56,7 +56,7 @@ const featureRegistrations: FeatureRegistration[] = [
   },
   {
     module: AgentModule,
-    path: 'projects',
+    path: 'workspaces',
     requiresDb: true,
   },
   {
