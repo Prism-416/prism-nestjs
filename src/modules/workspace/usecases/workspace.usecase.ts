@@ -429,7 +429,7 @@ export class WorkspaceUseCase {
             workspaceId: workspace.workspaceId,
             jobs: dto.jobs.map((job) => ({
               name: job.name,
-              description: job.description,
+              description: job.description ?? null,
             })),
           },
           manager,
@@ -458,44 +458,63 @@ export class WorkspaceUseCase {
     }
 
     return this.uow.run(async (manager) => {
-      const requestedJobIds = dto.jobs.map((job) => job.jobId);
-      const workspaceJobs = await this.repo.findWorkspaceJobIds(
-        workspace.workspaceId,
-        requestedJobIds,
-        manager,
-      );
-      if (workspaceJobs.length !== requestedJobIds.length) {
-        throw new WorkspaceJobNotFoundError();
-      }
+      const updatedJobs: WorkspaceJobResponseDto[] = [];
 
-      let updatedJobs: WorkspaceJobResponseDto[];
+      for (const job of dto.jobs) {
+        let updatedJob: WorkspaceJobResponseDto | null;
 
-      try {
-        updatedJobs = await this.repo.updateWorkspaceJobs(
-          {
-            workspaceId: workspace.workspaceId,
-            jobs: dto.jobs.map((job) => ({
+        try {
+          updatedJob = await this.repo.updateWorkspaceJob(
+            {
+              workspaceId: workspace.workspaceId,
               jobId: job.jobId,
               name: job.name,
-              description: job.description,
-            })),
-          },
-          manager,
-        );
-      } catch (error) {
-        if (isWorkspaceJobNameUniqueViolation(error)) {
-          throw new WorkspaceJobAlreadyExistsError();
+              description: job.description ?? null,
+            },
+            manager,
+          );
+        } catch (error) {
+          if (isWorkspaceJobNameUniqueViolation(error)) {
+            throw new WorkspaceJobAlreadyExistsError();
+          }
+
+          throw error;
         }
 
-        throw error;
+        if (!updatedJob) {
+          throw new WorkspaceJobNotFoundError();
+        }
+
+        updatedJobs.push(updatedJob);
       }
 
-      if (updatedJobs.length !== requestedJobIds.length) {
+      return updatedJobs;
+    });
+  }
+
+  async deleteWorkspaceJob(
+    userId: string,
+    workspaceId: string,
+    jobId: string,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
+        workspaceId,
+        userId,
+        manager,
+      );
+      if (!workspace) {
+        throw new WorkspaceNotFoundError();
+      }
+
+      const deleted = await this.repo.deleteWorkspaceJob(
+        workspace.workspaceId,
+        jobId,
+        manager,
+      );
+      if (!deleted) {
         throw new WorkspaceJobNotFoundError();
       }
-
-      const jobById = new Map(updatedJobs.map((job) => [job.jobId, job]));
-      return dto.jobs.map((job) => jobById.get(job.jobId)!);
     });
   }
 
