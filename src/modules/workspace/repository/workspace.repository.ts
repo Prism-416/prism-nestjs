@@ -882,7 +882,9 @@ export class WorkspaceRepository {
     jobId: string,
     manager?: EntityManager,
   ): Promise<boolean> {
-    const [deletedJob] = await this.getManager(manager).query<Array<{ jobId: string }>>(
+    const [deletedJob] = await this.getManager(manager).query<
+      Array<{ jobId: string }>
+    >(
       `
         DELETE FROM prism_jobs_l
         WHERE workspace_id = $1
