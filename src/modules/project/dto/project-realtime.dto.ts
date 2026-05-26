@@ -31,6 +31,12 @@ export class WorkItemCreatedPayloadDto extends WorkItemResponseDto {}
 
 export class WorkItemUpdatedPayloadDto extends WorkItemResponseDto {}
 
+export class WorkItemsReorderedPayloadDto {
+  projectId!: string;
+
+  workItems!: WorkItemResponseDto[];
+}
+
 export class WorkItemDeletedPayloadDto {
   projectId!: string;
 

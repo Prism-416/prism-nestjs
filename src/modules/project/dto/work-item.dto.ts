@@ -5,6 +5,7 @@ import {
   ArrayMinSize,
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -15,6 +16,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 import { PROJECT_EMBEDDING_DIMENSIONS } from '@/modules/project/constants';
 import {
@@ -96,6 +98,12 @@ export class SearchWorkItemsQueryDto {
   @IsOptional()
   @IsUUID()
   parentId?: string;
+
+  @ApiPropertyOptional({ default: false })
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsOptional()
+  @IsBoolean()
+  topLevel?: boolean;
 
   @ApiPropertyOptional({ enum: WORK_ITEM_PRIORITIES })
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
@@ -196,6 +204,32 @@ export class UpdateWorkItemDto {
   labelNames?: string[];
 }
 
+export class ReorderWorkItemDto {
+  @ApiProperty()
+  @IsUUID()
+  itemId!: string;
+
+  @ApiProperty({ enum: WORK_ITEM_STATUSES })
+  @IsString()
+  @IsIn(WORK_ITEM_STATUSES)
+  status!: WorkItemStatus;
+
+  @ApiProperty({ minimum: 0 })
+  @IsInt()
+  @Min(0)
+  sortOrder!: number;
+}
+
+export class ReorderWorkItemsDto {
+  @ApiProperty({ type: [ReorderWorkItemDto] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayUnique((item: ReorderWorkItemDto) => item.itemId)
+  @ValidateNested({ each: true })
+  @Type(() => ReorderWorkItemDto)
+  items!: ReorderWorkItemDto[];
+}
+
 export class WorkItemResponseDto {
   @ApiProperty()
   itemId!: string;
@@ -220,6 +254,9 @@ export class WorkItemResponseDto {
 
   @ApiProperty({ enum: WORK_ITEM_STATUSES })
   status!: WorkItemStatus;
+
+  @ApiProperty()
+  sortOrder!: number;
 
   @ApiProperty()
   statusChangedAt!: Date;

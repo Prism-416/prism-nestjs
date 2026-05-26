@@ -3,6 +3,7 @@ import { UnitOfWork } from '@/core/database';
 import { PROJECT_EMBEDDING_DIMENSIONS } from '@/modules/project/constants';
 import {
   CreateWorkItemDto,
+  ReorderWorkItemsDto,
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
   UpdateWorkItemDto,
@@ -81,6 +82,7 @@ export class WorkItemUseCase {
       projectId: project.projectId,
       query: query.query,
       parentId: query.parentId,
+      topLevel: query.topLevel,
       priority: query.priority,
       status: query.status,
       assigneeUsername: query.assigneeUsername,
@@ -410,6 +412,62 @@ export class WorkItemUseCase {
     this.realtimePublisher.publishWorkItemUpdated(updatedWorkItem);
 
     return updatedWorkItem;
+  }
+
+  async reorderWorkItems(
+    userId: string,
+    projectId: string,
+    dto: ReorderWorkItemsDto,
+  ): Promise<WorkItemResponseDto[]> {
+    const reorderedWorkItems = await this.uow.run(async (manager) => {
+      const project =
+        await this.projectRepository.findProjectByIdAndMemberUserId(
+          projectId,
+          userId,
+          manager,
+        );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      const itemIds = dto.items.map((item) => item.itemId);
+      const topLevelItemIds =
+        await this.workItemRepository.findTopLevelWorkItemIds(
+          project.workspaceId,
+          project.projectId,
+          itemIds,
+          manager,
+        );
+      if (topLevelItemIds.length !== itemIds.length) {
+        throw new WorkItemNotFoundError();
+      }
+
+      await this.workItemRepository.reorderTopLevelWorkItems(
+        project.workspaceId,
+        project.projectId,
+        dto.items,
+        manager,
+      );
+
+      const workItems = await this.workItemRepository.findWorkItemDetailsByIds(
+        project.workspaceId,
+        project.projectId,
+        itemIds,
+        manager,
+      );
+      if (workItems.length !== itemIds.length) {
+        throw new WorkItemNotFoundError();
+      }
+
+      return workItems;
+    });
+
+    this.realtimePublisher.publishWorkItemsReordered({
+      projectId,
+      workItems: reorderedWorkItems,
+    });
+
+    return reorderedWorkItems;
   }
 
   async deleteWorkItem(

@@ -32,6 +32,7 @@ import {
   ProjectUpdatedPayloadDto,
   WorkItemCreatedPayloadDto,
   WorkItemDeletedPayloadDto,
+  WorkItemsReorderedPayloadDto,
   WorkItemUpdatedPayloadDto,
 } from '@/modules/project/dto';
 import { ProjectRealtimePublisherService } from '@/modules/project/services';
@@ -65,6 +66,9 @@ type ProjectServerToClientEvents = {
   ) => void;
   [PROJECT_REALTIME_EVENTS.WORK_ITEM_UPDATED]: (
     payload: WorkItemUpdatedPayloadDto,
+  ) => void;
+  [PROJECT_REALTIME_EVENTS.WORK_ITEMS_REORDERED]: (
+    payload: WorkItemsReorderedPayloadDto,
   ) => void;
   [PROJECT_REALTIME_EVENTS.WORK_ITEM_DELETED]: (
     payload: WorkItemDeletedPayloadDto,
