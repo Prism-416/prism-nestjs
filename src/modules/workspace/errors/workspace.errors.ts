@@ -147,6 +147,21 @@ export class WorkspaceJobNotFoundError extends NotExistsError {
   }
 }
 
+export class FeatureProvisioningProjectNotFoundError extends NotExistsError {
+  constructor() {
+    super('Project not found.', 'FEATURE_PROVISIONING_PROJECT_NOT_FOUND');
+  }
+}
+
+export class FeatureProvisioningRequestNotFoundError extends NotExistsError {
+  constructor() {
+    super(
+      'Feature provisioning request not found.',
+      'FEATURE_PROVISIONING_REQUEST_NOT_FOUND',
+    );
+  }
+}
+
 export function isWorkspaceSlugUniqueViolation(error: unknown): boolean {
   if (!(error instanceof QueryFailedError)) {
     return false;

@@ -10,6 +10,8 @@ import {
   WorkspaceJobIdRow,
   WorkspaceJobRow,
   WorkspaceProjectSummaryRow,
+  FeatureProvisioningRequestRow,
+  FeatureProvisioningRequestStatus,
   WorkspaceRow,
   WorkspaceUserRow,
 } from '@/modules/workspace/types';
@@ -307,8 +309,9 @@ export class WorkspaceRepository {
 
   async findWorkspaceMembersByWorkspaceId(
     workspaceId: string,
+    manager?: EntityManager,
   ): Promise<WorkspaceMemberRow[]> {
-    return this.dataSource.query<WorkspaceMemberRow[]>(
+    return this.getManager(manager).query<WorkspaceMemberRow[]>(
       `
         SELECT
           u.user_id AS "userId",
@@ -373,6 +376,34 @@ export class WorkspaceRepository {
       `,
       [userId, workspaceSlug],
     );
+  }
+
+  async findProjectByWorkspaceId(
+    workspaceId: string,
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceProjectSummaryRow | null> {
+    const projects = await this.getManager(manager).query<
+      WorkspaceProjectSummaryRow[]
+    >(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId",
+          p.name,
+          p.slug,
+          p.description,
+          p.created_at AS "createdAt"
+        FROM prism_projects_l p
+        WHERE p.workspace_id = $1
+          AND p.project_id = $2
+          AND p.status <> 'archived'
+        LIMIT 1
+      `,
+      [workspaceId, projectId],
+    );
+
+    return projects[0] ?? null;
   }
 
   async findWorkspaceMember(
@@ -1006,6 +1037,192 @@ export class WorkspaceRepository {
     );
 
     return workspaces[0] ?? null;
+  }
+
+  async createFeatureProvisioningRequest(
+    params: {
+      requestId: string;
+      workspaceId: string;
+      projectId: string;
+      requestedByUserId: string;
+      status: FeatureProvisioningRequestStatus;
+      payloadObjectName: string;
+    },
+    manager?: EntityManager,
+  ): Promise<FeatureProvisioningRequestRow> {
+    const requests = await this.getManager(manager).query<
+      FeatureProvisioningRequestRow[]
+    >(
+      `
+        INSERT INTO prism_feature_provisioning_requests_l (
+          request_id,
+          workspace_id,
+          project_id,
+          requested_by,
+          status,
+          payload_object_name
+        )
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING
+          request_id AS "requestId",
+          workspace_id AS "workspaceId",
+          project_id AS "projectId",
+          requested_by AS "requestedByUserId",
+          status,
+          payload_object_name AS "payloadObjectName",
+          payload_version_id AS "payloadVersionId",
+          queue_message_id AS "queueMessageId",
+          error_message AS "errorMessage",
+          dispatched_at AS "dispatchedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [
+        params.requestId,
+        params.workspaceId,
+        params.projectId,
+        params.requestedByUserId,
+        params.status,
+        params.payloadObjectName,
+      ],
+    );
+
+    return requests[0];
+  }
+
+  async markFeatureProvisioningRequestQueued(
+    params: {
+      workspaceId: string;
+      requestId: string;
+      payloadVersionId: string | null;
+      queueMessageId: string;
+    },
+    manager?: EntityManager,
+  ): Promise<FeatureProvisioningRequestRow | null> {
+    const requests = await this.getManager(manager).query<
+      FeatureProvisioningRequestRow[]
+    >(
+      `
+        UPDATE prism_feature_provisioning_requests_l
+        SET
+          status = 'queued',
+          payload_version_id = $3,
+          queue_message_id = $4,
+          error_message = NULL,
+          dispatched_at = NOW(),
+          updated_at = NOW()
+        WHERE workspace_id = $1
+          AND request_id = $2
+        RETURNING
+          request_id AS "requestId",
+          workspace_id AS "workspaceId",
+          project_id AS "projectId",
+          requested_by AS "requestedByUserId",
+          status,
+          payload_object_name AS "payloadObjectName",
+          payload_version_id AS "payloadVersionId",
+          queue_message_id AS "queueMessageId",
+          error_message AS "errorMessage",
+          dispatched_at AS "dispatchedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [
+        params.workspaceId,
+        params.requestId,
+        params.payloadVersionId,
+        params.queueMessageId,
+      ],
+    );
+
+    return requests[0] ?? null;
+  }
+
+  async markFeatureProvisioningRequestDispatchFailed(
+    params: {
+      workspaceId: string;
+      requestId: string;
+      payloadVersionId: string | null;
+      errorMessage: string;
+    },
+    manager?: EntityManager,
+  ): Promise<FeatureProvisioningRequestRow | null> {
+    const requests = await this.getManager(manager).query<
+      FeatureProvisioningRequestRow[]
+    >(
+      `
+        UPDATE prism_feature_provisioning_requests_l
+        SET
+          status = 'dispatch_failed',
+          payload_version_id = COALESCE($3, payload_version_id),
+          error_message = $4,
+          updated_at = NOW()
+        WHERE workspace_id = $1
+          AND request_id = $2
+        RETURNING
+          request_id AS "requestId",
+          workspace_id AS "workspaceId",
+          project_id AS "projectId",
+          requested_by AS "requestedByUserId",
+          status,
+          payload_object_name AS "payloadObjectName",
+          payload_version_id AS "payloadVersionId",
+          queue_message_id AS "queueMessageId",
+          error_message AS "errorMessage",
+          dispatched_at AS "dispatchedAt",
+          created_at AS "createdAt",
+          updated_at AS "updatedAt"
+      `,
+      [
+        params.workspaceId,
+        params.requestId,
+        params.payloadVersionId,
+        params.errorMessage,
+      ],
+    );
+
+    return requests[0] ?? null;
+  }
+
+  async findFeatureProvisioningRequestByIdAndMemberUserId(
+    workspaceId: string,
+    requestId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<FeatureProvisioningRequestRow | null> {
+    const requests = await this.getManager(manager).query<
+      FeatureProvisioningRequestRow[]
+    >(
+      `
+        SELECT
+          fpr.request_id AS "requestId",
+          fpr.workspace_id AS "workspaceId",
+          fpr.project_id AS "projectId",
+          fpr.requested_by AS "requestedByUserId",
+          fpr.status,
+          fpr.payload_object_name AS "payloadObjectName",
+          fpr.payload_version_id AS "payloadVersionId",
+          fpr.queue_message_id AS "queueMessageId",
+          fpr.error_message AS "errorMessage",
+          fpr.dispatched_at AS "dispatchedAt",
+          fpr.created_at AS "createdAt",
+          fpr.updated_at AS "updatedAt"
+        FROM prism_feature_provisioning_requests_l fpr
+               INNER JOIN prism_workspaces_l w
+                          ON w.workspace_id = fpr.workspace_id
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = fpr.workspace_id
+        WHERE fpr.workspace_id = $1
+          AND fpr.request_id = $2
+          AND wm.user_id = $3
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+        LIMIT 1
+      `,
+      [workspaceId, requestId, userId],
+    );
+
+    return requests[0] ?? null;
   }
 
   private getManager(manager?: EntityManager): DataSource | EntityManager {
