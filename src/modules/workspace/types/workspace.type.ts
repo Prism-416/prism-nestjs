@@ -97,3 +97,56 @@ export type WorkspaceProjectSummaryRow = {
   description: string | null;
   createdAt: Date;
 };
+
+export const FEATURE_PROVISIONING_REQUEST_STATUSES = [
+  'pending',
+  'queued',
+  'dispatch_failed',
+] as const;
+
+export type FeatureProvisioningRequestStatus =
+  (typeof FEATURE_PROVISIONING_REQUEST_STATUSES)[number];
+
+export type FeatureProvisioningRequestRow = {
+  requestId: string;
+  workspaceId: string;
+  projectId: string;
+  requestedByUserId: string | null;
+  status: FeatureProvisioningRequestStatus;
+  payloadObjectName: string;
+  payloadVersionId: string | null;
+  queueMessageId: string | null;
+  errorMessage: string | null;
+  dispatchedAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type FeatureProvisioningPayload = {
+  schemaVersion: '1.0';
+  requestId: string;
+  workspaceId: string;
+  projectId: string;
+  requestedByUserId: string;
+  requestedAt: string;
+  featureSpecification: string;
+  workspace: Pick<
+    WorkspaceRow,
+    'workspaceId' | 'name' | 'slug' | 'description'
+  >;
+  project: WorkspaceProjectSummaryRow;
+  members: WorkspaceMemberRow[];
+};
+
+export type FeatureProvisioningRequestedEvent = {
+  type: 'feature.provisioning.requested';
+  version: '1.0';
+  requestId: string;
+  payloadId: string;
+  payloadObjectName: string;
+  payloadVersionId: string | null;
+  workspaceId: string;
+  projectId: string;
+  requestedByUserId: string;
+  requestedAt: string;
+};

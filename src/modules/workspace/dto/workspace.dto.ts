@@ -26,7 +26,9 @@ import {
   WORKSPACE_MEMBER_ROLES,
 } from '@/modules/workspace/constants';
 import {
+  FEATURE_PROVISIONING_REQUEST_STATUSES,
   WORKSPACE_MEMBER_CANDIDATE_SEARCH_REASONS,
+  type FeatureProvisioningRequestStatus,
   type WorkspaceMemberCandidateSearchReason,
 } from '@/modules/workspace/types';
 
@@ -337,4 +339,55 @@ export class WorkspaceInvitationResponseDto {
 
   @ApiProperty()
   invitationLink!: string;
+}
+
+export class CreateFeatureProvisioningRequestDto {
+  @ApiProperty()
+  @IsUUID()
+  projectId!: string;
+
+  @ApiProperty({ maxLength: 20000 })
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(20000)
+  featureSpecification!: string;
+}
+
+export class FeatureProvisioningRequestResponseDto {
+  @ApiProperty()
+  requestId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty({ nullable: true })
+  requestedByUserId!: string | null;
+
+  @ApiProperty({ enum: FEATURE_PROVISIONING_REQUEST_STATUSES })
+  status!: FeatureProvisioningRequestStatus;
+
+  @ApiProperty()
+  payloadObjectName!: string;
+
+  @ApiProperty({ nullable: true })
+  payloadVersionId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  queueMessageId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  errorMessage!: string | null;
+
+  @ApiProperty({ nullable: true })
+  dispatchedAt!: Date | null;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty()
+  updatedAt!: Date;
 }
