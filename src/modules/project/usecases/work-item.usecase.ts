@@ -19,6 +19,7 @@ import {
   WorkItemNotFoundError,
   WorkItemParentInvalidError,
   WorkItemParentNotFoundError,
+  WorkItemScheduleInvalidError,
 } from '@/modules/project/errors';
 import {
   WORK_ITEM_PRIORITIES,
@@ -199,6 +200,8 @@ export class WorkItemUseCase {
     projectId: string,
     dto: CreateWorkItemDto,
   ): Promise<WorkItemResponseDto> {
+    this.validateSchedule(dto.startDate ?? null, dto.dueDate ?? null);
+
     const createdWorkItem = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
@@ -240,6 +243,8 @@ export class WorkItemUseCase {
             parentId: dto.parentId,
             title: dto.title,
             description: dto.description,
+            startDate: dto.startDate ?? null,
+            dueDate: dto.dueDate ?? null,
             priority: dto.priority ?? WORK_ITEM_PRIORITIES[1],
             status: WORK_ITEM_STATUSES[0],
             createdBy: userId,
@@ -314,6 +319,12 @@ export class WorkItemUseCase {
         throw new WorkItemNotFoundError();
       }
 
+      const nextStartDate =
+        dto.startDate !== undefined ? dto.startDate : currentWorkItem.startDate;
+      const nextDueDate =
+        dto.dueDate !== undefined ? dto.dueDate : currentWorkItem.dueDate;
+      this.validateSchedule(nextStartDate, nextDueDate);
+
       if (dto.parentId !== undefined) {
         if (dto.parentId === itemId) {
           throw new WorkItemParentInvalidError();
@@ -380,6 +391,10 @@ export class WorkItemUseCase {
             title: dto.title ?? null,
             hasDescription: dto.description !== undefined,
             description: dto.description ?? null,
+            hasStartDate: dto.startDate !== undefined,
+            startDate: dto.startDate ?? null,
+            hasDueDate: dto.dueDate !== undefined,
+            dueDate: dto.dueDate ?? null,
             hasPriority: dto.priority !== undefined,
             priority: dto.priority ?? null,
             hasStatus: dto.status !== undefined,
@@ -412,6 +427,15 @@ export class WorkItemUseCase {
     this.realtimePublisher.publishWorkItemUpdated(updatedWorkItem);
 
     return updatedWorkItem;
+  }
+
+  private validateSchedule(
+    startDate: string | null,
+    dueDate: string | null,
+  ): void {
+    if (startDate && dueDate && startDate > dueDate) {
+      throw new WorkItemScheduleInvalidError();
+    }
   }
 
   async reorderWorkItems(

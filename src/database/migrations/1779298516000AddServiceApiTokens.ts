@@ -1,9 +1,22 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
+async function applyConfiguredSchema(queryRunner: QueryRunner): Promise<void> {
+  const options = queryRunner.connection.options as { schema?: string };
+  const schema = options.schema?.trim();
+
+  if (schema) {
+    await queryRunner.query(
+      `SET search_path TO "${schema.replace(/"/g, '""')}"`,
+    );
+  }
+}
+
 export class AddServiceApiTokens1779298516000 implements MigrationInterface {
   name = 'AddServiceApiTokens1779298516000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
+    await applyConfiguredSchema(queryRunner);
+
     await queryRunner.query(`
       CREATE TABLE IF NOT EXISTS prism_service_accounts_m
       (
@@ -64,6 +77,8 @@ export class AddServiceApiTokens1779298516000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await applyConfiguredSchema(queryRunner);
+
     await queryRunner.query('DROP TABLE IF EXISTS prism_service_api_tokens_l');
     await queryRunner.query('DROP TABLE IF EXISTS prism_service_accounts_m');
   }
