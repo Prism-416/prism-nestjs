@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
-import { MAX_WORKSPACE_SLUG_GENERATION_ATTEMPTS } from '@/modules/workspace/constants';
+import {
+  DEFAULT_WORKSPACE_JOBS,
+  MAX_WORKSPACE_SLUG_GENERATION_ATTEMPTS,
+} from '@/modules/workspace/constants';
 import {
   isWorkspaceSlugUniqueViolation,
   WorkspaceSlugAlreadyExistsError,
@@ -49,6 +52,16 @@ export class WorkspaceProvisioningService {
     await this.repo.createOwnerMembership(
       workspace.workspaceId,
       params.ownerId,
+      manager,
+    );
+    await this.repo.createWorkspaceJobs(
+      {
+        workspaceId: workspace.workspaceId,
+        jobs: DEFAULT_WORKSPACE_JOBS.map((job) => ({
+          name: job.name,
+          description: job.description,
+        })),
+      },
       manager,
     );
 
