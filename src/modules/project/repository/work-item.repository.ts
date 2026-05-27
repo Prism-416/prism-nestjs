@@ -442,7 +442,7 @@ export class WorkItemRepository {
           $4,
           $5,
           $6,
-          $7,
+          $7::varchar,
           COALESCE(
             (
               SELECT MAX(existing.sort_order) + 1
@@ -450,7 +450,7 @@ export class WorkItemRepository {
               WHERE existing.workspace_id = $1
                 AND existing.project_id = $2
                 AND existing.parent_id IS NOT DISTINCT FROM $3::uuid
-                AND existing.status = $7
+                AND existing.status = $7::varchar
             ),
             0
           ),
@@ -514,23 +514,23 @@ export class WorkItemRepository {
           description = CASE WHEN $8 THEN $9 ELSE description END,
           priority = CASE WHEN $10 THEN $11 ELSE priority END,
           sort_order = CASE
-                         WHEN $12 AND wi.status <> $13 THEN COALESCE(
+                         WHEN $12 AND wi.status <> $13::varchar THEN COALESCE(
                            (
                              SELECT MAX(existing.sort_order) + 1
                              FROM prism_work_items_l existing
                              WHERE existing.workspace_id = wi.workspace_id
                                AND existing.project_id = wi.project_id
                                AND existing.parent_id IS NOT DISTINCT FROM wi.parent_id
-                               AND existing.status = $13
+                               AND existing.status = $13::varchar
                                AND existing.item_id <> wi.item_id
                            ),
                            0
                          )
                          ELSE wi.sort_order
                        END,
-          status = CASE WHEN $12 THEN $13 ELSE status END,
+          status = CASE WHEN $12 THEN $13::varchar ELSE status END,
           status_changed_at = CASE
-                                WHEN $12 AND wi.status <> $13 THEN NOW()
+                                WHEN $12 AND wi.status <> $13::varchar THEN NOW()
                                 ELSE status_changed_at
                               END,
           archived_at = CASE
