@@ -163,6 +163,8 @@ export class SprintRepository {
       parentId: string | null;
       title: string | null;
       description: string | null;
+      startDate: string | null;
+      dueDate: string | null;
       priority: WorkItemPriority | null;
       status: WorkItemStatus | null;
       sortOrder: number | null;
@@ -185,6 +187,8 @@ export class SprintRepository {
             wi.parent_id,
             wi.title,
             wi.description,
+            wi.start_date,
+            wi.due_date,
             wi.priority,
             wi.status,
             wi.sort_order,
@@ -249,6 +253,8 @@ export class SprintRepository {
           pi.parent_id AS "parentId",
           pi.title,
           pi.description,
+          pi.start_date AS "startDate",
+          pi.due_date AS "dueDate",
           pi.priority,
           pi.status,
           pi.sort_order AS "sortOrder",
@@ -310,6 +316,8 @@ export class SprintRepository {
           parentId: row.parentId,
           title: row.title as string,
           description: row.description as string,
+          startDate: row.startDate,
+          dueDate: row.dueDate,
           priority: row.priority as WorkItemPriority,
           status: row.status as WorkItemStatus,
           sortOrder: row.sortOrder as number,

@@ -21,6 +21,8 @@ export type WorkItemRow = {
   parentId: string | null;
   title: string;
   description: string;
+  startDate: string | null;
+  dueDate: string | null;
   priority: WorkItemPriority;
   status: WorkItemStatus;
   sortOrder: number;

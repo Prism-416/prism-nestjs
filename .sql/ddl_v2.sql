@@ -376,6 +376,8 @@ CREATE TABLE IF NOT EXISTS prism_work_items_l
     parent_id         UUID,
     title             VARCHAR(100) NOT NULL,
     description       TEXT,
+    start_date        DATE,
+    due_date          DATE,
     priority          VARCHAR(10)  NOT NULL DEFAULT 'medium',
     status            VARCHAR(20)  NOT NULL DEFAULT 'todo',
     sort_order        INTEGER      NOT NULL DEFAULT 0,
@@ -403,6 +405,9 @@ CREATE TABLE IF NOT EXISTS prism_work_items_l
     CONSTRAINT ck_work_items_title_not_blank CHECK (LENGTH(TRIM(title)) > 0),
     CONSTRAINT ck_work_items_status CHECK (status IN ('todo', 'in_progress', 'in_review', 'done', 'archived')),
     CONSTRAINT ck_work_items_priority CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    CONSTRAINT ck_work_items_schedule_dates CHECK (
+        start_date IS NULL OR due_date IS NULL OR start_date <= due_date
+    ),
     CONSTRAINT ck_work_items_archived_status CHECK (
         (status = 'archived' AND archived_at IS NOT NULL)
             OR (status <> 'archived')

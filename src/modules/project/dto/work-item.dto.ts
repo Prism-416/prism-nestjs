@@ -6,6 +6,7 @@ import {
   ArrayUnique,
   IsArray,
   IsBoolean,
+  IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -54,6 +55,16 @@ export class CreateWorkItemDto {
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
   @IsString()
   description!: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  startDate?: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  dueDate?: string | null;
 
   @ApiPropertyOptional({ enum: WORK_ITEM_PRIORITIES, default: 'medium' })
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
@@ -169,6 +180,16 @@ export class UpdateWorkItemDto {
   @IsString()
   description?: string;
 
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  startDate?: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  @IsOptional()
+  @IsDateString({ strict: true })
+  dueDate?: string | null;
+
   @ApiPropertyOptional({ enum: WORK_ITEM_PRIORITIES })
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
   @IsOptional()
@@ -248,6 +269,12 @@ export class WorkItemResponseDto {
 
   @ApiProperty()
   description!: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  startDate!: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  dueDate!: string | null;
 
   @ApiProperty({ enum: WORK_ITEM_PRIORITIES })
   priority!: WorkItemPriority;

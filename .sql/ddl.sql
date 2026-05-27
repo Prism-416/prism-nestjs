@@ -332,6 +332,8 @@ CREATE TABLE IF NOT EXISTS prism_work_items_l
     parent_id         UUID,
     title             VARCHAR(50) NOT NULL,
     description       TEXT        NOT NULL,
+    start_date        DATE,
+    due_date          DATE,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     type              VARCHAR(5)  NOT NULL,
     priority          VARCHAR(10) NOT NULL,
@@ -345,7 +347,9 @@ CREATE TABLE IF NOT EXISTS prism_work_items_l
         CHECK (parent_id IS NULL OR parent_id <> item_id),
     CHECK (type IN ('epic', 'story', 'task')),
     CHECK (status IN ('todo', 'in_progress', 'in_review', 'done')),
-    CHECK (priority IN ('low', 'medium', 'high', 'urgent'))
+    CHECK (priority IN ('low', 'medium', 'high', 'urgent')),
+    CONSTRAINT ck_work_items_schedule_dates
+        CHECK (start_date IS NULL OR due_date IS NULL OR start_date <= due_date)
 );
 
 CREATE INDEX IF NOT EXISTS idx_work_items_project_parent_id

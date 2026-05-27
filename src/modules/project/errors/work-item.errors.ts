@@ -27,6 +27,16 @@ export class WorkItemParentInvalidError extends NotExistsError {
   }
 }
 
+export class WorkItemScheduleInvalidError extends DomainError {
+  constructor() {
+    super(
+      'Work item due date must be on or after its start date.',
+      'WORK_ITEM_SCHEDULE_INVALID',
+      400,
+    );
+  }
+}
+
 export class WorkItemEmbeddingTargetMismatchError extends DomainError {
   constructor() {
     super(

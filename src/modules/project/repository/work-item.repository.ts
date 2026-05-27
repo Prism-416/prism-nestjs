@@ -30,6 +30,8 @@ export class WorkItemRepository {
       parentId: string | null;
       title: string | null;
       description: string | null;
+      startDate: string | null;
+      dueDate: string | null;
       priority: WorkItemPriority | null;
       status: WorkItemStatus | null;
       sortOrder: number | null;
@@ -50,6 +52,8 @@ export class WorkItemRepository {
             wi.parent_id,
             wi.title,
             wi.description,
+            wi.start_date,
+            wi.due_date,
             wi.priority,
             wi.status,
             wi.sort_order,
@@ -111,6 +115,8 @@ export class WorkItemRepository {
           pi.parent_id AS "parentId",
           pi.title,
           pi.description,
+          pi.start_date AS "startDate",
+          pi.due_date AS "dueDate",
           pi.priority,
           pi.status,
           pi.sort_order AS "sortOrder",
@@ -173,6 +179,8 @@ export class WorkItemRepository {
           parentId: row.parentId,
           title: row.title as string,
           description: row.description as string,
+          startDate: row.startDate,
+          dueDate: row.dueDate,
           priority: row.priority as WorkItemPriority,
           status: row.status as WorkItemStatus,
           sortOrder: row.sortOrder as number,
@@ -225,6 +233,8 @@ export class WorkItemRepository {
           parent_id AS "parentId",
           title,
           description,
+          start_date AS "startDate",
+          due_date AS "dueDate",
           priority,
           status,
           sort_order AS "sortOrder",
@@ -257,6 +267,8 @@ export class WorkItemRepository {
           wi.parent_id AS "parentId",
           wi.title,
           wi.description,
+          wi.start_date AS "startDate",
+          wi.due_date AS "dueDate",
           wi.priority,
           wi.status,
           wi.sort_order AS "sortOrder",
@@ -316,6 +328,8 @@ export class WorkItemRepository {
           wi.parent_id AS "parentId",
           wi.title,
           wi.description,
+          wi.start_date AS "startDate",
+          wi.due_date AS "dueDate",
           wi.priority,
           wi.status,
           wi.sort_order AS "sortOrder",
@@ -369,6 +383,8 @@ export class WorkItemRepository {
           wi.parent_id AS "parentId",
           wi.title,
           wi.description,
+          wi.start_date AS "startDate",
+          wi.due_date AS "dueDate",
           wi.priority,
           wi.status,
           wi.sort_order AS "sortOrder",
@@ -414,6 +430,8 @@ export class WorkItemRepository {
       parentId?: string;
       title: string;
       description: string;
+      startDate: string | null;
+      dueDate: string | null;
       priority: WorkItemPriority;
       status: WorkItemStatus;
       createdBy: string;
@@ -433,7 +451,9 @@ export class WorkItemRepository {
           sort_order,
           created_by,
           status_changed_at,
-          archived_at
+          archived_at,
+          start_date,
+          due_date
         )
         VALUES (
           $1,
@@ -456,7 +476,9 @@ export class WorkItemRepository {
           ),
           $8,
           NOW(),
-          CASE WHEN $9 THEN NOW() ELSE NULL END
+          CASE WHEN $9 THEN NOW() ELSE NULL END,
+          $10::date,
+          $11::date
         )
         RETURNING
           item_id AS "itemId",
@@ -465,6 +487,8 @@ export class WorkItemRepository {
           parent_id AS "parentId",
           title,
           description,
+          start_date AS "startDate",
+          due_date AS "dueDate",
           priority,
           status,
           sort_order AS "sortOrder",
@@ -481,6 +505,8 @@ export class WorkItemRepository {
         params.status,
         params.createdBy,
         params.status === 'archived',
+        params.startDate,
+        params.dueDate,
       ],
     );
 
@@ -498,6 +524,10 @@ export class WorkItemRepository {
       title: string | null;
       hasDescription: boolean;
       description: string | null;
+      hasStartDate: boolean;
+      startDate: string | null;
+      hasDueDate: boolean;
+      dueDate: string | null;
       hasPriority: boolean;
       priority: WorkItemPriority | null;
       hasStatus: boolean;
@@ -538,6 +568,8 @@ export class WorkItemRepository {
                           WHEN $12 AND NOT $14 THEN NULL
                           ELSE archived_at
                         END,
+          start_date = CASE WHEN $15 THEN $16::date ELSE start_date END,
+          due_date = CASE WHEN $17 THEN $18::date ELSE due_date END,
           updated_at = NOW()
         WHERE workspace_id = $1
           AND project_id = $2
@@ -549,6 +581,8 @@ export class WorkItemRepository {
           parent_id AS "parentId",
           title,
           description,
+          start_date AS "startDate",
+          due_date AS "dueDate",
           priority,
           status,
           sort_order AS "sortOrder",
@@ -570,6 +604,10 @@ export class WorkItemRepository {
         params.hasStatus,
         params.status,
         params.status === 'archived',
+        params.hasStartDate,
+        params.startDate,
+        params.hasDueDate,
+        params.dueDate,
       ],
     );
 
