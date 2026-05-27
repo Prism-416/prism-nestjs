@@ -10,7 +10,7 @@ import {
 import { FeatureProvisioningUseCase } from '@/modules/workspace/usecases';
 
 @ApiTags('Workspace Feature Provisioning')
-@Controller(':workspaceId/feature-provisioning-requests')
+@Controller(':workspaceId/provision')
 export class FeatureProvisioningController {
   constructor(private readonly usecase: FeatureProvisioningUseCase) {}
 
