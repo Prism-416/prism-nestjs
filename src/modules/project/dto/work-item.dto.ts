@@ -73,6 +73,13 @@ export class CreateWorkItemDto {
   @IsIn(WORK_ITEM_PRIORITIES)
   priority?: WorkItemPriority;
 
+  @ApiPropertyOptional({ enum: WORK_ITEM_STATUSES, default: 'todo' })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsIn(WORK_ITEM_STATUSES)
+  status?: WorkItemStatus;
+
   @ApiPropertyOptional({ type: [String] })
   @Transform(({ value }) => normalizeTrimmedStringArray(value))
   @IsOptional()

@@ -246,7 +246,7 @@ export class WorkItemUseCase {
             startDate: dto.startDate ?? null,
             dueDate: dto.dueDate ?? null,
             priority: dto.priority ?? WORK_ITEM_PRIORITIES[1],
-            status: WORK_ITEM_STATUSES[0],
+            status: dto.status ?? WORK_ITEM_STATUSES[0],
             createdBy: userId,
           },
           manager,
