@@ -15,6 +15,7 @@ import { AuthModule } from '@/modules/auth/auth.module';
 import { DocumentModule } from '@/modules/document/document.module';
 import { EmbeddingModule } from '@/modules/embedding/embedding.module';
 import { AdminModule } from '@/modules/admin';
+import { NotificationModule } from '@/modules/notification';
 import { OnboardingModule } from '@/modules/onboarding/onboarding.module';
 import { ProjectModule } from '@/modules/project/project.module';
 import { SprintModule } from '@/modules/sprint/sprint.module';
@@ -42,6 +43,11 @@ const featureRegistrations: FeatureRegistration[] = [
   {
     module: UserModule,
     path: 'users',
+    requiresDb: true,
+  },
+  {
+    module: NotificationModule,
+    path: 'notifications',
     requiresDb: true,
   },
   {

@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { NotificationModule } from '@/modules/notification';
 import {
   CommentController,
   ProjectController,
@@ -19,6 +20,7 @@ import {
 } from '@/modules/project/usecases';
 
 @Module({
+  imports: [NotificationModule],
   controllers: [ProjectController, WorkItemController, CommentController],
   providers: [
     CommentRepository,
