@@ -9,6 +9,12 @@ export type CommentRow = {
   updatedAt: Date | null;
 };
 
+export type CommentMentionRow = {
+  userId: string;
+  username: string;
+  fullName: string;
+};
+
 export type WorkItemCommentEmbeddingRow = {
   commentId: string;
   workspaceId: string;
@@ -65,6 +71,13 @@ export type UpsertWorkItemCommentEmbeddingParams = {
   model: string;
   dimensions: number;
   embedding: number[];
+};
+
+export type ReplaceCommentMentionsParams = {
+  workspaceId: string;
+  commentId: string;
+  authorUserId: string;
+  usernames: string[];
 };
 
 export type SearchCommentsResult = {

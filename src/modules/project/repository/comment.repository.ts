@@ -5,6 +5,8 @@ import {
   CommentRow,
   CreateCommentParams,
   DeleteCommentParams,
+  CommentMentionRow,
+  ReplaceCommentMentionsParams,
   SearchCommentsParams,
   SearchCommentsResult,
   UpdateCommentParams,
@@ -234,6 +236,79 @@ export class CommentRepository {
       limit: params.limit,
       offset: params.offset,
     };
+  }
+
+  async replaceWorkItemCommentMentions(
+    params: ReplaceCommentMentionsParams,
+    manager?: EntityManager,
+  ): Promise<CommentMentionRow[]> {
+    const existingMentions = await this.getManager(manager).query<
+      Array<{ userId: string }>
+    >(
+      `
+        SELECT mentioned_user_id AS "userId"
+        FROM prism_work_item_comment_mentions_l
+        WHERE comment_id = $1
+      `,
+      [params.commentId],
+    );
+    const existingUserIds = new Set(
+      existingMentions.map((mention) => mention.userId),
+    );
+
+    await this.getManager(manager).query(
+      `
+        DELETE FROM prism_work_item_comment_mentions_l
+        WHERE comment_id = $1
+      `,
+      [params.commentId],
+    );
+
+    const mentionedUsers = await this.getManager(manager).query<
+      CommentMentionRow[]
+    >(
+      `
+        WITH input_usernames AS (
+          SELECT DISTINCT LOWER(input.username) AS username
+          FROM unnest($4::text[]) AS input(username)
+        )
+        INSERT INTO prism_work_item_comment_mentions_l (
+          comment_id,
+          workspace_id,
+          mentioned_user_id,
+          mentioned_username
+        )
+        SELECT
+          $2,
+          $1,
+          u.user_id,
+          u.username
+        FROM input_usernames input
+               INNER JOIN prism_users_l u
+                          ON LOWER(u.username) = input.username
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = $1
+                         AND wm.user_id = u.user_id
+        WHERE u.user_id <> $3
+        ON CONFLICT (comment_id, mentioned_user_id) DO NOTHING
+        RETURNING
+          mentioned_user_id AS "userId",
+          mentioned_username AS username,
+          (
+            SELECT full_name
+            FROM prism_users_l
+            WHERE user_id = mentioned_user_id
+          ) AS "fullName"
+      `,
+      [
+        params.workspaceId,
+        params.commentId,
+        params.authorUserId,
+        params.usernames,
+      ],
+    );
+
+    return mentionedUsers.filter((user) => !existingUserIds.has(user.userId));
   }
 
   async upsertWorkItemCommentEmbedding(

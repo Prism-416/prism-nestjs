@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
 import { PROJECT_EMBEDDING_DIMENSIONS } from '@/modules/project/constants';
 import {
@@ -21,6 +22,9 @@ import {
   WorkItemRepository,
 } from '@/modules/project/repository';
 import { ProjectRealtimePublisherService } from '@/modules/project/services';
+import { extractMentionUsernames } from '@/modules/project/utils';
+import { NotificationService } from '@/modules/notification/services';
+import { NotificationRow } from '@/modules/notification/types';
 
 @Injectable()
 export class CommentUseCase {
@@ -30,6 +34,7 @@ export class CommentUseCase {
     private readonly commentRepository: CommentRepository,
     private readonly uow: UnitOfWork,
     private readonly realtimePublisher: ProjectRealtimePublisherService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async createWorkItemComment(
@@ -38,7 +43,7 @@ export class CommentUseCase {
     itemId: string,
     dto: CreateCommentDto,
   ): Promise<CommentResponseDto> {
-    const comment = await this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -59,7 +64,7 @@ export class CommentUseCase {
         throw new WorkItemNotFoundError();
       }
 
-      return this.commentRepository.createWorkItemComment(
+      const comment = await this.commentRepository.createWorkItemComment(
         {
           workspaceId: project.workspaceId,
           projectId: project.projectId,
@@ -69,11 +74,26 @@ export class CommentUseCase {
         },
         manager,
       );
+
+      const notifications = await this.dispatchMentionNotifications(
+        {
+          workspaceId: project.workspaceId,
+          projectId: project.projectId,
+          itemId,
+          commentId: comment.commentId,
+          commentBody: comment.body,
+          authorUserId: userId,
+        },
+        manager,
+      );
+
+      return { comment, notifications };
     });
 
-    this.realtimePublisher.publishCommentCreated(comment);
+    this.realtimePublisher.publishCommentCreated(result.comment);
+    this.notificationService.publishNotifications(result.notifications);
 
-    return comment;
+    return result.comment;
   }
 
   async updateWorkItemComment(
@@ -83,7 +103,7 @@ export class CommentUseCase {
     commentId: string,
     dto: CreateCommentDto,
   ): Promise<CommentResponseDto> {
-    const comment = await this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -119,12 +139,25 @@ export class CommentUseCase {
         throw new CommentNotFoundError();
       }
 
-      return comment;
+      const notifications = await this.dispatchMentionNotifications(
+        {
+          workspaceId: project.workspaceId,
+          projectId: project.projectId,
+          itemId,
+          commentId: comment.commentId,
+          commentBody: comment.body,
+          authorUserId: userId,
+        },
+        manager,
+      );
+
+      return { comment, notifications };
     });
 
-    this.realtimePublisher.publishCommentUpdated(comment);
+    this.realtimePublisher.publishCommentUpdated(result.comment);
+    this.notificationService.publishNotifications(result.notifications);
 
-    return comment;
+    return result.comment;
   }
 
   async deleteWorkItemComment(
@@ -297,5 +330,43 @@ export class CommentUseCase {
     }
 
     return embedding;
+  }
+
+  private async dispatchMentionNotifications(
+    params: {
+      workspaceId: string;
+      projectId: string;
+      itemId: string;
+      commentId: string;
+      commentBody: string;
+      authorUserId: string;
+    },
+    manager: EntityManager,
+  ): Promise<NotificationRow[]> {
+    const mentionedUsers =
+      await this.commentRepository.replaceWorkItemCommentMentions(
+        {
+          workspaceId: params.workspaceId,
+          commentId: params.commentId,
+          authorUserId: params.authorUserId,
+          usernames: extractMentionUsernames(params.commentBody),
+        },
+        manager,
+      );
+
+    return this.notificationService.createWorkItemCommentMentionNotifications(
+      {
+        recipientUserIds: mentionedUsers.map(
+          (mentionedUser) => mentionedUser.userId,
+        ),
+        actorUserId: params.authorUserId,
+        workspaceId: params.workspaceId,
+        projectId: params.projectId,
+        itemId: params.itemId,
+        commentId: params.commentId,
+        commentBody: params.commentBody,
+      },
+      manager,
+    );
   }
 }
