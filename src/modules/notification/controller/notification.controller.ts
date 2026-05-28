@@ -72,5 +72,4 @@ export class NotificationController {
   ): Promise<void> {
     await this.usecase.deleteNotification(String(user.sub), notificationId);
   }
-
 }

@@ -42,7 +42,10 @@ export class NotificationUseCase {
     await this.repo.markAllNotificationsRead(userId);
   }
 
-  async deleteNotification(userId: string, notificationId: string): Promise<void> {
+  async deleteNotification(
+    userId: string,
+    notificationId: string,
+  ): Promise<void> {
     const deleted = await this.repo.deleteNotification(userId, notificationId);
     if (!deleted) {
       throw new NotificationNotFoundError();
