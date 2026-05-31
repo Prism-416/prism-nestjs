@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
 import {
+  AddSprintWorkItemsDto,
   CreateSprintDto,
   SprintResponseDto,
   UpdateSprintMetadataDto,
@@ -12,9 +13,12 @@ import {
 import {
   isSprintNameUniqueViolation,
   isSprintPeriodCheckViolation,
+  isSprintWorkItemMapDuplicateViolation,
   SprintAlreadyExistsError,
   SprintNotFoundError,
   SprintPeriodInvalidError,
+  SprintWorkItemAlreadyAddedError,
+  SprintWorkItemNotFoundError,
   SprintWorkspaceNotFoundError,
 } from '@/modules/sprint/errors';
 import { SprintRepository } from '@/modules/sprint/repository';
@@ -124,15 +128,22 @@ export class SprintUseCase {
         throw new SprintWorkspaceNotFoundError();
       }
 
+      const nextNumber = await this.repo.getNextSprintNumber(
+        workspace.workspaceId,
+        manager,
+      );
+
+      let sprint: SprintResponseDto;
+
       try {
-        return await this.repo.createSprint(
+        sprint = await this.repo.createSprint(
           {
             workspaceId: workspace.workspaceId,
-            name: dto.name,
+            name: `Sprint #${nextNumber}`,
             goal: dto.goal,
             startsAt,
             endsAt,
-            status: dto.status ?? SPRINT_STATUSES[0],
+            status: SPRINT_STATUSES[0],
             createdBy: userId,
           },
           manager,
@@ -148,6 +159,27 @@ export class SprintUseCase {
 
         throw error;
       }
+
+      const itemsInRange = await this.repo.findWorkItemsInSprintRange(
+        workspace.workspaceId,
+        startsAt,
+        endsAt,
+        manager,
+      );
+
+      if (itemsInRange.length > 0) {
+        await this.repo.addSprintWorkItems(
+          {
+            workspaceId: workspace.workspaceId,
+            sprintId: sprint.sprintId,
+            items: itemsInRange,
+            addedBy: userId,
+          },
+          manager,
+        );
+      }
+
+      return sprint;
     });
   }
 
@@ -198,7 +230,6 @@ export class SprintUseCase {
             goal: dto.goal ?? currentSprint.goal,
             startsAt,
             endsAt,
-            status: dto.status ?? currentSprint.status,
           },
           manager,
         );
@@ -219,6 +250,96 @@ export class SprintUseCase {
       }
 
       return updatedSprint;
+    });
+  }
+
+  async addSprintWorkItems(
+    userId: string,
+    workspaceId: string,
+    sprintId: string,
+    dto: AddSprintWorkItemsDto,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+        workspaceId,
+        userId,
+        manager,
+      );
+      if (!workspace) {
+        throw new SprintWorkspaceNotFoundError();
+      }
+
+      const sprint = await this.repo.findSprintById(
+        workspace.workspaceId,
+        sprintId,
+        manager,
+      );
+      if (!sprint) {
+        throw new SprintNotFoundError();
+      }
+
+      const foundItems = await this.repo.findWorkItemsByIds(
+        workspace.workspaceId,
+        dto.itemIds,
+        manager,
+      );
+      if (foundItems.length !== dto.itemIds.length) {
+        throw new SprintWorkItemNotFoundError();
+      }
+
+      try {
+        await this.repo.addSprintWorkItems(
+          {
+            workspaceId: workspace.workspaceId,
+            sprintId: sprint.sprintId,
+            items: foundItems,
+            addedBy: userId,
+          },
+          manager,
+        );
+      } catch (error) {
+        if (isSprintWorkItemMapDuplicateViolation(error)) {
+          throw new SprintWorkItemAlreadyAddedError();
+        }
+        throw error;
+      }
+    });
+  }
+
+  async removeSprintWorkItem(
+    userId: string,
+    workspaceId: string,
+    sprintId: string,
+    itemId: string,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+        workspaceId,
+        userId,
+        manager,
+      );
+      if (!workspace) {
+        throw new SprintWorkspaceNotFoundError();
+      }
+
+      const sprint = await this.repo.findSprintById(
+        workspace.workspaceId,
+        sprintId,
+        manager,
+      );
+      if (!sprint) {
+        throw new SprintNotFoundError();
+      }
+
+      const removed = await this.repo.removeSprintWorkItem(
+        workspace.workspaceId,
+        sprint.sprintId,
+        itemId,
+        manager,
+      );
+      if (!removed) {
+        throw new SprintWorkItemNotFoundError();
+      }
     });
   }
 

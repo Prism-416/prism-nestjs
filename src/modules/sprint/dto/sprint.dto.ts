@@ -1,27 +1,27 @@
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  ArrayMaxSize,
+  ArrayMinSize,
+  IsArray,
   IsDateString,
-  IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   MaxLength,
 } from 'class-validator';
 import { SPRINT_STATUSES } from '@/modules/sprint/types';
 import type { SprintStatus } from '@/modules/sprint/types';
-import {
-  normalizeOptionalTrimmedString,
-  normalizeTrimmedString,
-} from '@/modules/sprint/utils';
+import { normalizeOptionalTrimmedString } from '@/modules/sprint/utils';
 
 export class CreateSprintDto {
-  @ApiProperty()
-  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
   @MaxLength(50)
-  name!: string;
+  name?: string;
 
   @ApiPropertyOptional()
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
@@ -37,13 +37,6 @@ export class CreateSprintDto {
   @ApiProperty({ format: 'date-time' })
   @IsDateString()
   endsAt!: string;
-
-  @ApiPropertyOptional({ enum: SPRINT_STATUSES, default: SPRINT_STATUSES[0] })
-  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
-  @IsOptional()
-  @IsString()
-  @IsIn(SPRINT_STATUSES)
-  status?: SprintStatus;
 }
 
 export class UpdateSprintMetadataDto {
@@ -71,13 +64,15 @@ export class UpdateSprintMetadataDto {
   @IsOptional()
   @IsDateString()
   endsAt?: string;
+}
 
-  @ApiPropertyOptional({ enum: SPRINT_STATUSES })
-  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
-  @IsOptional()
-  @IsString()
-  @IsIn(SPRINT_STATUSES)
-  status?: SprintStatus;
+export class AddSprintWorkItemsDto {
+  @ApiProperty({ type: [String] })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsUUID('4', { each: true })
+  itemIds!: string[];
 }
 
 export class SprintResponseDto {

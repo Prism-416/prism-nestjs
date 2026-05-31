@@ -84,7 +84,11 @@ export class SprintRepository {
           goal,
           starts_at AS "startsAt",
           ends_at AS "endsAt",
-          status,
+          CASE
+            WHEN NOW() < starts_at THEN 'planned'
+            WHEN NOW() <= ends_at THEN 'active'
+            ELSE 'closed'
+          END AS "status",
           created_at AS "createdAt"
       `,
       [
@@ -116,7 +120,11 @@ export class SprintRepository {
           goal,
           starts_at AS "startsAt",
           ends_at AS "endsAt",
-          status,
+          CASE
+            WHEN NOW() < starts_at THEN 'planned'
+            WHEN NOW() <= ends_at THEN 'active'
+            ELSE 'closed'
+          END AS "status",
           created_at AS "createdAt"
         FROM prism_sprints_l
         WHERE workspace_id = $1
@@ -142,7 +150,11 @@ export class SprintRepository {
           goal,
           starts_at AS "startsAt",
           ends_at AS "endsAt",
-          status,
+          CASE
+            WHEN NOW() < starts_at THEN 'planned'
+            WHEN NOW() <= ends_at THEN 'active'
+            ELSE 'closed'
+          END AS "status",
           created_at AS "createdAt"
         FROM prism_sprints_l
         WHERE workspace_id = $1
@@ -332,6 +344,132 @@ export class SprintRepository {
     };
   }
 
+  async getNextSprintNumber(
+    workspaceId: string,
+    manager?: EntityManager,
+  ): Promise<number> {
+    const rows = await this.getManager(manager).query<[{ next: string }]>(
+      `
+        SELECT COALESCE(MAX(
+          CASE
+            WHEN sprint_name ~ '^Sprint #[0-9]+$'
+            THEN SUBSTRING(sprint_name FROM 9)::INTEGER
+            ELSE 0
+          END
+        ), 0) + 1 AS next
+        FROM prism_sprints_l
+        WHERE workspace_id = $1
+      `,
+      [workspaceId],
+    );
+
+    return Number(rows[0]?.next ?? 1);
+  }
+
+  async findWorkItemsInSprintRange(
+    workspaceId: string,
+    startsAt: Date,
+    endsAt: Date,
+    manager?: EntityManager,
+  ): Promise<Array<{ itemId: string; projectId: string }>> {
+    return this.getManager(manager).query<
+      Array<{ itemId: string; projectId: string }>
+    >(
+      `
+        SELECT item_id AS "itemId", project_id AS "projectId"
+        FROM prism_work_items_l
+        WHERE workspace_id = $1
+          AND archived_at IS NULL
+          AND (
+            (start_date IS NOT NULL AND due_date IS NOT NULL AND start_date <= $3 AND due_date >= $2)
+            OR (start_date IS NOT NULL AND due_date IS NULL AND start_date BETWEEN $2 AND $3)
+            OR (start_date IS NULL AND due_date IS NOT NULL AND due_date BETWEEN $2 AND $3)
+          )
+      `,
+      [workspaceId, startsAt, endsAt],
+    );
+  }
+
+  async findWorkItemsByIds(
+    workspaceId: string,
+    itemIds: string[],
+    manager?: EntityManager,
+  ): Promise<Array<{ itemId: string; projectId: string }>> {
+    if (itemIds.length === 0) return [];
+
+    const placeholders = itemIds.map((_, i) => `$${i + 2}`).join(', ');
+
+    return this.getManager(manager).query<
+      Array<{ itemId: string; projectId: string }>
+    >(
+      `
+        SELECT item_id AS "itemId", project_id AS "projectId"
+        FROM prism_work_items_l
+        WHERE workspace_id = $1
+          AND item_id IN (${placeholders})
+          AND archived_at IS NULL
+      `,
+      [workspaceId, ...itemIds],
+    );
+  }
+
+  async addSprintWorkItems(
+    params: {
+      workspaceId: string;
+      sprintId: string;
+      items: Array<{ itemId: string; projectId: string }>;
+      addedBy: string;
+    },
+    manager?: EntityManager,
+  ): Promise<void> {
+    if (params.items.length === 0) return;
+
+    const values = params.items
+      .map(
+        (_, i) =>
+          `($1, $2, $${3 + i * 2}, $${4 + i * 2}, $${3 + params.items.length * 2})`,
+      )
+      .join(', ');
+
+    const flatParams: unknown[] = [
+      params.workspaceId,
+      params.sprintId,
+      ...params.items.flatMap((item) => [item.projectId, item.itemId]),
+      params.addedBy,
+    ];
+
+    await this.getManager(manager).query(
+      `
+        INSERT INTO prism_sprint_work_item_map
+          (workspace_id, sprint_id, project_id, item_id, added_by)
+        VALUES ${values}
+      `,
+      flatParams,
+    );
+  }
+
+  async removeSprintWorkItem(
+    workspaceId: string,
+    sprintId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const result = await this.getManager(manager).query<
+      Array<{ itemId: string }>
+    >(
+      `
+        DELETE FROM prism_sprint_work_item_map
+        WHERE workspace_id = $1
+          AND sprint_id = $2
+          AND item_id = $3
+        RETURNING item_id AS "itemId"
+      `,
+      [workspaceId, sprintId, itemId],
+    );
+
+    return result.length > 0;
+  }
+
   async updateSprintMetadata(
     params: {
       workspaceId: string;
@@ -340,7 +478,6 @@ export class SprintRepository {
       goal: string | null;
       startsAt: Date;
       endsAt: Date;
-      status: SprintStatus;
     },
     manager?: EntityManager,
   ): Promise<SprintRow | null> {
@@ -352,12 +489,6 @@ export class SprintRepository {
           goal = $4,
           starts_at = $5,
           ends_at = $6,
-          status = $7,
-          closed_at = CASE
-                        WHEN $8 AND closed_at IS NULL THEN NOW()
-                        WHEN NOT $8 THEN NULL
-                        ELSE closed_at
-                      END,
           updated_at = NOW()
         WHERE workspace_id = $1
           AND sprint_id = $2
@@ -368,7 +499,11 @@ export class SprintRepository {
           goal,
           starts_at AS "startsAt",
           ends_at AS "endsAt",
-          status,
+          CASE
+            WHEN NOW() < $5 THEN 'planned'
+            WHEN NOW() <= $6 THEN 'active'
+            ELSE 'closed'
+          END AS "status",
           created_at AS "createdAt"
       `,
       [
@@ -378,8 +513,6 @@ export class SprintRepository {
         params.goal,
         params.startsAt,
         params.endsAt,
-        params.status,
-        params.status === 'closed',
       ],
     );
 
