@@ -15,6 +15,7 @@ import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import {
+  AddSprintWorkItemsDto,
   CreateSprintDto,
   SprintResponseDto,
   UpdateSprintMetadataDto,
@@ -102,6 +103,48 @@ export class SprintController {
       workspaceId,
       sprintId,
       dto,
+    );
+  }
+
+  @Post(':sprintId/work-items')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Add work items to sprint' })
+  @ApiNoContentResponse({
+    description: 'Successfully added work items to sprint',
+  })
+  async addSprintWorkItems(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Param('sprintId') sprintId: string,
+    @Body() dto: AddSprintWorkItemsDto,
+  ): Promise<void> {
+    await this.usecase.addSprintWorkItems(
+      String(user.sub),
+      workspaceId,
+      sprintId,
+      dto,
+    );
+  }
+
+  @Delete(':sprintId/work-items/:itemId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Remove work item from sprint' })
+  @ApiNoContentResponse({
+    description: 'Successfully removed work item from sprint',
+  })
+  async removeSprintWorkItem(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId') workspaceId: string,
+    @Param('sprintId') sprintId: string,
+    @Param('itemId') itemId: string,
+  ): Promise<void> {
+    await this.usecase.removeSprintWorkItem(
+      String(user.sub),
+      workspaceId,
+      sprintId,
+      itemId,
     );
   }
 
