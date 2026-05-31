@@ -119,7 +119,7 @@ export class SprintUseCase {
     }
 
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
         workspaceId,
         userId,
         manager,
@@ -190,7 +190,7 @@ export class SprintUseCase {
     dto: UpdateSprintMetadataDto,
   ): Promise<SprintResponseDto> {
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
         workspaceId,
         userId,
         manager,
@@ -260,7 +260,7 @@ export class SprintUseCase {
     dto: AddSprintWorkItemsDto,
   ): Promise<void> {
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
         workspaceId,
         userId,
         manager,
@@ -313,7 +313,7 @@ export class SprintUseCase {
     itemId: string,
   ): Promise<void> {
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
         workspaceId,
         userId,
         manager,
@@ -349,7 +349,7 @@ export class SprintUseCase {
     sprintId: string,
   ): Promise<void> {
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
         workspaceId,
         userId,
         manager,

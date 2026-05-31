@@ -17,6 +17,33 @@ import type {
 export class SprintRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
+  async findWorkspaceByIdAndAdminMemberUserId(
+    workspaceId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<SprintWorkspaceRow | null> {
+    const workspaces = await this.getManager(manager).query<
+      SprintWorkspaceRow[]
+    >(
+      `
+        SELECT
+          w.workspace_id AS "workspaceId"
+        FROM prism_workspaces_l w
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = w.workspace_id
+        WHERE w.workspace_id = $1
+          AND wm.user_id = $2
+          AND wm.role IN ('owner', 'admin')
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+        LIMIT 1
+      `,
+      [workspaceId, userId],
+    );
+
+    return workspaces[0] ?? null;
+  }
+
   async findWorkspaceByIdAndMemberUserId(
     workspaceId: string,
     userId: string,
