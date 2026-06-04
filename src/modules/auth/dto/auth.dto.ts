@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsEmail,
   IsOptional,
@@ -103,6 +104,16 @@ export class ChangePasswordDto {
 export class ChangePasswordResponseDto {
   @ApiProperty()
   changed: boolean;
+}
+
+export class UpdateMeDto {
+  @IsString()
+  @MinLength(1)
+  @MaxLength(100)
+  @Transform(({ value }: { value: unknown }) =>
+    typeof value === 'string' ? value.trim() : value,
+  )
+  fullName!: string;
 }
 
 export class SignInWithGoogleDto {

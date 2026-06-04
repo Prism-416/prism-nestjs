@@ -19,6 +19,7 @@ import {
   SignInWithEmailDto,
   SignInWithGithubDto,
   SignInWithGoogleDto,
+  UpdateMeDto,
 } from '@/modules/auth/dto';
 import {
   EmailNotVerifiedError,
@@ -44,6 +45,7 @@ import {
   GithubProfile,
   GoogleProfile,
   OAuthProvider,
+  UserProfileRow,
 } from '@/modules/auth/types';
 import { buildUsernameSeeds, normalizeUsername } from '@/modules/auth/utils';
 
@@ -88,18 +90,17 @@ export class AuthUseCase {
     if (!user) {
       throw new InvalidAccessTokenUserError();
     }
-    const oauthAccounts =
-      await this.repo.findOAuthConnectedAccountsByUserId(userId);
 
-    return {
-      user: {
-        userId: user.userId,
-        email: user.email,
-        fullName: user.fullName,
-        username: user.username,
-        isOAuthUser: oauthAccounts.length > 0,
-      },
-    };
+    return await this.toAuthMeResponse(user);
+  }
+
+  async updateMe(userId: string, dto: UpdateMeDto): Promise<AuthMeResponseDto> {
+    const user = await this.repo.updateUserFullName(userId, dto.fullName);
+    if (!user) {
+      throw new InvalidAccessTokenUserError();
+    }
+
+    return await this.toAuthMeResponse(user);
   }
 
   async getOAuthAccounts(
@@ -403,5 +404,23 @@ export class AuthUseCase {
       ...buildUsernameSeeds(profile.fullName, profile.email),
       normalizeUsername(`github_${profile.subject}`),
     ].filter(Boolean);
+  }
+
+  private async toAuthMeResponse(
+    user: UserProfileRow,
+  ): Promise<AuthMeResponseDto> {
+    const oauthAccounts = await this.repo.findOAuthConnectedAccountsByUserId(
+      user.userId,
+    );
+
+    return {
+      user: {
+        userId: user.userId,
+        email: user.email,
+        fullName: user.fullName,
+        username: user.username,
+        isOAuthUser: oauthAccounts.length > 0,
+      },
+    };
   }
 }

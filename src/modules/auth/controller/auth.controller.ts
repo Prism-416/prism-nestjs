@@ -5,6 +5,7 @@ import {
   Headers,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Query,
   Res,
@@ -47,6 +48,7 @@ import {
   SignInWithEmailDto,
   SignInWithGithubDto,
   SignInWithGoogleDto,
+  UpdateMeDto,
 } from '@/modules/auth/dto';
 
 @ApiTags('Authentication')
@@ -71,6 +73,17 @@ export class AuthController {
   @ApiDataResponse(AuthMeResponseDto)
   async getMe(@CurrentUser() user: JwtPayload): Promise<AuthMeResponseDto> {
     return await this.usecase.getMe(String(user.sub));
+  }
+
+  @Patch('me')
+  @Authenticated()
+  @ApiOperation({ summary: 'Update current authenticated user profile' })
+  @ApiDataResponse(AuthMeResponseDto)
+  async updateMe(
+    @CurrentUser() user: JwtPayload,
+    @Body() dto: UpdateMeDto,
+  ): Promise<AuthMeResponseDto> {
+    return await this.usecase.updateMe(String(user.sub), dto);
   }
 
   @Get('oauth/accounts')
