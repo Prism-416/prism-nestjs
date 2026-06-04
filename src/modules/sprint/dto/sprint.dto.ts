@@ -75,6 +75,30 @@ export class AddSprintWorkItemsDto {
   itemIds!: string[];
 }
 
+export class CreateSprintForInternalDto extends CreateSprintDto {
+  @ApiProperty()
+  @IsUUID('4')
+  requestedByUserId!: string;
+}
+
+export class UpdateSprintMetadataForInternalDto extends UpdateSprintMetadataDto {
+  @ApiProperty()
+  @IsUUID('4')
+  requestedByUserId!: string;
+}
+
+export class AddSprintWorkItemsForInternalDto extends AddSprintWorkItemsDto {
+  @ApiProperty()
+  @IsUUID('4')
+  requestedByUserId!: string;
+}
+
+export class RemoveSprintWorkItemForInternalDto {
+  @ApiProperty()
+  @IsUUID('4')
+  requestedByUserId!: string;
+}
+
 export class SprintResponseDto {
   @ApiProperty()
   sprintId!: string;

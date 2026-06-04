@@ -15,12 +15,17 @@ import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
+import { RequireInternalScopes } from '@/modules/admin';
 import {
   CreateWorkItemDto,
+  CreateWorkItemForInternalDto,
+  DeleteWorkItemForInternalDto,
   ReorderWorkItemsDto,
+  ReorderWorkItemsForInternalDto,
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
   UpdateWorkItemDto,
+  UpdateWorkItemForInternalDto,
   UpsertWorkItemEmbeddingDto,
   WorkItemEmbeddingResponseDto,
   WorkItemResponseDto,
@@ -44,6 +49,17 @@ export class WorkItemController {
     return this.usecase.searchWorkItems(String(user.sub), projectId, query);
   }
 
+  @Get('internal')
+  @RequireInternalScopes('projects:read')
+  @ApiOperation({ summary: 'Search work items for internal workers' })
+  @ApiDataResponse(SearchWorkItemsResponseDto)
+  async searchWorkItemsForInternal(
+    @Param('projectId') projectId: string,
+    @Query() query: SearchWorkItemsQueryDto,
+  ): Promise<SearchWorkItemsResponseDto> {
+    return this.usecase.searchWorkItemsForInternal(projectId, query);
+  }
+
   @Get(':itemId')
   @Authenticated()
   @ApiOperation({ summary: 'Get work item detail' })
@@ -54,6 +70,17 @@ export class WorkItemController {
     @Param('itemId') itemId: string,
   ): Promise<WorkItemResponseDto> {
     return this.usecase.getWorkItem(String(user.sub), projectId, itemId);
+  }
+
+  @Get('internal/:itemId')
+  @RequireInternalScopes('projects:read')
+  @ApiOperation({ summary: 'Get work item detail for internal workers' })
+  @ApiDataResponse(WorkItemResponseDto)
+  async getWorkItemForInternal(
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+  ): Promise<WorkItemResponseDto> {
+    return this.usecase.getWorkItemForInternal(projectId, itemId);
   }
 
   @Get(':itemId/children')
@@ -70,6 +97,17 @@ export class WorkItemController {
       projectId,
       itemId,
     );
+  }
+
+  @Get('internal/:itemId/children')
+  @RequireInternalScopes('projects:read')
+  @ApiOperation({ summary: 'Get work item children for internal workers' })
+  @ApiDataResponse(WorkItemResponseDto, { isArray: true })
+  async getWorkItemChildrenForInternal(
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+  ): Promise<WorkItemResponseDto[]> {
+    return this.usecase.getWorkItemChildrenForInternal(projectId, itemId);
   }
 
   @Put(':itemId/embedding')
@@ -90,6 +128,22 @@ export class WorkItemController {
     );
   }
 
+  @Put('internal/:itemId/embedding')
+  @RequireInternalScopes('embeddings:write')
+  @ApiOperation({ summary: 'Upsert work item embedding for internal workers' })
+  @ApiDataResponse(WorkItemEmbeddingResponseDto)
+  async upsertWorkItemEmbeddingForInternal(
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpsertWorkItemEmbeddingDto,
+  ): Promise<WorkItemEmbeddingResponseDto> {
+    return this.usecase.upsertWorkItemEmbeddingForInternal(
+      projectId,
+      itemId,
+      dto,
+    );
+  }
+
   @Post()
   @Authenticated()
   @ApiOperation({ summary: 'Create work item' })
@@ -102,6 +156,17 @@ export class WorkItemController {
     return this.usecase.createWorkItem(String(user.sub), projectId, dto);
   }
 
+  @Post('internal')
+  @RequireInternalScopes('projects:write')
+  @ApiOperation({ summary: 'Create work item for internal workers' })
+  @ApiDataResponse(WorkItemResponseDto, { status: HttpStatus.CREATED })
+  async createWorkItemForInternal(
+    @Param('projectId') projectId: string,
+    @Body() dto: CreateWorkItemForInternalDto,
+  ): Promise<WorkItemResponseDto> {
+    return this.usecase.createWorkItem(dto.requestedByUserId, projectId, dto);
+  }
+
   @Patch('reorder')
   @Authenticated()
   @ApiOperation({ summary: 'Reorder top-level work items' })
@@ -112,6 +177,36 @@ export class WorkItemController {
     @Body() dto: ReorderWorkItemsDto,
   ): Promise<WorkItemResponseDto[]> {
     return this.usecase.reorderWorkItems(String(user.sub), projectId, dto);
+  }
+
+  @Patch('internal/reorder')
+  @RequireInternalScopes('projects:write')
+  @ApiOperation({
+    summary: 'Reorder top-level work items for internal workers',
+  })
+  @ApiDataResponse(WorkItemResponseDto, { isArray: true })
+  async reorderWorkItemsForInternal(
+    @Param('projectId') projectId: string,
+    @Body() dto: ReorderWorkItemsForInternalDto,
+  ): Promise<WorkItemResponseDto[]> {
+    return this.usecase.reorderWorkItems(dto.requestedByUserId, projectId, dto);
+  }
+
+  @Patch('internal/:itemId')
+  @RequireInternalScopes('projects:write')
+  @ApiOperation({ summary: 'Update work item for internal workers' })
+  @ApiDataResponse(WorkItemResponseDto)
+  async updateWorkItemForInternal(
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: UpdateWorkItemForInternalDto,
+  ): Promise<WorkItemResponseDto> {
+    return this.usecase.updateWorkItem(
+      dto.requestedByUserId,
+      projectId,
+      itemId,
+      dto,
+    );
   }
 
   @Patch(':itemId')
@@ -130,6 +225,19 @@ export class WorkItemController {
       itemId,
       dto,
     );
+  }
+
+  @Delete('internal/:itemId')
+  @RequireInternalScopes('projects:write')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete work item for internal workers' })
+  @ApiNoContentResponse({ description: 'Successfully deleted work item' })
+  async deleteWorkItemForInternal(
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: DeleteWorkItemForInternalDto,
+  ): Promise<void> {
+    await this.usecase.deleteWorkItem(dto.requestedByUserId, projectId, itemId);
   }
 
   @Delete(':itemId')

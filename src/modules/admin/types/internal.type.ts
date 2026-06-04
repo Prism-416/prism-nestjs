@@ -4,6 +4,8 @@ export const INTERNAL_SCOPES = [
   'documents:write',
   'embeddings:write',
   'projects:read',
+  'projects:write',
+  'sprints:write',
 ] as const;
 
 export type InternalScope = (typeof INTERNAL_SCOPES)[number];

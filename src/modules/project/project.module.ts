@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AdminModule } from '@/modules/admin';
 import { NotificationModule } from '@/modules/notification';
 import {
   CommentController,
@@ -20,7 +21,7 @@ import {
 } from '@/modules/project/usecases';
 
 @Module({
-  imports: [NotificationModule],
+  imports: [AdminModule, NotificationModule],
   controllers: [ProjectController, WorkItemController, CommentController],
   providers: [
     CommentRepository,

@@ -14,11 +14,16 @@ import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
+import { RequireInternalScopes } from '@/modules/admin';
 import {
   AddSprintWorkItemsDto,
+  AddSprintWorkItemsForInternalDto,
   CreateSprintDto,
+  CreateSprintForInternalDto,
+  RemoveSprintWorkItemForInternalDto,
   SprintResponseDto,
   UpdateSprintMetadataDto,
+  UpdateSprintMetadataForInternalDto,
 } from '@/modules/sprint/dto';
 import {
   SearchWorkItemsQueryDto,
@@ -88,6 +93,34 @@ export class SprintController {
     return this.usecase.createSprint(String(user.sub), workspaceId, dto);
   }
 
+  @Post('internal')
+  @RequireInternalScopes('sprints:write')
+  @ApiOperation({ summary: 'Create sprint for internal workers' })
+  @ApiDataResponse(SprintResponseDto, { status: HttpStatus.CREATED })
+  async createSprintForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Body() dto: CreateSprintForInternalDto,
+  ): Promise<SprintResponseDto> {
+    return this.usecase.createSprint(dto.requestedByUserId, workspaceId, dto);
+  }
+
+  @Patch('internal/:sprintId')
+  @RequireInternalScopes('sprints:write')
+  @ApiOperation({ summary: 'Update sprint metadata for internal workers' })
+  @ApiDataResponse(SprintResponseDto)
+  async updateSprintMetadataForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Param('sprintId') sprintId: string,
+    @Body() dto: UpdateSprintMetadataForInternalDto,
+  ): Promise<SprintResponseDto> {
+    return this.usecase.updateSprintMetadata(
+      dto.requestedByUserId,
+      workspaceId,
+      sprintId,
+      dto,
+    );
+  }
+
   @Patch(':sprintId')
   @Authenticated()
   @ApiOperation({ summary: 'Update sprint metadata' })
@@ -127,6 +160,49 @@ export class SprintController {
     );
   }
 
+  @Post('internal/:sprintId/work-items')
+  @RequireInternalScopes('sprints:write')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Add work items to sprint for internal workers' })
+  @ApiNoContentResponse({
+    description: 'Successfully added work items to sprint',
+  })
+  async addSprintWorkItemsForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Param('sprintId') sprintId: string,
+    @Body() dto: AddSprintWorkItemsForInternalDto,
+  ): Promise<void> {
+    await this.usecase.addSprintWorkItems(
+      dto.requestedByUserId,
+      workspaceId,
+      sprintId,
+      dto,
+    );
+  }
+
+  @Delete('internal/:sprintId/work-items/:itemId')
+  @RequireInternalScopes('sprints:write')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({
+    summary: 'Remove work item from sprint for internal workers',
+  })
+  @ApiNoContentResponse({
+    description: 'Successfully removed work item from sprint',
+  })
+  async removeSprintWorkItemForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Param('sprintId') sprintId: string,
+    @Param('itemId') itemId: string,
+    @Body() dto: RemoveSprintWorkItemForInternalDto,
+  ): Promise<void> {
+    await this.usecase.removeSprintWorkItem(
+      dto.requestedByUserId,
+      workspaceId,
+      sprintId,
+      itemId,
+    );
+  }
+
   @Delete(':sprintId/work-items/:itemId')
   @Authenticated()
   @HttpCode(HttpStatus.NO_CONTENT)
@@ -145,6 +221,23 @@ export class SprintController {
       workspaceId,
       sprintId,
       itemId,
+    );
+  }
+
+  @Delete('internal/:sprintId')
+  @RequireInternalScopes('sprints:write')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete sprint for internal workers' })
+  @ApiNoContentResponse({ description: 'Successfully deleted sprint' })
+  async deleteSprintForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Param('sprintId') sprintId: string,
+    @Body() dto: RemoveSprintWorkItemForInternalDto,
+  ): Promise<void> {
+    await this.usecase.deleteSprint(
+      dto.requestedByUserId,
+      workspaceId,
+      sprintId,
     );
   }
 

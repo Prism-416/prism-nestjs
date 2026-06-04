@@ -65,6 +65,27 @@ export class WorkItemUseCase {
     return workItem;
   }
 
+  async getWorkItemForInternal(
+    projectId: string,
+    itemId: string,
+  ): Promise<WorkItemResponseDto> {
+    const project = await this.projectRepository.findProjectById(projectId);
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const workItem = await this.workItemRepository.findWorkItemDetailById(
+      project.workspaceId,
+      project.projectId,
+      itemId,
+    );
+    if (!workItem) {
+      throw new WorkItemNotFoundError();
+    }
+
+    return workItem;
+  }
+
   async searchWorkItems(
     userId: string,
     projectId: string,
@@ -93,6 +114,30 @@ export class WorkItemUseCase {
     });
   }
 
+  async searchWorkItemsForInternal(
+    projectId: string,
+    query: SearchWorkItemsQueryDto,
+  ): Promise<SearchWorkItemsResponseDto> {
+    const project = await this.projectRepository.findProjectById(projectId);
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    return this.workItemRepository.searchWorkItems({
+      workspaceId: project.workspaceId,
+      projectId: project.projectId,
+      query: query.query,
+      parentId: query.parentId,
+      topLevel: query.topLevel,
+      priority: query.priority,
+      status: query.status,
+      assigneeUsername: query.assigneeUsername,
+      labelName: query.labelName,
+      limit: query.limit ?? 50,
+      offset: query.offset ?? 0,
+    });
+  }
+
   async getWorkItemChildren(
     userId: string,
     projectId: string,
@@ -102,6 +147,31 @@ export class WorkItemUseCase {
       projectId,
       userId,
     );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const workItem = await this.workItemRepository.findWorkItemById(
+      project.workspaceId,
+      project.projectId,
+      itemId,
+    );
+    if (!workItem) {
+      throw new WorkItemNotFoundError();
+    }
+
+    return this.workItemRepository.findChildWorkItems(
+      project.workspaceId,
+      project.projectId,
+      itemId,
+    );
+  }
+
+  async getWorkItemChildrenForInternal(
+    projectId: string,
+    itemId: string,
+  ): Promise<WorkItemResponseDto[]> {
+    const project = await this.projectRepository.findProjectById(projectId);
     if (!project) {
       throw new ProjectNotFoundError();
     }

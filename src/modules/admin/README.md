@@ -252,3 +252,5 @@ curl -sS "$API_BASE_URL/admin/audit-events?targetType=service_account&targetId=$
 - `documents:write`
 - `embeddings:write`
 - `projects:read`
+- `projects:write`
+- `sprints:write`

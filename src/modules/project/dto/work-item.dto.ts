@@ -258,6 +258,30 @@ export class ReorderWorkItemsDto {
   items!: ReorderWorkItemDto[];
 }
 
+export class CreateWorkItemForInternalDto extends CreateWorkItemDto {
+  @ApiProperty()
+  @IsUUID('4')
+  requestedByUserId!: string;
+}
+
+export class UpdateWorkItemForInternalDto extends UpdateWorkItemDto {
+  @ApiProperty()
+  @IsUUID('4')
+  requestedByUserId!: string;
+}
+
+export class ReorderWorkItemsForInternalDto extends ReorderWorkItemsDto {
+  @ApiProperty()
+  @IsUUID('4')
+  requestedByUserId!: string;
+}
+
+export class DeleteWorkItemForInternalDto {
+  @ApiProperty()
+  @IsUUID('4')
+  requestedByUserId!: string;
+}
+
 export class WorkItemResponseDto {
   @ApiProperty()
   itemId!: string;
