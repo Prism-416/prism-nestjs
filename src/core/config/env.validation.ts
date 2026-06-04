@@ -43,6 +43,9 @@ export const envValidationSchema = Joi.object({
   GITHUB_OAUTH_SIGNIN_PAGE_URL: Joi.string().allow('').default(''),
   GITHUB_OAUTH_LINK_PAGE_URL: Joi.string().allow('').default(''),
   EMAIL_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
+  FEATURE_PROVISIONING_DISPATCH_MODE: Joi.string()
+    .valid('oci', 'stdout')
+    .default('oci'),
   QUEUE_ENABLED: Joi.boolean().truthy('true').falsy('false').default(false),
   OBJECT_STORAGE_ENABLED: Joi.boolean()
     .truthy('true')
@@ -101,7 +104,6 @@ export const envValidationSchema = Joi.object({
     const emailEnabled = values.EMAIL_ENABLED === true;
     const queueEnabled = values.QUEUE_ENABLED === true;
     const objectStorageEnabled = values.OBJECT_STORAGE_ENABLED === true;
-
     if (!emailEnabled && !queueEnabled && !objectStorageEnabled) {
       return values;
     }
