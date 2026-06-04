@@ -40,6 +40,28 @@ export class AuthRepository {
     return users[0] ?? null;
   }
 
+  async updateUserFullName(
+    userId: string,
+    fullName: string,
+    manager?: EntityManager,
+  ): Promise<UserProfileRow | null> {
+    const users = await this.getManager(manager).query<UserProfileRow[]>(
+      `
+        UPDATE prism_users_l
+        SET full_name = $2
+        WHERE user_id = $1
+        RETURNING
+          user_id AS "userId",
+          email,
+          full_name AS "fullName",
+          username
+      `,
+      [userId, fullName],
+    );
+
+    return users[0] ?? null;
+  }
+
   async createUser(
     dto: Pick<SignUpWithEmailDto, 'email' | 'fullName' | 'username'>,
     manager?: EntityManager,
