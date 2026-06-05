@@ -17,6 +17,7 @@ import { RequireInternalScopes } from '@/modules/admin';
 import {
   AgentActionResponseDto,
   AgentRunResponseDto,
+  AgentRunStateResponseDto,
   AgentStepResponseDto,
   CreateAgentRunDto,
   SearchAgentRunsQueryDto,
@@ -54,6 +55,17 @@ export class AgentController {
     @Body() dto: CreateAgentRunDto,
   ): Promise<AgentRunResponseDto> {
     return this.usecase.createAgentRun(String(user.sub), workspaceId, dto);
+  }
+
+  @Get('internal/:runId/state')
+  @RequireInternalScopes('agents:invoke')
+  @ApiOperation({ summary: 'Retrieve agent run state for internal workers' })
+  @ApiDataResponse(AgentRunStateResponseDto)
+  async getAgentRunStateForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Param('runId') runId: string,
+  ): Promise<AgentRunStateResponseDto> {
+    return this.usecase.getAgentRunStateForInternal(workspaceId, runId);
   }
 
   @Patch('internal/:runId/status')

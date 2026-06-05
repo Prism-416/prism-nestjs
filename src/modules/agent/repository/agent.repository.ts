@@ -805,6 +805,36 @@ export class AgentRepository {
     );
   }
 
+  async findAgentActionEventsByRunId(
+    workspaceId: string,
+    runId: string,
+    manager?: EntityManager,
+  ): Promise<AgentActionEventRow[]> {
+    return this.getManager(manager).query<AgentActionEventRow[]>(
+      `
+        SELECT
+          e.event_id AS "eventId",
+          e.action_id AS "actionId",
+          e.actor_user_id AS "actorUserId",
+          e.event_type AS "eventType",
+          e.message,
+          e.event_object_name AS "eventObjectName",
+          e.created_at AS "createdAt"
+        FROM prism_agent_action_events_l e
+               INNER JOIN prism_agent_actions_l a
+                          ON a.action_id = e.action_id
+               INNER JOIN prism_agent_runs_l r
+                          ON r.run_id = a.run_id
+                         AND r.workspace_id = a.workspace_id
+        WHERE r.workspace_id = $1
+          AND r.run_id = $2
+        ORDER BY e.created_at ASC,
+                 e.event_id ASC
+      `,
+      [workspaceId, runId],
+    );
+  }
+
   async createAgentActionEvent(
     params: CreateAgentActionEventParams,
     manager?: EntityManager,
@@ -985,6 +1015,33 @@ export class AgentRepository {
     );
 
     return memories[0] ?? null;
+  }
+
+  async findAgentMemoriesByRunId(
+    workspaceId: string,
+    runId: string,
+    manager?: EntityManager,
+  ): Promise<AgentMemoryRow[]> {
+    return this.getManager(manager).query<AgentMemoryRow[]>(
+      `
+        SELECT
+          memory_id AS "memoryId",
+          workspace_id AS "workspaceId",
+          run_id AS "runId",
+          step_id AS "stepId",
+          memory_type AS "memoryType",
+          title,
+          content,
+          content_hash AS "contentHash",
+          created_at AS "createdAt"
+        FROM prism_agent_memories_l
+        WHERE workspace_id = $1
+          AND run_id = $2
+        ORDER BY created_at ASC,
+                 memory_id ASC
+      `,
+      [workspaceId, runId],
+    );
   }
 
   async upsertAgentMemoryEmbedding(

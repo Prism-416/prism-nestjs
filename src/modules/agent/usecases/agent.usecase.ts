@@ -8,6 +8,7 @@ import {
   AgentMemoryEmbeddingResponseDto,
   AgentMemoryResponseDto,
   AgentRunResponseDto,
+  AgentRunStateResponseDto,
   AgentStepResponseDto,
   CreateAgentRunDto,
   SearchAgentRunsQueryDto,
@@ -191,6 +192,33 @@ export class AgentUseCase {
     this.realtimePublisher.publishAgentRunUpdated(run);
 
     return run;
+  }
+
+  async getAgentRunStateForInternal(
+    workspaceId: string,
+    runId: string,
+  ): Promise<AgentRunStateResponseDto> {
+    const workspace = await this.getWorkspace(workspaceId);
+
+    const run = await this.repo.findAgentRunById(workspace.workspaceId, runId);
+    if (!run) {
+      throw new AgentRunNotFoundError();
+    }
+
+    const [steps, actions, actionEvents, memories] = await Promise.all([
+      this.repo.findAgentStepsByRunId(workspace.workspaceId, run.runId),
+      this.repo.findAgentActionsByRunId(workspace.workspaceId, run.runId),
+      this.repo.findAgentActionEventsByRunId(workspace.workspaceId, run.runId),
+      this.repo.findAgentMemoriesByRunId(workspace.workspaceId, run.runId),
+    ]);
+
+    return {
+      run,
+      steps,
+      actions,
+      actionEvents,
+      memories,
+    };
   }
 
   async upsertAgentStepForInternal(
