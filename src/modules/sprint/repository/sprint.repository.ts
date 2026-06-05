@@ -301,7 +301,7 @@ export class SprintRepository {
           pi.created_at AS "createdAt",
           COALESCE(
             (
-              SELECT array_agg(u.username ORDER BY u.username)
+              SELECT array_agg(u.username ORDER BY wimm.position)
               FROM prism_work_item_member_map wimm
                      INNER JOIN prism_users_l u
                                 ON u.user_id = wimm.user_id

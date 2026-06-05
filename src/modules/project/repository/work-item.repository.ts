@@ -124,7 +124,7 @@ export class WorkItemRepository {
           pi.created_at AS "createdAt",
           COALESCE(
             (
-              SELECT array_agg(u.username ORDER BY u.username)
+              SELECT array_agg(u.username ORDER BY wimm.position)
               FROM prism_work_item_member_map wimm
                      INNER JOIN prism_users_l u
                                 ON u.user_id = wimm.user_id
@@ -276,7 +276,7 @@ export class WorkItemRepository {
           wi.created_at AS "createdAt",
           COALESCE(
             (
-              SELECT array_agg(u.username ORDER BY u.username)
+              SELECT array_agg(u.username ORDER BY wimm.position)
               FROM prism_work_item_member_map wimm
                      INNER JOIN prism_users_l u
                                 ON u.user_id = wimm.user_id
@@ -337,7 +337,7 @@ export class WorkItemRepository {
           wi.created_at AS "createdAt",
           COALESCE(
             (
-              SELECT array_agg(u.username ORDER BY u.username)
+              SELECT array_agg(u.username ORDER BY wimm.position)
               FROM prism_work_item_member_map wimm
                      INNER JOIN prism_users_l u
                                 ON u.user_id = wimm.user_id
@@ -392,7 +392,7 @@ export class WorkItemRepository {
           wi.created_at AS "createdAt",
           COALESCE(
             (
-              SELECT array_agg(u.username ORDER BY u.username)
+              SELECT array_agg(u.username ORDER BY wimm.position)
               FROM prism_work_item_member_map wimm
                      INNER JOIN prism_users_l u
                                 ON u.user_id = wimm.user_id
@@ -744,14 +744,16 @@ export class WorkItemRepository {
           workspace_id,
           item_id,
           user_id,
+          position,
           assigned_by
         )
         SELECT
           $1,
           $2,
           input.user_id,
+          input.position,
           $4
-        FROM unnest($3::uuid[]) AS input(user_id)
+        FROM unnest($3::uuid[]) WITH ORDINALITY AS input(user_id, position)
       `,
       [workspaceId, itemId, userIds, assignedBy],
     );

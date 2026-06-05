@@ -574,6 +574,7 @@ CREATE TABLE IF NOT EXISTS prism_work_item_member_map
     workspace_id UUID        NOT NULL,
     item_id      UUID        NOT NULL,
     user_id      UUID        NOT NULL,
+    position     INTEGER     NOT NULL DEFAULT 0,
     assigned_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     assigned_by  UUID        REFERENCES prism_users_l (user_id) ON DELETE SET NULL,
 
