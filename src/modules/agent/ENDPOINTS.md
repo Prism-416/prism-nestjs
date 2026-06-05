@@ -23,6 +23,7 @@ POST /workspaces/:workspaceId/agent-runs/:runId/cancel
 GET  /workspaces/:workspaceId/agent-runs/:runId/steps
 GET  /workspaces/:workspaceId/agent-runs/:runId/actions
 
+GET   /workspaces/:workspaceId/agent-runs/internal/:runId/state
 PATCH /workspaces/:workspaceId/agent-runs/internal/:runId/status
 POST  /workspaces/:workspaceId/agent-runs/internal/:runId/steps
 POST  /workspaces/:workspaceId/agent-runs/internal/:runId/actions
@@ -35,6 +36,8 @@ POST /workspaces/:workspaceId/agent-actions/internal/:actionId/events
 ```
 
 Internal endpoints require the `agents:invoke` service-token scope.
+The internal run state endpoint returns run metadata, steps, actions, action
+events, and run-scoped memories in one snapshot.
 
 ## Realtime Requirements
 
