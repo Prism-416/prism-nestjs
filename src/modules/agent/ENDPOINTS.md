@@ -23,11 +23,39 @@ POST /workspaces/:workspaceId/agent-runs/:runId/cancel
 GET  /workspaces/:workspaceId/agent-runs/:runId/steps
 GET  /workspaces/:workspaceId/agent-runs/:runId/actions
 
+PATCH /workspaces/:workspaceId/agent-runs/internal/:runId/status
+POST  /workspaces/:workspaceId/agent-runs/internal/:runId/steps
+POST  /workspaces/:workspaceId/agent-runs/internal/:runId/actions
+
 GET  /workspaces/:workspaceId/agent-actions/:actionId
 GET  /workspaces/:workspaceId/agent-actions/:actionId/events
 POST /workspaces/:workspaceId/agent-actions/:actionId/approve
 POST /workspaces/:workspaceId/agent-actions/:actionId/cancel
+POST /workspaces/:workspaceId/agent-actions/internal/:actionId/events
 ```
+
+Internal endpoints require the `agents:invoke` service-token scope.
+
+## Realtime Requirements
+
+```text
+namespace /agents
+
+agent_workspace.join
+agent_workspace.leave
+
+agent_run.created
+agent_run.updated
+agent_step.created
+agent_step.updated
+agent_action.created
+agent_action.updated
+agent_action_event.created
+```
+
+Clients should join a workspace room before rendering live graph updates. The
+server authorizes the join through active workspace membership, then broadcasts
+agent run, step, action, and action-event updates for that workspace.
 
 ## Run Requirements
 
