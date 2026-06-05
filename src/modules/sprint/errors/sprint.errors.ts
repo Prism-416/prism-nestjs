@@ -11,6 +11,16 @@ export class SprintWorkspaceNotFoundError extends NotExistsError {
   }
 }
 
+export class SprintWorkspacePermissionRequiredError extends DomainError {
+  constructor() {
+    super(
+      'Workspace admin permission is required.',
+      'WORKSPACE_ADMIN_PERMISSION_REQUIRED',
+      403,
+    );
+  }
+}
+
 export class SprintAlreadyExistsError extends DuplicateError {
   constructor() {
     super('Sprint already exists.', 'SPRINT_ALREADY_EXISTS');

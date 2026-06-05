@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  SprintWorkspaceAccessRow,
   SprintRow,
   SprintStatus,
   SprintWorkspaceRow,
@@ -60,6 +61,33 @@ export class SprintRepository {
                           ON wm.workspace_id = w.workspace_id
         WHERE w.workspace_id = $1
           AND wm.user_id = $2
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+        LIMIT 1
+      `,
+      [workspaceId, userId],
+    );
+
+    return workspaces[0] ?? null;
+  }
+
+  async findWorkspaceAccessByIdAndUserId(
+    workspaceId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<SprintWorkspaceAccessRow | null> {
+    const workspaces = await this.getManager(manager).query<
+      SprintWorkspaceAccessRow[]
+    >(
+      `
+        SELECT
+          w.workspace_id AS "workspaceId",
+          wm.role
+        FROM prism_workspaces_l w
+               LEFT JOIN prism_workspace_members_l wm
+                         ON wm.workspace_id = w.workspace_id
+                           AND wm.user_id = $2
+        WHERE w.workspace_id = $1
           AND w.deleted_at IS NULL
           AND w.status = 'active'
         LIMIT 1

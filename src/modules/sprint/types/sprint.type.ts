@@ -11,6 +11,10 @@ export type SprintWorkspaceRow = {
   workspaceId: string;
 };
 
+export type SprintWorkspaceAccessRow = SprintWorkspaceRow & {
+  role: string | null;
+};
+
 export type SprintRow = {
   sprintId: string;
   workspaceId: string;

@@ -7,6 +7,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  ParseUUIDPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -42,7 +43,7 @@ export class SprintController {
   @ApiDataResponse(SprintResponseDto, { isArray: true })
   async getSprints(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
   ): Promise<SprintResponseDto[]> {
     return this.usecase.getSprints(String(user.sub), workspaceId);
   }
@@ -53,8 +54,8 @@ export class SprintController {
   @ApiDataResponse(SearchWorkItemsResponseDto)
   async getSprintWorkItems(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
     @Query() query: SearchWorkItemsQueryDto,
   ): Promise<SearchWorkItemsResponseDto> {
     return this.usecase.getSprintWorkItems(
@@ -71,8 +72,8 @@ export class SprintController {
   @ApiDataResponse(SprintResponseDto)
   async getSprintMetadata(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
   ): Promise<SprintResponseDto> {
     return this.usecase.getSprintMetadata(
       String(user.sub),
@@ -87,7 +88,7 @@ export class SprintController {
   @ApiDataResponse(SprintResponseDto, { status: HttpStatus.CREATED })
   async createSprint(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
     @Body() dto: CreateSprintDto,
   ): Promise<SprintResponseDto> {
     return this.usecase.createSprint(String(user.sub), workspaceId, dto);
@@ -98,7 +99,7 @@ export class SprintController {
   @ApiOperation({ summary: 'Create sprint for internal workers' })
   @ApiDataResponse(SprintResponseDto, { status: HttpStatus.CREATED })
   async createSprintForInternal(
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
     @Body() dto: CreateSprintForInternalDto,
   ): Promise<SprintResponseDto> {
     return this.usecase.createSprint(dto.requestedByUserId, workspaceId, dto);
@@ -109,8 +110,8 @@ export class SprintController {
   @ApiOperation({ summary: 'Update sprint metadata for internal workers' })
   @ApiDataResponse(SprintResponseDto)
   async updateSprintMetadataForInternal(
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
     @Body() dto: UpdateSprintMetadataForInternalDto,
   ): Promise<SprintResponseDto> {
     return this.usecase.updateSprintMetadata(
@@ -127,8 +128,8 @@ export class SprintController {
   @ApiDataResponse(SprintResponseDto)
   async updateSprintMetadata(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
     @Body() dto: UpdateSprintMetadataDto,
   ): Promise<SprintResponseDto> {
     return this.usecase.updateSprintMetadata(
@@ -148,8 +149,8 @@ export class SprintController {
   })
   async addSprintWorkItems(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
     @Body() dto: AddSprintWorkItemsDto,
   ): Promise<void> {
     await this.usecase.addSprintWorkItems(
@@ -168,8 +169,8 @@ export class SprintController {
     description: 'Successfully added work items to sprint',
   })
   async addSprintWorkItemsForInternal(
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
     @Body() dto: AddSprintWorkItemsForInternalDto,
   ): Promise<void> {
     await this.usecase.addSprintWorkItems(
@@ -190,9 +191,9 @@ export class SprintController {
     description: 'Successfully removed work item from sprint',
   })
   async removeSprintWorkItemForInternal(
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
-    @Param('itemId') itemId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
     @Body() dto: RemoveSprintWorkItemForInternalDto,
   ): Promise<void> {
     await this.usecase.removeSprintWorkItem(
@@ -212,9 +213,9 @@ export class SprintController {
   })
   async removeSprintWorkItem(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
-    @Param('itemId') itemId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
+    @Param('itemId', ParseUUIDPipe) itemId: string,
   ): Promise<void> {
     await this.usecase.removeSprintWorkItem(
       String(user.sub),
@@ -230,8 +231,8 @@ export class SprintController {
   @ApiOperation({ summary: 'Delete sprint for internal workers' })
   @ApiNoContentResponse({ description: 'Successfully deleted sprint' })
   async deleteSprintForInternal(
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
     @Body() dto: RemoveSprintWorkItemForInternalDto,
   ): Promise<void> {
     await this.usecase.deleteSprint(
@@ -248,8 +249,8 @@ export class SprintController {
   @ApiNoContentResponse({ description: 'Successfully deleted sprint' })
   async deleteSprint(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('sprintId') sprintId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('sprintId', ParseUUIDPipe) sprintId: string,
   ): Promise<void> {
     await this.usecase.deleteSprint(String(user.sub), workspaceId, sprintId);
   }

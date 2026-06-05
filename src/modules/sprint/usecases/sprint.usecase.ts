@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import type { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
 import {
   AddSprintWorkItemsDto,
@@ -19,10 +20,11 @@ import {
   SprintPeriodInvalidError,
   SprintWorkItemAlreadyAddedError,
   SprintWorkItemNotFoundError,
+  SprintWorkspacePermissionRequiredError,
   SprintWorkspaceNotFoundError,
 } from '@/modules/sprint/errors';
 import { SprintRepository } from '@/modules/sprint/repository';
-import { SPRINT_STATUSES } from '@/modules/sprint/types';
+import { SPRINT_STATUSES, SprintWorkspaceRow } from '@/modules/sprint/types';
 
 @Injectable()
 export class SprintUseCase {
@@ -119,14 +121,11 @@ export class SprintUseCase {
     }
 
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
+      const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
         manager,
       );
-      if (!workspace) {
-        throw new SprintWorkspaceNotFoundError();
-      }
 
       const nextNumber = await this.repo.getNextSprintNumber(
         workspace.workspaceId,
@@ -190,14 +189,11 @@ export class SprintUseCase {
     dto: UpdateSprintMetadataDto,
   ): Promise<SprintResponseDto> {
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
+      const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
         manager,
       );
-      if (!workspace) {
-        throw new SprintWorkspaceNotFoundError();
-      }
 
       const currentSprint = await this.repo.findSprintById(
         workspace.workspaceId,
@@ -260,14 +256,11 @@ export class SprintUseCase {
     dto: AddSprintWorkItemsDto,
   ): Promise<void> {
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
+      const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
         manager,
       );
-      if (!workspace) {
-        throw new SprintWorkspaceNotFoundError();
-      }
 
       const sprint = await this.repo.findSprintById(
         workspace.workspaceId,
@@ -313,14 +306,11 @@ export class SprintUseCase {
     itemId: string,
   ): Promise<void> {
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
+      const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
         manager,
       );
-      if (!workspace) {
-        throw new SprintWorkspaceNotFoundError();
-      }
 
       const sprint = await this.repo.findSprintById(
         workspace.workspaceId,
@@ -349,14 +339,11 @@ export class SprintUseCase {
     sprintId: string,
   ): Promise<void> {
     return this.uow.run(async (manager) => {
-      const workspace = await this.repo.findWorkspaceByIdAndAdminMemberUserId(
+      const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
         manager,
       );
-      if (!workspace) {
-        throw new SprintWorkspaceNotFoundError();
-      }
 
       const deleted = await this.repo.deleteSprint(
         workspace.workspaceId,
@@ -367,5 +354,26 @@ export class SprintUseCase {
         throw new SprintNotFoundError();
       }
     });
+  }
+
+  private async getWritableWorkspace(
+    workspaceId: string,
+    userId: string,
+    manager: EntityManager,
+  ): Promise<SprintWorkspaceRow> {
+    const workspace = await this.repo.findWorkspaceAccessByIdAndUserId(
+      workspaceId,
+      userId,
+      manager,
+    );
+    if (!workspace) {
+      throw new SprintWorkspaceNotFoundError();
+    }
+
+    if (workspace.role !== 'owner' && workspace.role !== 'admin') {
+      throw new SprintWorkspacePermissionRequiredError();
+    }
+
+    return { workspaceId: workspace.workspaceId };
   }
 }
