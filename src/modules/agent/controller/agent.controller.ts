@@ -6,6 +6,7 @@ import {
   HttpStatus,
   Param,
   Patch,
+  ParseUUIDPipe,
   Post,
   Query,
 } from '@nestjs/common';
@@ -39,7 +40,7 @@ export class AgentController {
   @ApiDataResponse(SearchAgentRunsResponseDto)
   async searchAgentRuns(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
     @Query() query: SearchAgentRunsQueryDto,
   ): Promise<SearchAgentRunsResponseDto> {
     return this.usecase.searchAgentRuns(String(user.sub), workspaceId, query);
@@ -51,7 +52,7 @@ export class AgentController {
   @ApiDataResponse(AgentRunResponseDto, { status: HttpStatus.CREATED })
   async createAgentRun(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
     @Body() dto: CreateAgentRunDto,
   ): Promise<AgentRunResponseDto> {
     return this.usecase.createAgentRun(String(user.sub), workspaceId, dto);
@@ -62,8 +63,8 @@ export class AgentController {
   @ApiOperation({ summary: 'Retrieve agent run state for internal workers' })
   @ApiDataResponse(AgentRunStateResponseDto)
   async getAgentRunStateForInternal(
-    @Param('workspaceId') workspaceId: string,
-    @Param('runId') runId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('runId', ParseUUIDPipe) runId: string,
   ): Promise<AgentRunStateResponseDto> {
     return this.usecase.getAgentRunStateForInternal(workspaceId, runId);
   }
@@ -73,8 +74,8 @@ export class AgentController {
   @ApiOperation({ summary: 'Update agent run status for internal workers' })
   @ApiDataResponse(AgentRunResponseDto)
   async updateAgentRunStatusForInternal(
-    @Param('workspaceId') workspaceId: string,
-    @Param('runId') runId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('runId', ParseUUIDPipe) runId: string,
     @Body() dto: UpdateAgentRunStatusForInternalDto,
   ): Promise<AgentRunResponseDto> {
     return this.usecase.updateAgentRunStatusForInternal(
@@ -89,8 +90,8 @@ export class AgentController {
   @ApiOperation({ summary: 'Upsert agent run step for internal workers' })
   @ApiDataResponse(AgentStepResponseDto)
   async upsertAgentStepForInternal(
-    @Param('workspaceId') workspaceId: string,
-    @Param('runId') runId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('runId', ParseUUIDPipe) runId: string,
     @Body() dto: UpsertAgentStepForInternalDto,
   ): Promise<AgentStepResponseDto> {
     return this.usecase.upsertAgentStepForInternal(workspaceId, runId, dto);
@@ -101,8 +102,8 @@ export class AgentController {
   @ApiOperation({ summary: 'Upsert agent action for internal workers' })
   @ApiDataResponse(AgentActionResponseDto)
   async upsertAgentActionForInternal(
-    @Param('workspaceId') workspaceId: string,
-    @Param('runId') runId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('runId', ParseUUIDPipe) runId: string,
     @Body() dto: UpsertAgentActionForInternalDto,
   ): Promise<AgentActionResponseDto> {
     return this.usecase.upsertAgentActionForInternal(workspaceId, runId, dto);
@@ -115,8 +116,8 @@ export class AgentController {
   @ApiDataResponse(AgentRunResponseDto)
   async cancelAgentRun(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('runId') runId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('runId', ParseUUIDPipe) runId: string,
   ): Promise<AgentRunResponseDto> {
     return this.usecase.cancelAgentRun(String(user.sub), workspaceId, runId);
   }
@@ -127,8 +128,8 @@ export class AgentController {
   @ApiDataResponse(AgentStepResponseDto, { isArray: true })
   async getAgentRunSteps(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('runId') runId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('runId', ParseUUIDPipe) runId: string,
   ): Promise<AgentStepResponseDto[]> {
     return this.usecase.getAgentRunSteps(String(user.sub), workspaceId, runId);
   }
@@ -139,8 +140,8 @@ export class AgentController {
   @ApiDataResponse(AgentActionResponseDto, { isArray: true })
   async getAgentRunActions(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('runId') runId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('runId', ParseUUIDPipe) runId: string,
   ): Promise<AgentActionResponseDto[]> {
     return this.usecase.getAgentRunActions(
       String(user.sub),
@@ -155,8 +156,8 @@ export class AgentController {
   @ApiDataResponse(AgentRunResponseDto)
   async getAgentRun(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('runId') runId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('runId', ParseUUIDPipe) runId: string,
   ): Promise<AgentRunResponseDto> {
     return this.usecase.getAgentRun(String(user.sub), workspaceId, runId);
   }

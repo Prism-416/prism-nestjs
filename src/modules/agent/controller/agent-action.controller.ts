@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Post,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -31,8 +32,8 @@ export class AgentActionController {
   @ApiDataResponse(AgentActionResponseDto)
   async approveAgentAction(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('actionId') actionId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('actionId', ParseUUIDPipe) actionId: string,
   ): Promise<AgentActionResponseDto> {
     return this.usecase.approveAgentAction(
       String(user.sub),
@@ -48,8 +49,8 @@ export class AgentActionController {
   @ApiDataResponse(AgentActionResponseDto)
   async cancelAgentAction(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('actionId') actionId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('actionId', ParseUUIDPipe) actionId: string,
   ): Promise<AgentActionResponseDto> {
     return this.usecase.cancelAgentAction(
       String(user.sub),
@@ -63,8 +64,8 @@ export class AgentActionController {
   @ApiOperation({ summary: 'Create agent action event for internal workers' })
   @ApiDataResponse(AgentActionEventResponseDto)
   async createAgentActionEventForInternal(
-    @Param('workspaceId') workspaceId: string,
-    @Param('actionId') actionId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('actionId', ParseUUIDPipe) actionId: string,
     @Body() dto: CreateAgentActionEventForInternalDto,
   ): Promise<AgentActionEventResponseDto> {
     return this.usecase.createAgentActionEventForInternal(
@@ -80,8 +81,8 @@ export class AgentActionController {
   @ApiDataResponse(AgentActionResponseDto)
   async getAgentAction(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('actionId') actionId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('actionId', ParseUUIDPipe) actionId: string,
   ): Promise<AgentActionResponseDto> {
     return this.usecase.getAgentAction(String(user.sub), workspaceId, actionId);
   }
@@ -92,8 +93,8 @@ export class AgentActionController {
   @ApiDataResponse(AgentActionEventResponseDto, { isArray: true })
   async getAgentActionEvents(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('actionId') actionId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('actionId', ParseUUIDPipe) actionId: string,
   ): Promise<AgentActionEventResponseDto[]> {
     return this.usecase.getAgentActionEvents(
       String(user.sub),

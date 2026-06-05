@@ -1,4 +1,12 @@
-import { Body, Controller, HttpStatus, Param, Post, Put } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Put,
+} from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
@@ -22,7 +30,7 @@ export class AgentMemoryController {
   @ApiDataResponse(AgentMemoryResponseDto, { status: HttpStatus.CREATED })
   async upsertAgentMemory(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
     @Body() dto: UpsertAgentMemoryDto,
   ): Promise<AgentMemoryResponseDto> {
     return this.usecase.upsertAgentMemory(String(user.sub), workspaceId, dto);
@@ -34,8 +42,8 @@ export class AgentMemoryController {
   @ApiDataResponse(AgentMemoryEmbeddingResponseDto)
   async upsertAgentMemoryEmbedding(
     @CurrentUser() user: JwtPayload,
-    @Param('workspaceId') workspaceId: string,
-    @Param('memoryId') memoryId: string,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('memoryId', ParseUUIDPipe) memoryId: string,
     @Body() dto: UpsertAgentMemoryEmbeddingDto,
   ): Promise<AgentMemoryEmbeddingResponseDto> {
     return this.usecase.upsertAgentMemoryEmbedding(
