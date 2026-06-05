@@ -56,6 +56,26 @@ export class AgentActionNotCancellableError extends DomainError {
   }
 }
 
+export class AgentStepTargetMismatchError extends DomainError {
+  constructor() {
+    super(
+      'Agent step target does not match the current workspace state.',
+      'AGENT_STEP_TARGET_MISMATCH',
+      409,
+    );
+  }
+}
+
+export class AgentActionTargetMismatchError extends DomainError {
+  constructor() {
+    super(
+      'Agent action target does not match the current workspace state.',
+      'AGENT_ACTION_TARGET_MISMATCH',
+      409,
+    );
+  }
+}
+
 export class AgentMemoryNotFoundError extends NotExistsError {
   constructor() {
     super('Agent memory not found.', 'AGENT_MEMORY_NOT_FOUND');

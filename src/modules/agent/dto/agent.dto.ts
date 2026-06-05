@@ -1,9 +1,11 @@
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsArray,
   ArrayMaxSize,
   ArrayMinSize,
-  IsArray,
+  IsBoolean,
+  IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -16,15 +18,19 @@ import {
   Min,
 } from 'class-validator';
 import {
+  AGENT_ACTION_STATUSES,
   AGENT_EMBEDDING_DIMENSIONS,
   AGENT_MEMORY_TYPES,
   AGENT_RUN_STATUSES,
   AGENT_RUN_TRIGGER_TYPES,
+  AGENT_STEP_STATUSES,
 } from '@/modules/agent/types';
 import type {
+  AgentActionStatus,
   AgentMemoryType,
   AgentRunStatus,
   AgentRunTriggerType,
+  AgentStepStatus,
 } from '@/modules/agent/types';
 import {
   normalizeOptionalTrimmedString,
@@ -104,6 +110,201 @@ export class SearchAgentRunsQueryDto {
   offset?: number;
 }
 
+export class UpdateAgentRunStatusForInternalDto {
+  @ApiProperty({ enum: AGENT_RUN_STATUSES })
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsIn(AGENT_RUN_STATUSES)
+  status!: AgentRunStatus;
+}
+
+export class UpsertAgentStepForInternalDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  stepId?: string;
+
+  @ApiProperty({ minimum: 0 })
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  stepOrder!: number;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(30)
+  stepType!: string;
+
+  @ApiProperty({ enum: AGENT_STEP_STATUSES })
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsIn(AGENT_STEP_STATUSES)
+  status!: AgentStepStatus;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  title!: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  inputObjectName?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  outputObjectName?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  inputSummary?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  outputSummary?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  errorMessage?: string;
+}
+
+export class UpsertAgentActionForInternalDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  actionId?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  stepId?: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  actionType!: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(50)
+  targetType!: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  targetId?: string;
+
+  @ApiProperty({ enum: AGENT_ACTION_STATUSES })
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsIn(AGENT_ACTION_STATUSES)
+  status!: AgentActionStatus;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  reasoningSummary?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  payloadObjectName?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  resultObjectName?: string;
+
+  @ApiPropertyOptional({ default: true })
+  @IsOptional()
+  @IsBoolean()
+  requiresApproval?: boolean;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  approvedByUserId?: string;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
+  @IsDateString()
+  executedAt?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  errorMessage?: string;
+}
+
+export class CreateAgentActionEventForInternalDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  actorUserId?: string;
+
+  @ApiProperty()
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(30)
+  eventType!: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @MaxLength(5000)
+  message?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(1000)
+  eventObjectName?: string;
+}
+
 export class AgentRunResponseDto {
   @ApiProperty()
   runId!: string;
@@ -158,8 +359,8 @@ export class AgentStepResponseDto {
   @ApiProperty()
   stepType!: string;
 
-  @ApiProperty()
-  status!: string;
+  @ApiProperty({ enum: AGENT_STEP_STATUSES })
+  status!: AgentStepStatus;
 
   @ApiProperty()
   title!: string;
@@ -211,8 +412,8 @@ export class AgentActionResponseDto {
   @ApiProperty({ nullable: true })
   targetId!: string | null;
 
-  @ApiProperty()
-  status!: string;
+  @ApiProperty({ enum: AGENT_ACTION_STATUSES })
+  status!: AgentActionStatus;
 
   @ApiProperty({ nullable: true })
   reasoningSummary!: string | null;

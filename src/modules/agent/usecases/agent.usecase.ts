@@ -4,6 +4,7 @@ import { UnitOfWork } from '@/core/database';
 import {
   AgentActionEventResponseDto,
   AgentActionResponseDto,
+  CreateAgentActionEventForInternalDto,
   AgentMemoryEmbeddingResponseDto,
   AgentMemoryResponseDto,
   AgentRunResponseDto,
@@ -11,23 +12,29 @@ import {
   CreateAgentRunDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
+  UpdateAgentRunStatusForInternalDto,
+  UpsertAgentActionForInternalDto,
   UpsertAgentMemoryDto,
   UpsertAgentMemoryEmbeddingDto,
+  UpsertAgentStepForInternalDto,
 } from '@/modules/agent/dto';
 import {
   AgentActionNotApprovableError,
   AgentActionNotCancellableError,
   AgentActionNotFoundError,
+  AgentActionTargetMismatchError,
   AgentMemoryEmbeddingTargetMismatchError,
   AgentMemoryNotFoundError,
   AgentMemoryTargetMismatchError,
   AgentParentRunNotFoundError,
   AgentRunNotCancellableError,
   AgentRunNotFoundError,
+  AgentStepTargetMismatchError,
   AgentWorkspaceNotFoundError,
   AgentWorkItemNotFoundError,
 } from '@/modules/agent/errors';
 import { AgentRepository } from '@/modules/agent/repository';
+import { AgentRealtimePublisherService } from '@/modules/agent/services';
 import {
   AGENT_EMBEDDING_DIMENSIONS,
   AgentRunStatus,
@@ -47,6 +54,7 @@ export class AgentUseCase {
   constructor(
     private readonly repo: AgentRepository,
     private readonly uow: UnitOfWork,
+    private readonly realtimePublisher: AgentRealtimePublisherService,
   ) {}
 
   async searchAgentRuns(
@@ -71,7 +79,7 @@ export class AgentUseCase {
     workspaceId: string,
     dto: CreateAgentRunDto,
   ): Promise<AgentRunResponseDto> {
-    return this.uow.run(async (manager) => {
+    const run = await this.uow.run(async (manager) => {
       const workspace = await this.getWorkspaceForUser(
         userId,
         workspaceId,
@@ -113,6 +121,10 @@ export class AgentUseCase {
         manager,
       );
     });
+
+    this.realtimePublisher.publishAgentRunCreated(run);
+
+    return run;
   }
 
   async cancelAgentRun(
@@ -120,7 +132,7 @@ export class AgentUseCase {
     workspaceId: string,
     runId: string,
   ): Promise<AgentRunResponseDto> {
-    return this.uow.run(async (manager) => {
+    const cancelledRun = await this.uow.run(async (manager) => {
       const workspace = await this.getWorkspaceForUser(
         userId,
         workspaceId,
@@ -154,6 +166,66 @@ export class AgentUseCase {
 
       return cancelledRun;
     });
+
+    this.realtimePublisher.publishAgentRunUpdated(cancelledRun);
+
+    return cancelledRun;
+  }
+
+  async updateAgentRunStatusForInternal(
+    workspaceId: string,
+    runId: string,
+    dto: UpdateAgentRunStatusForInternalDto,
+  ): Promise<AgentRunResponseDto> {
+    await this.getWorkspace(workspaceId);
+
+    const run = await this.repo.updateAgentRunStatus({
+      workspaceId,
+      runId,
+      status: dto.status,
+    });
+    if (!run) {
+      throw new AgentRunNotFoundError();
+    }
+
+    this.realtimePublisher.publishAgentRunUpdated(run);
+
+    return run;
+  }
+
+  async upsertAgentStepForInternal(
+    workspaceId: string,
+    runId: string,
+    dto: UpsertAgentStepForInternalDto,
+  ): Promise<AgentStepResponseDto> {
+    await this.getWorkspace(workspaceId);
+
+    const result = await this.repo.upsertAgentStep({
+      workspaceId,
+      runId,
+      stepId: dto.stepId,
+      stepOrder: dto.stepOrder,
+      stepType: dto.stepType,
+      status: dto.status,
+      title: dto.title,
+      inputObjectName: dto.inputObjectName,
+      outputObjectName: dto.outputObjectName,
+      inputSummary: dto.inputSummary,
+      outputSummary: dto.outputSummary,
+      errorMessage: dto.errorMessage,
+    });
+    if (!result) {
+      throw new AgentStepTargetMismatchError();
+    }
+
+    const payload = { ...result.step, workspaceId };
+    if (result.wasCreated) {
+      this.realtimePublisher.publishAgentStepCreated(payload);
+    } else {
+      this.realtimePublisher.publishAgentStepUpdated(payload);
+    }
+
+    return result.step;
   }
 
   async getAgentRunSteps(
@@ -186,6 +258,43 @@ export class AgentUseCase {
     return this.repo.findAgentActionsByRunId(workspace.workspaceId, run.runId);
   }
 
+  async upsertAgentActionForInternal(
+    workspaceId: string,
+    runId: string,
+    dto: UpsertAgentActionForInternalDto,
+  ): Promise<AgentActionResponseDto> {
+    await this.getWorkspace(workspaceId);
+
+    const result = await this.repo.upsertAgentAction({
+      workspaceId,
+      runId,
+      actionId: dto.actionId,
+      stepId: dto.stepId,
+      actionType: dto.actionType,
+      targetType: dto.targetType,
+      targetId: dto.targetId,
+      status: dto.status,
+      reasoningSummary: dto.reasoningSummary,
+      payloadObjectName: dto.payloadObjectName,
+      resultObjectName: dto.resultObjectName,
+      requiresApproval: dto.requiresApproval ?? true,
+      approvedByUserId: dto.approvedByUserId,
+      executedAt: dto.executedAt ? new Date(dto.executedAt) : undefined,
+      errorMessage: dto.errorMessage,
+    });
+    if (!result) {
+      throw new AgentActionTargetMismatchError();
+    }
+
+    if (result.wasCreated) {
+      this.realtimePublisher.publishAgentActionCreated(result.action);
+    } else {
+      this.realtimePublisher.publishAgentActionUpdated(result.action);
+    }
+
+    return result.action;
+  }
+
   async getAgentAction(
     userId: string,
     workspaceId: string,
@@ -209,7 +318,7 @@ export class AgentUseCase {
     workspaceId: string,
     actionId: string,
   ): Promise<AgentActionResponseDto> {
-    return this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const workspace = await this.getWorkspaceForUser(
         userId,
         workspaceId,
@@ -245,7 +354,7 @@ export class AgentUseCase {
         throw new AgentActionNotApprovableError();
       }
 
-      await this.repo.createAgentActionEvent(
+      const event = await this.repo.createAgentActionEvent(
         {
           actionId: approvedAction.actionId,
           actorUserId: userId,
@@ -254,8 +363,16 @@ export class AgentUseCase {
         manager,
       );
 
-      return approvedAction;
+      return { approvedAction, event, workspaceId: workspace.workspaceId };
     });
+
+    this.realtimePublisher.publishAgentActionUpdated(result.approvedAction);
+    this.realtimePublisher.publishAgentActionEventCreated({
+      ...result.event,
+      workspaceId: result.workspaceId,
+    });
+
+    return result.approvedAction;
   }
 
   async cancelAgentAction(
@@ -263,7 +380,7 @@ export class AgentUseCase {
     workspaceId: string,
     actionId: string,
   ): Promise<AgentActionResponseDto> {
-    return this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const workspace = await this.getWorkspaceForUser(
         userId,
         workspaceId,
@@ -298,7 +415,7 @@ export class AgentUseCase {
         throw new AgentActionNotCancellableError();
       }
 
-      await this.repo.createAgentActionEvent(
+      const event = await this.repo.createAgentActionEvent(
         {
           actionId: cancelledAction.actionId,
           actorUserId: userId,
@@ -307,8 +424,16 @@ export class AgentUseCase {
         manager,
       );
 
-      return cancelledAction;
+      return { cancelledAction, event, workspaceId: workspace.workspaceId };
     });
+
+    this.realtimePublisher.publishAgentActionUpdated(result.cancelledAction);
+    this.realtimePublisher.publishAgentActionEventCreated({
+      ...result.event,
+      workspaceId: result.workspaceId,
+    });
+
+    return result.cancelledAction;
   }
 
   async getAgentActionEvents(
@@ -327,6 +452,34 @@ export class AgentUseCase {
     }
 
     return this.repo.findAgentActionEventsByActionId(action.actionId);
+  }
+
+  async createAgentActionEventForInternal(
+    workspaceId: string,
+    actionId: string,
+    dto: CreateAgentActionEventForInternalDto,
+  ): Promise<AgentActionEventResponseDto> {
+    await this.getWorkspace(workspaceId);
+
+    const action = await this.repo.findAgentActionById(workspaceId, actionId);
+    if (!action) {
+      throw new AgentActionNotFoundError();
+    }
+
+    const event = await this.repo.createAgentActionEvent({
+      actionId,
+      actorUserId: dto.actorUserId,
+      eventType: dto.eventType,
+      message: dto.message,
+      eventObjectName: dto.eventObjectName,
+    });
+
+    this.realtimePublisher.publishAgentActionEventCreated({
+      ...event,
+      workspaceId,
+    });
+
+    return event;
   }
 
   async upsertAgentMemory(

@@ -1,4 +1,5 @@
 import {
+  Body,
   Controller,
   Get,
   HttpCode,
@@ -10,9 +11,11 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
+import { RequireInternalScopes } from '@/modules/admin';
 import {
   AgentActionEventResponseDto,
   AgentActionResponseDto,
+  CreateAgentActionEventForInternalDto,
 } from '@/modules/agent/dto';
 import { AgentUseCase } from '@/modules/agent/usecases';
 
@@ -52,6 +55,22 @@ export class AgentActionController {
       String(user.sub),
       workspaceId,
       actionId,
+    );
+  }
+
+  @Post('internal/:actionId/events')
+  @RequireInternalScopes('agents:invoke')
+  @ApiOperation({ summary: 'Create agent action event for internal workers' })
+  @ApiDataResponse(AgentActionEventResponseDto)
+  async createAgentActionEventForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Param('actionId') actionId: string,
+    @Body() dto: CreateAgentActionEventForInternalDto,
+  ): Promise<AgentActionEventResponseDto> {
+    return this.usecase.createAgentActionEventForInternal(
+      workspaceId,
+      actionId,
+      dto,
     );
   }
 
