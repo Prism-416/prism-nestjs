@@ -15,6 +15,23 @@ export const AGENT_RUN_STATUSES = [
   'cancelled',
 ] as const;
 
+export const AGENT_STEP_STATUSES = [
+  'pending',
+  'running',
+  'completed',
+  'failed',
+  'skipped',
+] as const;
+
+export const AGENT_ACTION_STATUSES = [
+  'proposed',
+  'approved',
+  'rejected',
+  'executed',
+  'failed',
+  'cancelled',
+] as const;
+
 export const AGENT_MEMORY_TYPES = [
   'agent_decision',
   'agent_summary',
@@ -28,6 +45,8 @@ export const AGENT_EMBEDDING_DIMENSIONS = 1536;
 
 export type AgentRunTriggerType = (typeof AGENT_RUN_TRIGGER_TYPES)[number];
 export type AgentRunStatus = (typeof AGENT_RUN_STATUSES)[number];
+export type AgentStepStatus = (typeof AGENT_STEP_STATUSES)[number];
+export type AgentActionStatus = (typeof AGENT_ACTION_STATUSES)[number];
 export type AgentMemoryType = (typeof AGENT_MEMORY_TYPES)[number];
 
 export type AgentWorkspaceRow = {
@@ -79,6 +98,27 @@ export type CancelAgentRunParams = {
   cancellableStatuses: AgentRunStatus[];
 };
 
+export type UpdateAgentRunStatusParams = {
+  workspaceId: string;
+  runId: string;
+  status: AgentRunStatus;
+};
+
+export type UpsertAgentStepParams = {
+  workspaceId: string;
+  runId: string;
+  stepId?: string;
+  stepOrder: number;
+  stepType: string;
+  status: AgentStepStatus;
+  title: string;
+  inputObjectName?: string;
+  outputObjectName?: string;
+  inputSummary?: string;
+  outputSummary?: string;
+  errorMessage?: string;
+};
+
 export type ApproveAgentActionParams = {
   workspaceId: string;
   actionId: string;
@@ -100,6 +140,24 @@ export type CreateAgentActionEventParams = {
   eventObjectName?: string;
 };
 
+export type UpsertAgentActionParams = {
+  workspaceId: string;
+  runId: string;
+  actionId?: string;
+  stepId?: string;
+  actionType: string;
+  targetType: string;
+  targetId?: string;
+  status: AgentActionStatus;
+  reasoningSummary?: string;
+  payloadObjectName?: string;
+  resultObjectName?: string;
+  requiresApproval: boolean;
+  approvedByUserId?: string;
+  executedAt?: Date;
+  errorMessage?: string;
+};
+
 export type SearchAgentRunsResult = {
   items: AgentRunRow[];
   total: number;
@@ -112,7 +170,7 @@ export type AgentStepRow = {
   runId: string;
   stepOrder: number;
   stepType: string;
-  status: string;
+  status: AgentStepStatus;
   title: string;
   inputObjectName: string | null;
   outputObjectName: string | null;
@@ -132,7 +190,7 @@ export type AgentActionRow = {
   actionType: string;
   targetType: string;
   targetId: string | null;
-  status: string;
+  status: AgentActionStatus;
   reasoningSummary: string | null;
   payloadObjectName: string | null;
   resultObjectName: string | null;
@@ -194,4 +252,14 @@ export type UpsertAgentMemoryEmbeddingParams = {
   model: string;
   dimensions: number;
   embedding: number[];
+};
+
+export type UpsertAgentStepResult = {
+  step: AgentStepRow;
+  wasCreated: boolean;
+};
+
+export type UpsertAgentActionResult = {
+  action: AgentActionRow;
+  wasCreated: boolean;
 };

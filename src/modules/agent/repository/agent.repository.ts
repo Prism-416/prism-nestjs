@@ -17,8 +17,13 @@ import {
   CreateAgentRunParams,
   SearchAgentRunsParams,
   SearchAgentRunsResult,
+  UpdateAgentRunStatusParams,
+  UpsertAgentActionParams,
+  UpsertAgentActionResult,
   UpsertAgentMemoryEmbeddingParams,
   UpsertAgentMemoryParams,
+  UpsertAgentStepParams,
+  UpsertAgentStepResult,
 } from '@/modules/agent/types';
 
 type AgentRunDbRow = {
@@ -286,6 +291,165 @@ export class AgentRepository {
     return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
   }
 
+  async updateAgentRunStatus(
+    params: UpdateAgentRunStatusParams,
+    manager?: EntityManager,
+  ): Promise<AgentRunRow | null> {
+    const runs = await this.getManager(manager).query<AgentRunDbRow[]>(
+      `
+        UPDATE prism_agent_runs_l
+        SET
+          status = $3,
+          started_at = CASE
+            WHEN $3 = 'running' THEN COALESCE(started_at, NOW())
+            ELSE started_at
+          END,
+          completed_at = CASE
+            WHEN $3 IN ('completed', 'failed', 'cancelled') THEN COALESCE(completed_at, NOW())
+            WHEN $3 IN ('queued', 'running', 'waiting') THEN NULL
+            ELSE completed_at
+          END
+        WHERE workspace_id = $1
+          AND run_id = $2
+        RETURNING
+          run_id AS "runId",
+          workspace_id AS "workspaceId",
+          triggered_by_user_id AS "triggeredByUserId",
+          work_item_id AS "workItemId",
+          parent_run_id AS "parentRunId",
+          agent_type AS "agentType",
+          trigger_type AS "triggerType",
+          status,
+          objective,
+          system_prompt_version AS "systemPromptVersion",
+          started_at AS "startedAt",
+          completed_at AS "completedAt",
+          created_at AS "createdAt"
+      `,
+      [params.workspaceId, params.runId, params.status],
+    );
+
+    return runs[0] ? this.mapAgentRunRow(runs[0]) : null;
+  }
+
+  async upsertAgentStep(
+    params: UpsertAgentStepParams,
+    manager?: EntityManager,
+  ): Promise<UpsertAgentStepResult | null> {
+    const steps = await this.getManager(manager).query<
+      Array<AgentStepRow & { wasCreated: boolean }>
+    >(
+      `
+        WITH existing_step AS (
+          SELECT s.step_id
+          FROM prism_agent_steps_l s
+                 INNER JOIN prism_agent_runs_l r
+                            ON r.run_id = s.run_id
+                           AND r.workspace_id = $1
+          WHERE s.run_id = $2
+            AND s.step_order = $4
+        ),
+        validated_step AS (
+          SELECT
+            COALESCE($3::uuid, gen_random_uuid()) AS step_id
+          WHERE EXISTS (
+            SELECT 1
+            FROM prism_agent_runs_l r
+            WHERE r.workspace_id = $1
+              AND r.run_id = $2
+          )
+        )
+        INSERT INTO prism_agent_steps_l (
+          step_id,
+          run_id,
+          step_order,
+          step_type,
+          status,
+          title,
+          input_object_name,
+          output_object_name,
+          input_summary,
+          output_summary,
+          error_message,
+          started_at,
+          completed_at
+        )
+        SELECT
+          validated_step.step_id,
+          $2,
+          $4,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $12,
+          CASE WHEN $6 = 'running' THEN NOW() ELSE NULL END,
+          CASE WHEN $6 IN ('completed', 'failed', 'skipped') THEN NOW() ELSE NULL END
+        FROM validated_step
+        ON CONFLICT (run_id, step_order)
+        DO UPDATE SET
+          step_type = EXCLUDED.step_type,
+          status = EXCLUDED.status,
+          title = EXCLUDED.title,
+          input_object_name = EXCLUDED.input_object_name,
+          output_object_name = EXCLUDED.output_object_name,
+          input_summary = EXCLUDED.input_summary,
+          output_summary = EXCLUDED.output_summary,
+          error_message = EXCLUDED.error_message,
+          started_at = CASE
+            WHEN EXCLUDED.status = 'running' THEN COALESCE(prism_agent_steps_l.started_at, NOW())
+            ELSE prism_agent_steps_l.started_at
+          END,
+          completed_at = CASE
+            WHEN EXCLUDED.status IN ('completed', 'failed', 'skipped') THEN COALESCE(prism_agent_steps_l.completed_at, NOW())
+            WHEN EXCLUDED.status IN ('pending', 'running') THEN NULL
+            ELSE prism_agent_steps_l.completed_at
+          END
+        RETURNING
+          step_id AS "stepId",
+          run_id AS "runId",
+          step_order AS "stepOrder",
+          step_type AS "stepType",
+          status,
+          title,
+          input_object_name AS "inputObjectName",
+          output_object_name AS "outputObjectName",
+          input_summary AS "inputSummary",
+          output_summary AS "outputSummary",
+          error_message AS "errorMessage",
+          started_at AS "startedAt",
+          completed_at AS "completedAt",
+          created_at AS "createdAt",
+          NOT EXISTS (SELECT 1 FROM existing_step) AS "wasCreated"
+      `,
+      [
+        params.workspaceId,
+        params.runId,
+        params.stepId ?? null,
+        params.stepOrder,
+        params.stepType,
+        params.status,
+        params.title,
+        params.inputObjectName ?? null,
+        params.outputObjectName ?? null,
+        params.inputSummary ?? null,
+        params.outputSummary ?? null,
+        params.errorMessage ?? null,
+      ],
+    );
+
+    const step = steps[0];
+    if (!step) {
+      return null;
+    }
+
+    const { wasCreated, ...row } = step;
+    return { step: row, wasCreated };
+  }
+
   async findAgentStepsByRunId(
     workspaceId: string,
     runId: string,
@@ -392,6 +556,148 @@ export class AgentRepository {
     );
 
     return actions[0] ?? null;
+  }
+
+  async upsertAgentAction(
+    params: UpsertAgentActionParams,
+    manager?: EntityManager,
+  ): Promise<UpsertAgentActionResult | null> {
+    const actions = await this.getManager(manager).query<
+      Array<AgentActionRow & { wasCreated: boolean }>
+    >(
+      `
+        WITH existing_action AS (
+          SELECT action_id
+          FROM prism_agent_actions_l
+          WHERE workspace_id = $1
+            AND action_id = $3::uuid
+        ),
+        validated_action AS (
+          SELECT
+            COALESCE($3::uuid, gen_random_uuid()) AS action_id
+          WHERE EXISTS (
+            SELECT 1
+            FROM prism_agent_runs_l r
+            WHERE r.workspace_id = $1
+              AND r.run_id = $2
+          )
+            AND (
+              $4::uuid IS NULL
+              OR EXISTS (
+                SELECT 1
+                FROM prism_agent_steps_l s
+                WHERE s.run_id = $2
+                  AND s.step_id = $4
+              )
+            )
+        )
+        INSERT INTO prism_agent_actions_l (
+          action_id,
+          run_id,
+          step_id,
+          workspace_id,
+          action_type,
+          target_type,
+          target_id,
+          status,
+          reasoning_summary,
+          payload_object_name,
+          result_object_name,
+          requires_approval,
+          approved_by_user_id,
+          approved_at,
+          executed_at,
+          error_message
+        )
+        SELECT
+          validated_action.action_id,
+          $2,
+          $4,
+          $1,
+          $5,
+          $6,
+          $7,
+          $8,
+          $9,
+          $10,
+          $11,
+          $12,
+          $13,
+          CASE WHEN $8 = 'approved' AND $13::uuid IS NOT NULL THEN NOW() ELSE NULL END,
+          COALESCE($14::timestamptz, CASE WHEN $8 = 'executed' THEN NOW() ELSE NULL END),
+          $15
+        FROM validated_action
+        ON CONFLICT (action_id)
+        DO UPDATE SET
+          step_id = EXCLUDED.step_id,
+          action_type = EXCLUDED.action_type,
+          target_type = EXCLUDED.target_type,
+          target_id = EXCLUDED.target_id,
+          status = EXCLUDED.status,
+          reasoning_summary = EXCLUDED.reasoning_summary,
+          payload_object_name = EXCLUDED.payload_object_name,
+          result_object_name = EXCLUDED.result_object_name,
+          requires_approval = EXCLUDED.requires_approval,
+          approved_by_user_id = EXCLUDED.approved_by_user_id,
+          approved_at = CASE
+            WHEN EXCLUDED.approved_by_user_id IS NOT NULL
+              AND (
+                prism_agent_actions_l.approved_at IS NULL
+                OR prism_agent_actions_l.approved_by_user_id IS DISTINCT FROM EXCLUDED.approved_by_user_id
+              )
+              THEN NOW()
+            ELSE prism_agent_actions_l.approved_at
+          END,
+          executed_at = EXCLUDED.executed_at,
+          error_message = EXCLUDED.error_message
+        WHERE prism_agent_actions_l.workspace_id = $1
+          AND prism_agent_actions_l.run_id = $2
+        RETURNING
+          action_id AS "actionId",
+          run_id AS "runId",
+          step_id AS "stepId",
+          workspace_id AS "workspaceId",
+          action_type AS "actionType",
+          target_type AS "targetType",
+          target_id AS "targetId",
+          status,
+          reasoning_summary AS "reasoningSummary",
+          payload_object_name AS "payloadObjectName",
+          result_object_name AS "resultObjectName",
+          requires_approval AS "requiresApproval",
+          approved_by_user_id AS "approvedByUserId",
+          approved_at AS "approvedAt",
+          executed_at AS "executedAt",
+          error_message AS "errorMessage",
+          created_at AS "createdAt",
+          NOT EXISTS (SELECT 1 FROM existing_action) AS "wasCreated"
+      `,
+      [
+        params.workspaceId,
+        params.runId,
+        params.actionId ?? null,
+        params.stepId ?? null,
+        params.actionType,
+        params.targetType,
+        params.targetId ?? null,
+        params.status,
+        params.reasoningSummary ?? null,
+        params.payloadObjectName ?? null,
+        params.resultObjectName ?? null,
+        params.requiresApproval,
+        params.approvedByUserId ?? null,
+        params.executedAt ?? null,
+        params.errorMessage ?? null,
+      ],
+    );
+
+    const action = actions[0];
+    if (!action) {
+      return null;
+    }
+
+    const { wasCreated, ...row } = action;
+    return { action: row, wasCreated };
   }
 
   async approveAgentAction(

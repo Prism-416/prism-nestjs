@@ -5,6 +5,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -12,6 +13,7 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
+import { RequireInternalScopes } from '@/modules/admin';
 import {
   AgentActionResponseDto,
   AgentRunResponseDto,
@@ -19,6 +21,9 @@ import {
   CreateAgentRunDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
+  UpdateAgentRunStatusForInternalDto,
+  UpsertAgentActionForInternalDto,
+  UpsertAgentStepForInternalDto,
 } from '@/modules/agent/dto';
 import { AgentUseCase } from '@/modules/agent/usecases';
 
@@ -49,6 +54,46 @@ export class AgentController {
     @Body() dto: CreateAgentRunDto,
   ): Promise<AgentRunResponseDto> {
     return this.usecase.createAgentRun(String(user.sub), workspaceId, dto);
+  }
+
+  @Patch('internal/:runId/status')
+  @RequireInternalScopes('agents:invoke')
+  @ApiOperation({ summary: 'Update agent run status for internal workers' })
+  @ApiDataResponse(AgentRunResponseDto)
+  async updateAgentRunStatusForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Param('runId') runId: string,
+    @Body() dto: UpdateAgentRunStatusForInternalDto,
+  ): Promise<AgentRunResponseDto> {
+    return this.usecase.updateAgentRunStatusForInternal(
+      workspaceId,
+      runId,
+      dto,
+    );
+  }
+
+  @Post('internal/:runId/steps')
+  @RequireInternalScopes('agents:invoke')
+  @ApiOperation({ summary: 'Upsert agent run step for internal workers' })
+  @ApiDataResponse(AgentStepResponseDto)
+  async upsertAgentStepForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Param('runId') runId: string,
+    @Body() dto: UpsertAgentStepForInternalDto,
+  ): Promise<AgentStepResponseDto> {
+    return this.usecase.upsertAgentStepForInternal(workspaceId, runId, dto);
+  }
+
+  @Post('internal/:runId/actions')
+  @RequireInternalScopes('agents:invoke')
+  @ApiOperation({ summary: 'Upsert agent action for internal workers' })
+  @ApiDataResponse(AgentActionResponseDto)
+  async upsertAgentActionForInternal(
+    @Param('workspaceId') workspaceId: string,
+    @Param('runId') runId: string,
+    @Body() dto: UpsertAgentActionForInternalDto,
+  ): Promise<AgentActionResponseDto> {
+    return this.usecase.upsertAgentActionForInternal(workspaceId, runId, dto);
   }
 
   @Post(':runId/cancel')
