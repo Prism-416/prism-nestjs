@@ -556,6 +556,23 @@ export class AgentMemoryResponseDto {
   createdAt!: Date;
 }
 
+export class AgentRunStateResponseDto {
+  @ApiProperty({ type: AgentRunResponseDto })
+  run!: AgentRunResponseDto;
+
+  @ApiProperty({ type: [AgentStepResponseDto] })
+  steps!: AgentStepResponseDto[];
+
+  @ApiProperty({ type: [AgentActionResponseDto] })
+  actions!: AgentActionResponseDto[];
+
+  @ApiProperty({ type: [AgentActionEventResponseDto] })
+  actionEvents!: AgentActionEventResponseDto[];
+
+  @ApiProperty({ type: [AgentMemoryResponseDto] })
+  memories!: AgentMemoryResponseDto[];
+}
+
 export class UpsertAgentMemoryEmbeddingDto {
   @ApiProperty()
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
