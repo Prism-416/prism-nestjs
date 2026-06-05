@@ -11,6 +11,7 @@ import {
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
 } from '@/modules/project/dto';
+import type { SprintWorkspaceRow } from '@/modules/sprint/types';
 import {
   isSprintNameUniqueViolation,
   isSprintPeriodCheckViolation,
@@ -24,7 +25,7 @@ import {
   SprintWorkspaceNotFoundError,
 } from '@/modules/sprint/errors';
 import { SprintRepository } from '@/modules/sprint/repository';
-import { SPRINT_STATUSES, SprintWorkspaceRow } from '@/modules/sprint/types';
+import { SPRINT_STATUSES } from '@/modules/sprint/types';
 
 @Injectable()
 export class SprintUseCase {
@@ -113,12 +114,7 @@ export class SprintUseCase {
     workspaceId: string,
     dto: CreateSprintDto,
   ): Promise<SprintResponseDto> {
-    const startsAt = new Date(dto.startsAt);
-    const endsAt = new Date(dto.endsAt);
-
-    if (startsAt >= endsAt) {
-      throw new SprintPeriodInvalidError();
-    }
+    const { startsAt, endsAt } = this.parseSprintPeriod(dto);
 
     return this.uow.run(async (manager) => {
       const workspace = await this.getWritableWorkspace(
@@ -127,58 +123,39 @@ export class SprintUseCase {
         manager,
       );
 
-      const nextNumber = await this.repo.getNextSprintNumber(
-        workspace.workspaceId,
-        manager,
-      );
-
-      let sprint: SprintResponseDto;
-
-      try {
-        sprint = await this.repo.createSprint(
-          {
-            workspaceId: workspace.workspaceId,
-            name: `Sprint #${nextNumber}`,
-            goal: dto.goal,
-            startsAt,
-            endsAt,
-            status: SPRINT_STATUSES[0],
-            createdBy: userId,
-          },
-          manager,
-        );
-      } catch (error) {
-        if (isSprintNameUniqueViolation(error)) {
-          throw new SprintAlreadyExistsError();
-        }
-
-        if (isSprintPeriodCheckViolation(error)) {
-          throw new SprintPeriodInvalidError();
-        }
-
-        throw error;
-      }
-
-      const itemsInRange = await this.repo.findWorkItemsInSprintRange(
-        workspace.workspaceId,
+      return this.createSprintInWorkspace(
+        userId,
+        workspace,
+        dto,
         startsAt,
         endsAt,
         manager,
       );
+    });
+  }
 
-      if (itemsInRange.length > 0) {
-        await this.repo.addSprintWorkItems(
-          {
-            workspaceId: workspace.workspaceId,
-            sprintId: sprint.sprintId,
-            items: itemsInRange,
-            addedBy: userId,
-          },
-          manager,
-        );
-      }
+  async createSprintForInternal(
+    userId: string,
+    workspaceId: string,
+    dto: CreateSprintDto,
+  ): Promise<SprintResponseDto> {
+    const { startsAt, endsAt } = this.parseSprintPeriod(dto);
 
-      return sprint;
+    return this.uow.run(async (manager) => {
+      const workspace = await this.getExistingWorkspace(
+        workspaceId,
+        userId,
+        manager,
+      );
+
+      return this.createSprintInWorkspace(
+        userId,
+        workspace,
+        dto,
+        startsAt,
+        endsAt,
+        manager,
+      );
     });
   }
 
@@ -195,57 +172,34 @@ export class SprintUseCase {
         manager,
       );
 
-      const currentSprint = await this.repo.findSprintById(
-        workspace.workspaceId,
+      return this.updateSprintMetadataInWorkspace(
+        workspace,
         sprintId,
+        dto,
         manager,
       );
-      if (!currentSprint) {
-        throw new SprintNotFoundError();
-      }
+    });
+  }
 
-      const startsAt =
-        dto.startsAt !== undefined
-          ? new Date(dto.startsAt)
-          : currentSprint.startsAt;
-      const endsAt =
-        dto.endsAt !== undefined ? new Date(dto.endsAt) : currentSprint.endsAt;
+  async updateSprintMetadataForInternal(
+    userId: string,
+    workspaceId: string,
+    sprintId: string,
+    dto: UpdateSprintMetadataDto,
+  ): Promise<SprintResponseDto> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.getExistingWorkspace(
+        workspaceId,
+        userId,
+        manager,
+      );
 
-      if (startsAt >= endsAt) {
-        throw new SprintPeriodInvalidError();
-      }
-
-      let updatedSprint: SprintResponseDto | null;
-
-      try {
-        updatedSprint = await this.repo.updateSprintMetadata(
-          {
-            workspaceId: workspace.workspaceId,
-            sprintId,
-            name: dto.name ?? currentSprint.name,
-            goal: dto.goal ?? currentSprint.goal,
-            startsAt,
-            endsAt,
-          },
-          manager,
-        );
-      } catch (error) {
-        if (isSprintNameUniqueViolation(error)) {
-          throw new SprintAlreadyExistsError();
-        }
-
-        if (isSprintPeriodCheckViolation(error)) {
-          throw new SprintPeriodInvalidError();
-        }
-
-        throw error;
-      }
-
-      if (!updatedSprint) {
-        throw new SprintNotFoundError();
-      }
-
-      return updatedSprint;
+      return this.updateSprintMetadataInWorkspace(
+        workspace,
+        sprintId,
+        dto,
+        manager,
+      );
     });
   }
 
@@ -262,40 +216,36 @@ export class SprintUseCase {
         manager,
       );
 
-      const sprint = await this.repo.findSprintById(
-        workspace.workspaceId,
+      await this.addSprintWorkItemsInWorkspace(
+        userId,
+        workspace,
         sprintId,
+        dto,
         manager,
       );
-      if (!sprint) {
-        throw new SprintNotFoundError();
-      }
+    });
+  }
 
-      const foundItems = await this.repo.findWorkItemsByIds(
-        workspace.workspaceId,
-        dto.itemIds,
+  async addSprintWorkItemsForInternal(
+    userId: string,
+    workspaceId: string,
+    sprintId: string,
+    dto: AddSprintWorkItemsDto,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.getExistingWorkspace(
+        workspaceId,
+        userId,
         manager,
       );
-      if (foundItems.length !== dto.itemIds.length) {
-        throw new SprintWorkItemNotFoundError();
-      }
 
-      try {
-        await this.repo.addSprintWorkItems(
-          {
-            workspaceId: workspace.workspaceId,
-            sprintId: sprint.sprintId,
-            items: foundItems,
-            addedBy: userId,
-          },
-          manager,
-        );
-      } catch (error) {
-        if (isSprintWorkItemMapDuplicateViolation(error)) {
-          throw new SprintWorkItemAlreadyAddedError();
-        }
-        throw error;
-      }
+      await this.addSprintWorkItemsInWorkspace(
+        userId,
+        workspace,
+        sprintId,
+        dto,
+        manager,
+      );
     });
   }
 
@@ -312,24 +262,34 @@ export class SprintUseCase {
         manager,
       );
 
-      const sprint = await this.repo.findSprintById(
-        workspace.workspaceId,
+      await this.removeSprintWorkItemInWorkspace(
+        workspace,
         sprintId,
-        manager,
-      );
-      if (!sprint) {
-        throw new SprintNotFoundError();
-      }
-
-      const removed = await this.repo.removeSprintWorkItem(
-        workspace.workspaceId,
-        sprint.sprintId,
         itemId,
         manager,
       );
-      if (!removed) {
-        throw new SprintWorkItemNotFoundError();
-      }
+    });
+  }
+
+  async removeSprintWorkItemForInternal(
+    userId: string,
+    workspaceId: string,
+    sprintId: string,
+    itemId: string,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.getExistingWorkspace(
+        workspaceId,
+        userId,
+        manager,
+      );
+
+      await this.removeSprintWorkItemInWorkspace(
+        workspace,
+        sprintId,
+        itemId,
+        manager,
+      );
     });
   }
 
@@ -345,15 +305,260 @@ export class SprintUseCase {
         manager,
       );
 
-      const deleted = await this.repo.deleteSprint(
-        workspace.workspaceId,
-        sprintId,
+      await this.deleteSprintInWorkspace(workspace, sprintId, manager);
+    });
+  }
+
+  async deleteSprintForInternal(
+    userId: string,
+    workspaceId: string,
+    sprintId: string,
+  ): Promise<void> {
+    return this.uow.run(async (manager) => {
+      const workspace = await this.getExistingWorkspace(
+        workspaceId,
+        userId,
         manager,
       );
-      if (!deleted) {
-        throw new SprintNotFoundError();
-      }
+
+      await this.deleteSprintInWorkspace(workspace, sprintId, manager);
     });
+  }
+
+  private parseSprintPeriod(dto: CreateSprintDto): {
+    startsAt: Date;
+    endsAt: Date;
+  } {
+    const startsAt = new Date(dto.startsAt);
+    const endsAt = new Date(dto.endsAt);
+
+    if (startsAt >= endsAt) {
+      throw new SprintPeriodInvalidError();
+    }
+
+    return { startsAt, endsAt };
+  }
+
+  private async createSprintInWorkspace(
+    userId: string,
+    workspace: SprintWorkspaceRow,
+    dto: CreateSprintDto,
+    startsAt: Date,
+    endsAt: Date,
+    manager: EntityManager,
+  ): Promise<SprintResponseDto> {
+    const nextNumber = await this.repo.getNextSprintNumber(
+      workspace.workspaceId,
+      manager,
+    );
+
+    let sprint: SprintResponseDto;
+
+    try {
+      sprint = await this.repo.createSprint(
+        {
+          workspaceId: workspace.workspaceId,
+          name: `Sprint #${nextNumber}`,
+          goal: dto.goal,
+          startsAt,
+          endsAt,
+          status: SPRINT_STATUSES[0],
+          createdBy: userId,
+        },
+        manager,
+      );
+    } catch (error) {
+      if (isSprintNameUniqueViolation(error)) {
+        throw new SprintAlreadyExistsError();
+      }
+
+      if (isSprintPeriodCheckViolation(error)) {
+        throw new SprintPeriodInvalidError();
+      }
+
+      throw error;
+    }
+
+    const itemsInRange = await this.repo.findWorkItemsInSprintRange(
+      workspace.workspaceId,
+      startsAt,
+      endsAt,
+      manager,
+    );
+
+    if (itemsInRange.length > 0) {
+      await this.repo.addSprintWorkItems(
+        {
+          workspaceId: workspace.workspaceId,
+          sprintId: sprint.sprintId,
+          items: itemsInRange,
+          addedBy: userId,
+        },
+        manager,
+      );
+    }
+
+    return sprint;
+  }
+
+  private async updateSprintMetadataInWorkspace(
+    workspace: SprintWorkspaceRow,
+    sprintId: string,
+    dto: UpdateSprintMetadataDto,
+    manager: EntityManager,
+  ): Promise<SprintResponseDto> {
+    const currentSprint = await this.repo.findSprintById(
+      workspace.workspaceId,
+      sprintId,
+      manager,
+    );
+    if (!currentSprint) {
+      throw new SprintNotFoundError();
+    }
+
+    const startsAt =
+      dto.startsAt !== undefined
+        ? new Date(dto.startsAt)
+        : currentSprint.startsAt;
+    const endsAt =
+      dto.endsAt !== undefined ? new Date(dto.endsAt) : currentSprint.endsAt;
+
+    if (startsAt >= endsAt) {
+      throw new SprintPeriodInvalidError();
+    }
+
+    let updatedSprint: SprintResponseDto | null;
+
+    try {
+      updatedSprint = await this.repo.updateSprintMetadata(
+        {
+          workspaceId: workspace.workspaceId,
+          sprintId,
+          name: dto.name ?? currentSprint.name,
+          goal: dto.goal ?? currentSprint.goal,
+          startsAt,
+          endsAt,
+        },
+        manager,
+      );
+    } catch (error) {
+      if (isSprintNameUniqueViolation(error)) {
+        throw new SprintAlreadyExistsError();
+      }
+
+      if (isSprintPeriodCheckViolation(error)) {
+        throw new SprintPeriodInvalidError();
+      }
+
+      throw error;
+    }
+
+    if (!updatedSprint) {
+      throw new SprintNotFoundError();
+    }
+
+    return updatedSprint;
+  }
+
+  private async addSprintWorkItemsInWorkspace(
+    userId: string,
+    workspace: SprintWorkspaceRow,
+    sprintId: string,
+    dto: AddSprintWorkItemsDto,
+    manager: EntityManager,
+  ): Promise<void> {
+    const sprint = await this.repo.findSprintById(
+      workspace.workspaceId,
+      sprintId,
+      manager,
+    );
+    if (!sprint) {
+      throw new SprintNotFoundError();
+    }
+
+    const foundItems = await this.repo.findWorkItemsByIds(
+      workspace.workspaceId,
+      dto.itemIds,
+      manager,
+    );
+    if (foundItems.length !== dto.itemIds.length) {
+      throw new SprintWorkItemNotFoundError();
+    }
+
+    try {
+      await this.repo.addSprintWorkItems(
+        {
+          workspaceId: workspace.workspaceId,
+          sprintId: sprint.sprintId,
+          items: foundItems,
+          addedBy: userId,
+        },
+        manager,
+      );
+    } catch (error) {
+      if (isSprintWorkItemMapDuplicateViolation(error)) {
+        throw new SprintWorkItemAlreadyAddedError();
+      }
+      throw error;
+    }
+  }
+
+  private async removeSprintWorkItemInWorkspace(
+    workspace: SprintWorkspaceRow,
+    sprintId: string,
+    itemId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const sprint = await this.repo.findSprintById(
+      workspace.workspaceId,
+      sprintId,
+      manager,
+    );
+    if (!sprint) {
+      throw new SprintNotFoundError();
+    }
+
+    const removed = await this.repo.removeSprintWorkItem(
+      workspace.workspaceId,
+      sprint.sprintId,
+      itemId,
+      manager,
+    );
+    if (!removed) {
+      throw new SprintWorkItemNotFoundError();
+    }
+  }
+
+  private async deleteSprintInWorkspace(
+    workspace: SprintWorkspaceRow,
+    sprintId: string,
+    manager: EntityManager,
+  ): Promise<void> {
+    const deleted = await this.repo.deleteSprint(
+      workspace.workspaceId,
+      sprintId,
+      manager,
+    );
+    if (!deleted) {
+      throw new SprintNotFoundError();
+    }
+  }
+
+  private async getExistingWorkspace(
+    workspaceId: string,
+    userId: string,
+    manager: EntityManager,
+  ): Promise<SprintWorkspaceRow> {
+    const workspace = await this.repo.findWorkspaceAccessByIdAndUserId(
+      workspaceId,
+      userId,
+      manager,
+    );
+    if (!workspace) {
+      throw new SprintWorkspaceNotFoundError();
+    }
+
+    return { workspaceId: workspace.workspaceId };
   }
 
   private async getWritableWorkspace(

@@ -102,7 +102,11 @@ export class SprintController {
     @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
     @Body() dto: CreateSprintForInternalDto,
   ): Promise<SprintResponseDto> {
-    return this.usecase.createSprint(dto.requestedByUserId, workspaceId, dto);
+    return this.usecase.createSprintForInternal(
+      dto.requestedByUserId,
+      workspaceId,
+      dto,
+    );
   }
 
   @Patch('internal/:sprintId')
@@ -114,7 +118,7 @@ export class SprintController {
     @Param('sprintId', ParseUUIDPipe) sprintId: string,
     @Body() dto: UpdateSprintMetadataForInternalDto,
   ): Promise<SprintResponseDto> {
-    return this.usecase.updateSprintMetadata(
+    return this.usecase.updateSprintMetadataForInternal(
       dto.requestedByUserId,
       workspaceId,
       sprintId,
@@ -173,7 +177,7 @@ export class SprintController {
     @Param('sprintId', ParseUUIDPipe) sprintId: string,
     @Body() dto: AddSprintWorkItemsForInternalDto,
   ): Promise<void> {
-    await this.usecase.addSprintWorkItems(
+    await this.usecase.addSprintWorkItemsForInternal(
       dto.requestedByUserId,
       workspaceId,
       sprintId,
@@ -196,7 +200,7 @@ export class SprintController {
     @Param('itemId', ParseUUIDPipe) itemId: string,
     @Body() dto: RemoveSprintWorkItemForInternalDto,
   ): Promise<void> {
-    await this.usecase.removeSprintWorkItem(
+    await this.usecase.removeSprintWorkItemForInternal(
       dto.requestedByUserId,
       workspaceId,
       sprintId,
@@ -235,7 +239,7 @@ export class SprintController {
     @Param('sprintId', ParseUUIDPipe) sprintId: string,
     @Body() dto: RemoveSprintWorkItemForInternalDto,
   ): Promise<void> {
-    await this.usecase.deleteSprint(
+    await this.usecase.deleteSprintForInternal(
       dto.requestedByUserId,
       workspaceId,
       sprintId,
