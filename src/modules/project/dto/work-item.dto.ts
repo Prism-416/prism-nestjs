@@ -282,6 +282,21 @@ export class DeleteWorkItemForInternalDto {
   requestedByUserId!: string;
 }
 
+export class BulkWorkItemIdsDto {
+  @ApiProperty({
+    type: [String],
+    description: 'Work item ids to act on',
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(200)
+  @ArrayUnique()
+  @IsUUID('4', { each: true })
+  itemIds!: string[];
+}
+
+export class BulkDeleteWorkItemsDto extends BulkWorkItemIdsDto {}
+
 export class WorkItemResponseDto {
   @ApiProperty()
   itemId!: string;
@@ -341,6 +356,66 @@ export class SearchWorkItemsResponseDto {
 
   @ApiProperty()
   offset!: number;
+}
+
+export class TrashedWorkItemResponseDto {
+  @ApiProperty()
+  itemId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty({ nullable: true })
+  parentId!: string | null;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty()
+  description!: string;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  startDate!: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'date', nullable: true })
+  dueDate!: string | null;
+
+  @ApiProperty({ enum: WORK_ITEM_PRIORITIES })
+  priority!: WorkItemPriority;
+
+  @ApiProperty({ enum: WORK_ITEM_STATUSES })
+  status!: WorkItemStatus;
+
+  @ApiProperty()
+  sortOrder!: number;
+
+  @ApiProperty()
+  statusChangedAt!: Date;
+
+  @ApiProperty()
+  createdAt!: Date;
+
+  @ApiProperty({ description: 'When the item was moved to trash' })
+  deletedAt!: Date;
+
+  @ApiProperty({
+    description: 'Number of trashed descendants restored/removed together',
+  })
+  descendantCount!: number;
+
+  @ApiProperty({ type: [String] })
+  assigneeUsernames!: string[];
+
+  @ApiProperty({ type: [String] })
+  labelNames!: string[];
+}
+
+export class SearchTrashedWorkItemsResponseDto {
+  @ApiProperty({ type: [TrashedWorkItemResponseDto] })
+  items!: TrashedWorkItemResponseDto[];
 }
 
 export class UpsertWorkItemEmbeddingDto {

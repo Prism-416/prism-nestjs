@@ -17,11 +17,14 @@ import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import { RequireInternalScopes } from '@/modules/admin';
 import {
+  BulkDeleteWorkItemsDto,
+  BulkWorkItemIdsDto,
   CreateWorkItemDto,
   CreateWorkItemForInternalDto,
   DeleteWorkItemForInternalDto,
   ReorderWorkItemsDto,
   ReorderWorkItemsForInternalDto,
+  SearchTrashedWorkItemsResponseDto,
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
   UpdateWorkItemDto,
@@ -58,6 +61,17 @@ export class WorkItemController {
     @Query() query: SearchWorkItemsQueryDto,
   ): Promise<SearchWorkItemsResponseDto> {
     return this.usecase.searchWorkItemsForInternal(projectId, query);
+  }
+
+  @Get('trash')
+  @Authenticated()
+  @ApiOperation({ summary: 'List trashed work items' })
+  @ApiDataResponse(SearchTrashedWorkItemsResponseDto)
+  async searchTrashedWorkItems(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+  ): Promise<SearchTrashedWorkItemsResponseDto> {
+    return this.usecase.searchTrashedWorkItems(String(user.sub), projectId);
   }
 
   @Get(':itemId')
@@ -154,6 +168,91 @@ export class WorkItemController {
     @Body() dto: CreateWorkItemDto,
   ): Promise<WorkItemResponseDto> {
     return this.usecase.createWorkItem(String(user.sub), projectId, dto);
+  }
+
+  @Post('bulk-delete')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Move multiple work items to trash' })
+  @ApiNoContentResponse({
+    description: 'Successfully moved work items to trash',
+  })
+  async bulkDeleteWorkItems(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: BulkDeleteWorkItemsDto,
+  ): Promise<void> {
+    await this.usecase.bulkDeleteWorkItems(
+      String(user.sub),
+      projectId,
+      dto.itemIds,
+    );
+  }
+
+  @Post('trash/bulk-restore')
+  @Authenticated()
+  @ApiOperation({ summary: 'Restore multiple trashed work items' })
+  @ApiDataResponse(WorkItemResponseDto, { isArray: true })
+  async bulkRestoreWorkItems(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: BulkWorkItemIdsDto,
+  ): Promise<WorkItemResponseDto[]> {
+    return this.usecase.bulkRestoreWorkItems(
+      String(user.sub),
+      projectId,
+      dto.itemIds,
+    );
+  }
+
+  @Post('trash/bulk-delete')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Permanently delete multiple trashed work items' })
+  @ApiNoContentResponse({
+    description: 'Successfully deleted work items permanently',
+  })
+  async bulkPermanentlyDeleteWorkItems(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: BulkWorkItemIdsDto,
+  ): Promise<void> {
+    await this.usecase.bulkPermanentlyDeleteWorkItems(
+      String(user.sub),
+      projectId,
+      dto.itemIds,
+    );
+  }
+
+  @Post('trash/:itemId/restore')
+  @Authenticated()
+  @ApiOperation({ summary: 'Restore a trashed work item' })
+  @ApiDataResponse(WorkItemResponseDto)
+  async restoreWorkItem(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+  ): Promise<WorkItemResponseDto> {
+    return this.usecase.restoreWorkItem(String(user.sub), projectId, itemId);
+  }
+
+  @Delete('trash/:itemId')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Permanently delete a trashed work item' })
+  @ApiNoContentResponse({
+    description: 'Successfully deleted work item permanently',
+  })
+  async permanentlyDeleteWorkItem(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('itemId') itemId: string,
+  ): Promise<void> {
+    await this.usecase.permanentlyDeleteWorkItem(
+      String(user.sub),
+      projectId,
+      itemId,
+    );
   }
 
   @Post('internal')

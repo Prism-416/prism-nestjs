@@ -45,6 +45,11 @@ export type WorkItemDetailRow = WorkItemRow & {
   labelNames: string[];
 };
 
+export type TrashedWorkItemRow = WorkItemDetailRow & {
+  deletedAt: Date;
+  descendantCount: number;
+};
+
 export type WorkItemEmbeddingRow = {
   itemId: string;
   workspaceId: string;
