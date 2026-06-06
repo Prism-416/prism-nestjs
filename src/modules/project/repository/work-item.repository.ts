@@ -5,6 +5,7 @@ import {
   ReorderWorkItemParams,
   SearchWorkItemsParams,
   SearchWorkItemsResult,
+  TrashedWorkItemRow,
   UpsertWorkItemEmbeddingParams,
   WorkItemAssigneeRow,
   WorkItemDetailRow,
@@ -62,6 +63,7 @@ export class WorkItemRepository {
           FROM prism_work_items_l wi
           WHERE wi.workspace_id = $1
             AND wi.project_id = $2
+            AND wi.deleted_at IS NULL
             AND (
               $3::text IS NULL
               OR wi.title ILIKE '%' || $3 || '%'
@@ -210,6 +212,7 @@ export class WorkItemRepository {
         WHERE workspace_id = $1
           AND project_id = $2
           AND item_id = $3
+          AND deleted_at IS NULL
         LIMIT 1
       `,
       [workspaceId, projectId, itemId],
@@ -244,6 +247,7 @@ export class WorkItemRepository {
         WHERE workspace_id = $1
           AND project_id = $2
           AND item_id = $3
+          AND deleted_at IS NULL
         LIMIT 1
       `,
       [workspaceId, projectId, itemId],
@@ -301,6 +305,7 @@ export class WorkItemRepository {
         WHERE wi.workspace_id = $1
           AND wi.project_id = $2
           AND wi.item_id = $3
+          AND wi.deleted_at IS NULL
         LIMIT 1
       `,
       [workspaceId, projectId, itemId],
@@ -362,6 +367,7 @@ export class WorkItemRepository {
         WHERE wi.workspace_id = $1
           AND wi.project_id = $2
           AND wi.item_id = ANY($3::uuid[])
+          AND wi.deleted_at IS NULL
         ORDER BY array_position($3::uuid[], wi.item_id)
       `,
       [workspaceId, projectId, itemIds],
@@ -417,6 +423,7 @@ export class WorkItemRepository {
         WHERE wi.workspace_id = $1
           AND wi.project_id = $2
           AND wi.parent_id = $3
+          AND wi.deleted_at IS NULL
         ORDER BY wi.sort_order ASC, wi.created_at ASC, wi.item_id ASC
       `,
       [workspaceId, projectId, parentId],
@@ -471,6 +478,7 @@ export class WorkItemRepository {
                 AND existing.project_id = $2
                 AND existing.parent_id IS NOT DISTINCT FROM $3::uuid
                 AND existing.status = $7::varchar
+                AND existing.deleted_at IS NULL
             ),
             0
           ),
@@ -553,6 +561,7 @@ export class WorkItemRepository {
                                AND existing.parent_id IS NOT DISTINCT FROM wi.parent_id
                                AND existing.status = $13::varchar
                                AND existing.item_id <> wi.item_id
+                               AND existing.deleted_at IS NULL
                            ),
                            0
                          )
@@ -574,6 +583,7 @@ export class WorkItemRepository {
         WHERE workspace_id = $1
           AND project_id = $2
           AND item_id = $3
+          AND deleted_at IS NULL
         RETURNING
           item_id AS "itemId",
           workspace_id AS "workspaceId",
@@ -630,6 +640,7 @@ export class WorkItemRepository {
           AND project_id = $2
           AND parent_id IS NULL
           AND item_id = ANY($3::uuid[])
+          AND deleted_at IS NULL
       `,
       [workspaceId, projectId, itemIds],
     );
@@ -700,6 +711,248 @@ export class WorkItemRepository {
     );
 
     return items.length > 0;
+  }
+
+  /**
+   * Soft-delete the given work items and all of their (non-deleted) descendants
+   * by stamping `deleted_at`. Returns every affected item id.
+   */
+  async softDeleteWorkItemsWithDescendants(
+    workspaceId: string,
+    projectId: string,
+    itemIds: string[],
+    manager?: EntityManager,
+  ): Promise<string[]> {
+    if (itemIds.length === 0) {
+      return [];
+    }
+
+    const rows = await this.getManager(manager).query<
+      Array<{ itemId: string }>
+    >(
+      `
+        WITH RECURSIVE subtree AS (
+          SELECT item_id
+          FROM prism_work_items_l
+          WHERE workspace_id = $1
+            AND project_id = $2
+            AND item_id = ANY($3::uuid[])
+            AND deleted_at IS NULL
+          UNION
+          SELECT child.item_id
+          FROM prism_work_items_l child
+                 INNER JOIN subtree ON child.parent_id = subtree.item_id
+          WHERE child.workspace_id = $1
+            AND child.project_id = $2
+            AND child.deleted_at IS NULL
+        )
+        UPDATE prism_work_items_l wi
+        SET deleted_at = NOW(),
+            updated_at = NOW()
+        FROM subtree
+        WHERE wi.item_id = subtree.item_id
+        RETURNING wi.item_id AS "itemId"
+      `,
+      [workspaceId, projectId, itemIds],
+    );
+
+    return rows.map((row) => row.itemId);
+  }
+
+  /**
+   * Restore a trashed work item and all of its trashed descendants by clearing
+   * `deleted_at`. Returns every affected item id.
+   */
+  async restoreWorkItemWithDescendants(
+    workspaceId: string,
+    projectId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<string[]> {
+    const rows = await this.getManager(manager).query<
+      Array<{ itemId: string }>
+    >(
+      `
+        WITH RECURSIVE subtree AS (
+          SELECT item_id
+          FROM prism_work_items_l
+          WHERE workspace_id = $1
+            AND project_id = $2
+            AND item_id = $3
+            AND deleted_at IS NOT NULL
+          UNION
+          SELECT child.item_id
+          FROM prism_work_items_l child
+                 INNER JOIN subtree ON child.parent_id = subtree.item_id
+          WHERE child.workspace_id = $1
+            AND child.project_id = $2
+            AND child.deleted_at IS NOT NULL
+        )
+        UPDATE prism_work_items_l wi
+        SET deleted_at = NULL,
+            updated_at = NOW()
+        FROM subtree
+        WHERE wi.item_id = subtree.item_id
+        RETURNING wi.item_id AS "itemId"
+      `,
+      [workspaceId, projectId, itemId],
+    );
+
+    return rows.map((row) => row.itemId);
+  }
+
+  /**
+   * A trashed work item is a "deletion root" when it is itself trashed and its
+   * parent is not trashed (or it has no parent). Restore / permanent delete are
+   * only allowed on roots so subtrees move together.
+   */
+  async findTrashedWorkItemRootById(
+    workspaceId: string,
+    projectId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<{ itemId: string } | null> {
+    const items = await this.getManager(manager).query<
+      Array<{ itemId: string }>
+    >(
+      `
+        SELECT wi.item_id AS "itemId"
+        FROM prism_work_items_l wi
+        WHERE wi.workspace_id = $1
+          AND wi.project_id = $2
+          AND wi.item_id = $3
+          AND wi.deleted_at IS NOT NULL
+          AND (
+            wi.parent_id IS NULL
+            OR NOT EXISTS (
+              SELECT 1
+              FROM prism_work_items_l parent
+              WHERE parent.workspace_id = wi.workspace_id
+                AND parent.project_id = wi.project_id
+                AND parent.item_id = wi.parent_id
+                AND parent.deleted_at IS NOT NULL
+            )
+          )
+        LIMIT 1
+      `,
+      [workspaceId, projectId, itemId],
+    );
+
+    return items[0] ?? null;
+  }
+
+  /**
+   * List trashed deletion roots with the count of their trashed descendants.
+   */
+  async searchTrashedWorkItems(
+    workspaceId: string,
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<TrashedWorkItemRow[]> {
+    return this.getManager(manager).query<TrashedWorkItemRow[]>(
+      `
+        WITH RECURSIVE trashed AS (
+          SELECT wi.item_id, wi.item_id AS root_id, 0 AS depth
+          FROM prism_work_items_l wi
+          WHERE wi.workspace_id = $1
+            AND wi.project_id = $2
+            AND wi.deleted_at IS NOT NULL
+            AND (
+              wi.parent_id IS NULL
+              OR NOT EXISTS (
+                SELECT 1
+                FROM prism_work_items_l parent
+                WHERE parent.workspace_id = wi.workspace_id
+                  AND parent.project_id = wi.project_id
+                  AND parent.item_id = wi.parent_id
+                  AND parent.deleted_at IS NOT NULL
+              )
+            )
+          UNION ALL
+          SELECT child.item_id, t.root_id, t.depth + 1
+          FROM prism_work_items_l child
+                 INNER JOIN trashed t ON child.parent_id = t.item_id
+          WHERE child.workspace_id = $1
+            AND child.project_id = $2
+            AND child.deleted_at IS NOT NULL
+        ),
+        counts AS (
+          SELECT root_id, COUNT(*) FILTER (WHERE depth > 0)::int AS descendant_count
+          FROM trashed
+          GROUP BY root_id
+        )
+        SELECT
+          wi.item_id AS "itemId",
+          wi.workspace_id AS "workspaceId",
+          wi.project_id AS "projectId",
+          wi.parent_id AS "parentId",
+          wi.title,
+          wi.description,
+          wi.start_date AS "startDate",
+          wi.due_date AS "dueDate",
+          wi.priority,
+          wi.status,
+          wi.sort_order AS "sortOrder",
+          wi.status_changed_at AS "statusChangedAt",
+          wi.created_at AS "createdAt",
+          wi.deleted_at AS "deletedAt",
+          c.descendant_count AS "descendantCount",
+          COALESCE(
+            (
+              SELECT array_agg(u.username ORDER BY wimm.position)
+              FROM prism_work_item_member_map wimm
+                     INNER JOIN prism_users_l u
+                                ON u.user_id = wimm.user_id
+              WHERE wimm.workspace_id = wi.workspace_id
+                AND wimm.item_id = wi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "assigneeUsernames",
+          COALESCE(
+            (
+              SELECT array_agg(wil.label ORDER BY wil.label)
+              FROM prism_work_item_label_map wilm
+                     INNER JOIN prism_work_item_labels_l wil
+                                ON wil.project_id = wilm.project_id
+                               AND wil.label_id = wilm.label_id
+              WHERE wilm.project_id = wi.project_id
+                AND wilm.item_id = wi.item_id
+            ),
+            ARRAY[]::text[]
+          ) AS "labelNames"
+        FROM counts c
+               INNER JOIN prism_work_items_l wi ON wi.item_id = c.root_id
+        ORDER BY wi.deleted_at DESC, wi.item_id DESC
+      `,
+      [workspaceId, projectId],
+    );
+  }
+
+  /**
+   * Permanently delete trashed work items whose retention window has elapsed.
+   * Descendants are removed via the ON DELETE CASCADE parent foreign key.
+   */
+  async purgeExpiredTrashedWorkItems(
+    workspaceId: string,
+    projectId: string,
+    retentionDays: number,
+    manager?: EntityManager,
+  ): Promise<number> {
+    const rows = await this.getManager(manager).query<
+      Array<{ itemId: string }>
+    >(
+      `
+        DELETE FROM prism_work_items_l
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND deleted_at IS NOT NULL
+          AND deleted_at < NOW() - make_interval(days => $3::int)
+        RETURNING item_id AS "itemId"
+      `,
+      [workspaceId, projectId, retentionDays],
+    );
+
+    return rows.length;
   }
 
   async findWorkspaceMembersByUsernames(

@@ -268,6 +268,7 @@ export class SprintRepository {
                            AND wi.item_id = swim.item_id
           WHERE swim.workspace_id = $1
             AND swim.sprint_id = $2
+            AND wi.deleted_at IS NULL
             AND (
               $3::text IS NULL
               OR wi.title ILIKE '%' || $3 || '%'

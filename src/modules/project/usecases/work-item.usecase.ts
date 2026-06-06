@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { UnitOfWork } from '@/core/database';
-import { PROJECT_EMBEDDING_DIMENSIONS } from '@/modules/project/constants';
+import {
+  PROJECT_EMBEDDING_DIMENSIONS,
+  WORK_ITEM_TRASH_RETENTION_DAYS,
+} from '@/modules/project/constants';
 import {
   CreateWorkItemDto,
   ReorderWorkItemsDto,
+  SearchTrashedWorkItemsResponseDto,
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
   UpdateWorkItemDto,
@@ -564,7 +568,181 @@ export class WorkItemUseCase {
     return reorderedWorkItems;
   }
 
+  /**
+   * Move a single work item (and its descendants) to the trash (soft delete).
+   */
   async deleteWorkItem(
+    userId: string,
+    projectId: string,
+    itemId: string,
+  ): Promise<void> {
+    const rootIds = await this.trashWorkItems(userId, projectId, [itemId]);
+    if (rootIds.length === 0) {
+      throw new WorkItemNotFoundError();
+    }
+
+    for (const rootId of rootIds) {
+      this.realtimePublisher.publishWorkItemDeleted({
+        projectId,
+        itemId: rootId,
+      });
+    }
+  }
+
+  /**
+   * Move multiple work items (and their descendants) to the trash at once.
+   */
+  async bulkDeleteWorkItems(
+    userId: string,
+    projectId: string,
+    itemIds: string[],
+  ): Promise<void> {
+    const rootIds = await this.trashWorkItems(userId, projectId, itemIds);
+    if (rootIds.length === 0) {
+      throw new WorkItemNotFoundError();
+    }
+
+    for (const rootId of rootIds) {
+      this.realtimePublisher.publishWorkItemDeleted({
+        projectId,
+        itemId: rootId,
+      });
+    }
+  }
+
+  private async trashWorkItems(
+    userId: string,
+    projectId: string,
+    itemIds: string[],
+  ): Promise<string[]> {
+    return this.uow.run(async (manager) => {
+      const project =
+        await this.projectRepository.findProjectByIdAndMemberUserId(
+          projectId,
+          userId,
+          manager,
+        );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      // Only the requested ids that are still live become deletion roots; the
+      // repository cascades to descendants and returns every affected id.
+      const liveRootIds: string[] = [];
+      for (const itemId of itemIds) {
+        const existing = await this.workItemRepository.findWorkItemById(
+          project.workspaceId,
+          project.projectId,
+          itemId,
+          manager,
+        );
+        if (existing) {
+          liveRootIds.push(existing.itemId);
+        }
+      }
+
+      if (liveRootIds.length === 0) {
+        return [];
+      }
+
+      await this.workItemRepository.softDeleteWorkItemsWithDescendants(
+        project.workspaceId,
+        project.projectId,
+        liveRootIds,
+        manager,
+      );
+
+      return liveRootIds;
+    });
+  }
+
+  /**
+   * List trashed work items, purging any whose retention window has elapsed.
+   */
+  async searchTrashedWorkItems(
+    userId: string,
+    projectId: string,
+  ): Promise<SearchTrashedWorkItemsResponseDto> {
+    const project = await this.projectRepository.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    await this.workItemRepository.purgeExpiredTrashedWorkItems(
+      project.workspaceId,
+      project.projectId,
+      WORK_ITEM_TRASH_RETENTION_DAYS,
+    );
+
+    const items = await this.workItemRepository.searchTrashedWorkItems(
+      project.workspaceId,
+      project.projectId,
+    );
+
+    return { items };
+  }
+
+  /**
+   * Restore a trashed work item (and its trashed descendants) back to the board.
+   */
+  async restoreWorkItem(
+    userId: string,
+    projectId: string,
+    itemId: string,
+  ): Promise<WorkItemResponseDto> {
+    const restored = await this.uow.run(async (manager) => {
+      const project =
+        await this.projectRepository.findProjectByIdAndMemberUserId(
+          projectId,
+          userId,
+          manager,
+        );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      const root = await this.workItemRepository.findTrashedWorkItemRootById(
+        project.workspaceId,
+        project.projectId,
+        itemId,
+        manager,
+      );
+      if (!root) {
+        throw new WorkItemNotFoundError();
+      }
+
+      await this.workItemRepository.restoreWorkItemWithDescendants(
+        project.workspaceId,
+        project.projectId,
+        itemId,
+        manager,
+      );
+
+      const detail = await this.workItemRepository.findWorkItemDetailById(
+        project.workspaceId,
+        project.projectId,
+        itemId,
+        manager,
+      );
+      if (!detail) {
+        throw new WorkItemNotFoundError();
+      }
+
+      return detail;
+    });
+
+    this.realtimePublisher.publishWorkItemCreated(restored);
+
+    return restored;
+  }
+
+  /**
+   * Permanently delete a trashed work item (and its descendants via cascade).
+   */
+  async permanentlyDeleteWorkItem(
     userId: string,
     projectId: string,
     itemId: string,
@@ -580,17 +758,131 @@ export class WorkItemUseCase {
         throw new ProjectNotFoundError();
       }
 
-      const deleted = await this.workItemRepository.deleteWorkItem(
+      const root = await this.workItemRepository.findTrashedWorkItemRootById(
         project.workspaceId,
         project.projectId,
         itemId,
         manager,
       );
-      if (!deleted) {
+      if (!root) {
         throw new WorkItemNotFoundError();
       }
+
+      await this.workItemRepository.deleteWorkItem(
+        project.workspaceId,
+        project.projectId,
+        itemId,
+        manager,
+      );
     });
 
     this.realtimePublisher.publishWorkItemDeleted({ projectId, itemId });
+  }
+
+  /**
+   * Restore multiple trashed work items (and their descendants) at once.
+   */
+  async bulkRestoreWorkItems(
+    userId: string,
+    projectId: string,
+    itemIds: string[],
+  ): Promise<WorkItemResponseDto[]> {
+    const restored = await this.uow.run(async (manager) => {
+      const project =
+        await this.projectRepository.findProjectByIdAndMemberUserId(
+          projectId,
+          userId,
+          manager,
+        );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      const details: WorkItemResponseDto[] = [];
+      for (const itemId of itemIds) {
+        const root = await this.workItemRepository.findTrashedWorkItemRootById(
+          project.workspaceId,
+          project.projectId,
+          itemId,
+          manager,
+        );
+        if (!root) {
+          continue;
+        }
+
+        await this.workItemRepository.restoreWorkItemWithDescendants(
+          project.workspaceId,
+          project.projectId,
+          itemId,
+          manager,
+        );
+
+        const detail = await this.workItemRepository.findWorkItemDetailById(
+          project.workspaceId,
+          project.projectId,
+          itemId,
+          manager,
+        );
+        if (detail) {
+          details.push(detail);
+        }
+      }
+
+      return details;
+    });
+
+    for (const detail of restored) {
+      this.realtimePublisher.publishWorkItemCreated(detail);
+    }
+
+    return restored;
+  }
+
+  /**
+   * Permanently delete multiple trashed work items (and descendants) at once.
+   */
+  async bulkPermanentlyDeleteWorkItems(
+    userId: string,
+    projectId: string,
+    itemIds: string[],
+  ): Promise<void> {
+    const deletedIds = await this.uow.run(async (manager) => {
+      const project =
+        await this.projectRepository.findProjectByIdAndMemberUserId(
+          projectId,
+          userId,
+          manager,
+        );
+      if (!project) {
+        throw new ProjectNotFoundError();
+      }
+
+      const removed: string[] = [];
+      for (const itemId of itemIds) {
+        const root = await this.workItemRepository.findTrashedWorkItemRootById(
+          project.workspaceId,
+          project.projectId,
+          itemId,
+          manager,
+        );
+        if (!root) {
+          continue;
+        }
+
+        await this.workItemRepository.deleteWorkItem(
+          project.workspaceId,
+          project.projectId,
+          itemId,
+          manager,
+        );
+        removed.push(itemId);
+      }
+
+      return removed;
+    });
+
+    for (const itemId of deletedIds) {
+      this.realtimePublisher.publishWorkItemDeleted({ projectId, itemId });
+    }
   }
 }

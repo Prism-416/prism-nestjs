@@ -386,6 +386,7 @@ CREATE TABLE IF NOT EXISTS prism_work_items_l
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
     archived_at       TIMESTAMPTZ,
+    deleted_at        TIMESTAMPTZ,
 
     CONSTRAINT uq_work_items_workspace_item UNIQUE (workspace_id, item_id),
     CONSTRAINT uq_work_items_project_item UNIQUE (project_id, item_id),
@@ -428,6 +429,9 @@ CREATE INDEX IF NOT EXISTS idx_work_items_project_status
 
 CREATE INDEX IF NOT EXISTS idx_work_items_parent_id
     ON prism_work_items_l (parent_id);
+
+CREATE INDEX IF NOT EXISTS idx_work_items_project_deleted
+    ON prism_work_items_l (project_id, deleted_at);
 
 CREATE OR REPLACE FUNCTION prism_enforce_work_item_depth()
     RETURNS TRIGGER AS
