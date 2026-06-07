@@ -114,6 +114,52 @@ export class GithubInstallationRepository {
     return grants.length > 0;
   }
 
+  async grantInstallationToWorkspace(
+    params: {
+      githubInstallationId: string;
+      workspaceId: string;
+      grantedByUserId: string | null;
+    },
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        INSERT INTO prism_github_installation_workspace_grants_l (
+          github_installation_id,
+          workspace_id,
+          granted_by
+        )
+        VALUES ($1, $2, $3)
+        ON CONFLICT (github_installation_id, workspace_id)
+          DO UPDATE SET
+            granted_by = EXCLUDED.granted_by,
+            granted_at = NOW()
+      `,
+      [params.githubInstallationId, params.workspaceId, params.grantedByUserId],
+    );
+  }
+
+  async existsInstallationWorkspaceGrant(
+    params: {
+      githubInstallationId: string;
+      workspaceId: string;
+    },
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const grants = await this.getManager(manager).query<Array<{ exists: 1 }>>(
+      `
+        SELECT 1 AS "exists"
+        FROM prism_github_installation_workspace_grants_l
+        WHERE github_installation_id = $1
+          AND workspace_id = $2
+        LIMIT 1
+      `,
+      [params.githubInstallationId, params.workspaceId],
+    );
+
+    return grants.length > 0;
+  }
+
   private getManager(manager?: EntityManager): DataSource | EntityManager {
     return manager ?? this.dataSource;
   }

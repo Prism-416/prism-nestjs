@@ -147,6 +147,15 @@ export class WorkspaceJobNotFoundError extends NotExistsError {
   }
 }
 
+export class WorkspaceRepositoryLinkNotFoundError extends NotExistsError {
+  constructor() {
+    super(
+      'Workspace repository link not found.',
+      'WORKSPACE_REPOSITORY_LINK_NOT_FOUND',
+    );
+  }
+}
+
 export class FeatureProvisioningProjectNotFoundError extends NotExistsError {
   constructor() {
     super('Project not found.', 'FEATURE_PROVISIONING_PROJECT_NOT_FOUND');

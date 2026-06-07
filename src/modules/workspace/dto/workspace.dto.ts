@@ -10,6 +10,7 @@ import {
   IsNotEmpty,
   IsString,
   IsUUID,
+  Matches,
   MaxLength,
   MinLength,
   ValidateNested,
@@ -222,6 +223,54 @@ export class WorkspaceSummaryResponseDto extends WorkspaceResponseDto {
 
   @ApiProperty()
   projectCount!: number;
+}
+
+export class CreateWorkspaceRepositoryLinkDto {
+  @ApiProperty()
+  @Matches(/^\d+$/)
+  githubInstallationId!: string;
+
+  @ApiProperty()
+  @Matches(/^\d+$/)
+  githubRepositoryId!: string;
+}
+
+export class WorkspaceRepositoryLinkResponseDto {
+  @ApiProperty()
+  linkId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  githubInstallationId!: string;
+
+  @ApiProperty()
+  githubRepositoryId!: string;
+
+  @ApiProperty()
+  repositoryOwner!: string;
+
+  @ApiProperty()
+  repositoryName!: string;
+
+  @ApiProperty()
+  repositoryFullName!: string;
+
+  @ApiProperty()
+  repositoryUrl!: string;
+
+  @ApiProperty({ nullable: true })
+  defaultBranch!: string | null;
+
+  @ApiProperty({ enum: ['public', 'private', 'internal'], nullable: true })
+  visibility!: 'public' | 'private' | 'internal' | null;
+
+  @ApiProperty({ nullable: true })
+  connectedByUserId!: string | null;
+
+  @ApiProperty()
+  connectedAt!: Date;
 }
 
 export class SearchWorkspaceMemberCandidatesQueryDto {

@@ -2,22 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import type { GithubRepositorySummary } from '@/modules/github/types';
-import type { ProjectRepositoryLinkRow } from '@/modules/project/types';
+import type { WorkspaceRepositoryLinkRow } from '@/modules/workspace/types';
 
 @Injectable()
-export class ProjectRepositoryLinkRepository {
+export class WorkspaceRepositoryLinkRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
 
-  async findLinksByProjectId(
-    projectId: string,
+  async findLinksByWorkspaceId(
+    workspaceId: string,
     manager?: EntityManager,
-  ): Promise<ProjectRepositoryLinkRow[]> {
-    return this.getManager(manager).query<ProjectRepositoryLinkRow[]>(
+  ): Promise<WorkspaceRepositoryLinkRow[]> {
+    return this.getManager(manager).query<WorkspaceRepositoryLinkRow[]>(
       `
         SELECT
           link_id AS "linkId",
           workspace_id AS "workspaceId",
-          project_id AS "projectId",
           github_installation_id::text AS "githubInstallationId",
           github_repository_id::text AS "githubRepositoryId",
           repository_owner AS "repositoryOwner",
@@ -28,31 +27,29 @@ export class ProjectRepositoryLinkRepository {
           visibility,
           connected_by AS "connectedByUserId",
           connected_at AS "connectedAt"
-        FROM prism_project_repository_links_l
-        WHERE project_id = $1
+        FROM prism_workspace_repository_links_l
+        WHERE workspace_id = $1
         ORDER BY connected_at DESC
       `,
-      [projectId],
+      [workspaceId],
     );
   }
 
   async upsertLink(
     params: {
       workspaceId: string;
-      projectId: string;
       githubInstallationId: string;
       connectedByUserId: string;
       repository: GithubRepositorySummary;
     },
     manager?: EntityManager,
-  ): Promise<ProjectRepositoryLinkRow> {
+  ): Promise<WorkspaceRepositoryLinkRow> {
     const links = await this.getManager(manager).query<
-      ProjectRepositoryLinkRow[]
+      WorkspaceRepositoryLinkRow[]
     >(
       `
-        INSERT INTO prism_project_repository_links_l (
+        INSERT INTO prism_workspace_repository_links_l (
           workspace_id,
-          project_id,
           github_installation_id,
           github_repository_id,
           repository_owner,
@@ -63,8 +60,8 @@ export class ProjectRepositoryLinkRepository {
           visibility,
           connected_by
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        ON CONFLICT (project_id, github_repository_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        ON CONFLICT (workspace_id, github_repository_id)
           DO UPDATE SET
             github_installation_id = EXCLUDED.github_installation_id,
             repository_owner = EXCLUDED.repository_owner,
@@ -78,7 +75,6 @@ export class ProjectRepositoryLinkRepository {
         RETURNING
           link_id AS "linkId",
           workspace_id AS "workspaceId",
-          project_id AS "projectId",
           github_installation_id::text AS "githubInstallationId",
           github_repository_id::text AS "githubRepositoryId",
           repository_owner AS "repositoryOwner",
@@ -92,7 +88,6 @@ export class ProjectRepositoryLinkRepository {
       `,
       [
         params.workspaceId,
-        params.projectId,
         params.githubInstallationId,
         params.repository.githubRepositoryId,
         params.repository.owner,
@@ -110,7 +105,7 @@ export class ProjectRepositoryLinkRepository {
 
   async deleteLink(
     params: {
-      projectId: string;
+      workspaceId: string;
       linkId: string;
     },
     manager?: EntityManager,
@@ -119,12 +114,12 @@ export class ProjectRepositoryLinkRepository {
       Array<{ linkId: string }>
     >(
       `
-        DELETE FROM prism_project_repository_links_l
-        WHERE project_id = $1
+        DELETE FROM prism_workspace_repository_links_l
+        WHERE workspace_id = $1
           AND link_id = $2
         RETURNING link_id AS "linkId"
       `,
-      [params.projectId, params.linkId],
+      [params.workspaceId, params.linkId],
     );
 
     return deletedLinks.length > 0;

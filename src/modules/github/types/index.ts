@@ -4,7 +4,7 @@ export type GithubInstallationStatus = 'active' | 'suspended' | 'deleted';
 export type GithubRepositoryVisibility = 'public' | 'private' | 'internal';
 
 export type GithubInstallationState = {
-  projectId: string;
+  workspaceId: string;
   userId: string;
   expiresAt: number;
   nonce: string;
