@@ -58,6 +58,7 @@ type GithubTokenExchangeResponse = {
 type GithubVerifyParams = {
   code: string;
   state: string;
+  transaction?: string;
   cookieHeader?: string;
 };
 
@@ -112,10 +113,12 @@ export class GithubTokenVerifierService {
   async verify({
     code,
     state,
+    transaction: signedTransaction,
     cookieHeader,
   }: GithubVerifyParams): Promise<GithubProfile> {
     const transaction = this.validateOAuthTransaction({
       state,
+      signedTransaction,
       cookieHeader,
     });
 
@@ -222,11 +225,12 @@ export class GithubTokenVerifierService {
 
   private validateOAuthTransaction(params: {
     state: string;
+    signedTransaction?: string;
     cookieHeader?: string;
   }): GithubOAuthTransactionPayload {
-    const cookieValue = this.parseCookies(params.cookieHeader)[
-      GITHUB_OAUTH_TRANSACTION_COOKIE
-    ];
+    const cookieValue =
+      this.parseCookies(params.cookieHeader)[GITHUB_OAUTH_TRANSACTION_COOKIE] ??
+      params.signedTransaction;
 
     if (!cookieValue) {
       throw new InvalidGithubOAuthStateError();
