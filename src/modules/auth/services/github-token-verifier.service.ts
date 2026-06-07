@@ -43,6 +43,12 @@ type GithubOAuthTransactionPayload = {
   expiresAt: number;
 };
 
+type GithubOAuthCallbackStatePayload = {
+  appRedirectUrl: string;
+  expiresAt: number;
+  nonce: string;
+};
+
 type GithubTokenExchangeResponse = {
   access_token?: string;
   token_type?: string;
@@ -103,10 +109,22 @@ export class GithubTokenVerifierService {
     state: string;
     cookieHeader?: string;
   }): GithubOAuthCallbackContext {
-    const transaction = this.validateOAuthTransaction(params);
+    try {
+      const transaction = this.validateOAuthTransaction(params);
+
+      return {
+        appRedirectUrl: transaction.appRedirectUrl,
+      };
+    } catch (error) {
+      if (!(error instanceof InvalidGithubOAuthStateError)) {
+        throw error;
+      }
+    }
+
+    const callbackState = this.readSignedOAuthCallbackState(params.state);
 
     return {
-      appRedirectUrl: transaction.appRedirectUrl,
+      appRedirectUrl: callbackState.appRedirectUrl,
     };
   }
 
@@ -197,15 +215,21 @@ export class GithubTokenVerifierService {
     appRedirectUrl: string;
   }): GithubOAuthTransactionPayload {
     const expiresAt = Date.now() + this.getStateTtlSec() * 1000;
+    const appRedirectUrl = this.normalizeUrl(
+      params.appRedirectUrl,
+      'appRedirectUrl',
+    );
+    const state = this.signOAuthCallbackState({
+      appRedirectUrl,
+      expiresAt,
+      nonce: randomBytes(16).toString('hex'),
+    });
 
     return {
-      state: randomBytes(16).toString('hex'),
+      state,
       codeVerifier: randomBytes(32).toString('base64url'),
       redirectUri: this.getRequiredUrlConfig('GITHUB_OAUTH_CALLBACK_URL'),
-      appRedirectUrl: this.normalizeUrl(
-        params.appRedirectUrl,
-        'appRedirectUrl',
-      ),
+      appRedirectUrl,
       expiresAt,
     };
   }
@@ -213,7 +237,17 @@ export class GithubTokenVerifierService {
   private signOAuthTransaction(
     transaction: GithubOAuthTransactionPayload,
   ): string {
-    const payload = Buffer.from(JSON.stringify(transaction)).toString(
+    return this.signPayload(transaction);
+  }
+
+  private signOAuthCallbackState(
+    callbackState: GithubOAuthCallbackStatePayload,
+  ): string {
+    return this.signPayload(callbackState);
+  }
+
+  private signPayload(payloadValue: Record<string, unknown>): string {
+    const payload = Buffer.from(JSON.stringify(payloadValue)).toString(
       'base64url',
     );
     const signature = createHmac('sha256', this.getSigningSecret())
@@ -229,8 +263,8 @@ export class GithubTokenVerifierService {
     cookieHeader?: string;
   }): GithubOAuthTransactionPayload {
     const cookieValue =
-      this.parseCookies(params.cookieHeader)[GITHUB_OAUTH_TRANSACTION_COOKIE] ??
-      params.signedTransaction;
+      params.signedTransaction ??
+      this.parseCookies(params.cookieHeader)[GITHUB_OAUTH_TRANSACTION_COOKIE];
 
     if (!cookieValue) {
       throw new InvalidGithubOAuthStateError();
@@ -246,6 +280,38 @@ export class GithubTokenVerifierService {
     }
 
     return transaction;
+  }
+
+  private readSignedOAuthCallbackState(
+    stateValue: string,
+  ): GithubOAuthCallbackStatePayload {
+    const parsed = this.readSignedPayload(stateValue);
+
+    if (
+      !this.isRecord(parsed) ||
+      typeof parsed.appRedirectUrl !== 'string' ||
+      typeof parsed.expiresAt !== 'number' ||
+      typeof parsed.nonce !== 'string'
+    ) {
+      throw new InvalidGithubOAuthStateError();
+    }
+
+    if (parsed.expiresAt <= Date.now()) {
+      throw new InvalidGithubOAuthStateError();
+    }
+
+    let appRedirectUrl: string;
+    try {
+      appRedirectUrl = new URL(parsed.appRedirectUrl).toString();
+    } catch {
+      throw new InvalidGithubOAuthStateError();
+    }
+
+    return {
+      appRedirectUrl,
+      expiresAt: parsed.expiresAt,
+      nonce: parsed.nonce,
+    };
   }
 
   private readSignedOAuthTransaction(
