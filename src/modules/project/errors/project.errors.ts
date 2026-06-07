@@ -18,6 +18,15 @@ export class ProjectNotFoundError extends NotExistsError {
   }
 }
 
+export class ProjectRepositoryLinkNotFoundError extends NotExistsError {
+  constructor() {
+    super(
+      'Project repository link not found.',
+      'PROJECT_REPOSITORY_LINK_NOT_FOUND',
+    );
+  }
+}
+
 export function isProjectSlugUniqueViolation(error: unknown): boolean {
   if (!(error instanceof QueryFailedError)) {
     return false;

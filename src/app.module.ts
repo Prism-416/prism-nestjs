@@ -14,6 +14,7 @@ import { AgentModule } from '@/modules/agent/agent.module';
 import { AuthModule } from '@/modules/auth/auth.module';
 import { DocumentModule } from '@/modules/document/document.module';
 import { EmbeddingModule } from '@/modules/embedding/embedding.module';
+import { GithubModule } from '@/modules/github';
 import { AdminModule } from '@/modules/admin';
 import { NotificationModule } from '@/modules/notification';
 import { OnboardingModule } from '@/modules/onboarding/onboarding.module';
@@ -58,6 +59,11 @@ const featureRegistrations: FeatureRegistration[] = [
   {
     module: ProjectModule,
     path: 'projects',
+    requiresDb: true,
+  },
+  {
+    module: GithubModule,
+    path: 'github',
     requiresDb: true,
   },
   {
