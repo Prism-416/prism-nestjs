@@ -7,6 +7,7 @@ import {
   WorkspaceInvitationRow,
   WorkspaceListRow,
   WorkspaceMemberRow,
+  WorkspaceMemberWorkloadRow,
   WorkspaceJobIdRow,
   WorkspaceJobRow,
   WorkspaceProjectSummaryRow,
@@ -346,6 +347,114 @@ export class WorkspaceRepository {
           u.username
       `,
       [workspaceId],
+    );
+  }
+
+  async findWorkspaceMemberWorkloadsByWorkspaceId(
+    workspaceId: string,
+    targetUserId?: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceMemberWorkloadRow[]> {
+    return this.getManager(manager).query<WorkspaceMemberWorkloadRow[]>(
+      `
+        SELECT
+          u.user_id AS "userId",
+          u.full_name AS "fullName",
+          u.username,
+          wm.role,
+          COALESCE(member_jobs.job_ids, ARRAY[]::text[]) AS "jobIds",
+          COALESCE(member_jobs.job_names, ARRAY[]::text[]) AS "jobNames",
+          wm.joined_at AS "joinedAt",
+          workload.assigned_item_count AS "assignedItemCount",
+          workload.active_item_count AS "activeItemCount",
+          workload.todo_item_count AS "todoItemCount",
+          workload.in_progress_item_count AS "inProgressItemCount",
+          workload.in_review_item_count AS "inReviewItemCount",
+          workload.done_item_count AS "doneItemCount",
+          workload.archived_item_count AS "archivedItemCount",
+          workload.overdue_item_count AS "overdueItemCount",
+          workload.due_today_item_count AS "dueTodayItemCount",
+          workload.due_this_week_item_count AS "dueThisWeekItemCount"
+        FROM prism_workspace_members_l wm
+               INNER JOIN prism_users_l u
+                          ON u.user_id = wm.user_id
+               LEFT JOIN LATERAL (
+                 SELECT
+                   array_agg(j.job_id::text ORDER BY j.name, j.job_id) AS job_ids,
+                   array_agg(j.name ORDER BY j.name, j.job_id) AS job_names
+                 FROM prism_workspace_member_job_map wmjm
+                        INNER JOIN prism_jobs_l j
+                                   ON j.workspace_id = wmjm.workspace_id
+                                  AND j.job_id = wmjm.job_id
+                 WHERE wmjm.workspace_id = wm.workspace_id
+                   AND wmjm.user_id = wm.user_id
+               ) member_jobs ON TRUE
+               LEFT JOIN LATERAL (
+                 SELECT
+                   COUNT(*)::int AS assigned_item_count,
+                   (
+                     COUNT(*) FILTER (
+                       WHERE wi.status IN ('todo', 'in_progress', 'in_review')
+                     )
+                   )::int AS active_item_count,
+                   (
+                     COUNT(*) FILTER (WHERE wi.status = 'todo')
+                   )::int AS todo_item_count,
+                   (
+                     COUNT(*) FILTER (WHERE wi.status = 'in_progress')
+                   )::int AS in_progress_item_count,
+                   (
+                     COUNT(*) FILTER (WHERE wi.status = 'in_review')
+                   )::int AS in_review_item_count,
+                   (
+                     COUNT(*) FILTER (WHERE wi.status = 'done')
+                   )::int AS done_item_count,
+                   (
+                     COUNT(*) FILTER (WHERE wi.status = 'archived')
+                   )::int AS archived_item_count,
+                   (
+                     COUNT(*) FILTER (
+                       WHERE wi.status IN ('todo', 'in_progress', 'in_review')
+                         AND wi.due_date < CURRENT_DATE
+                     )
+                   )::int AS overdue_item_count,
+                   (
+                     COUNT(*) FILTER (
+                       WHERE wi.status IN ('todo', 'in_progress', 'in_review')
+                         AND wi.due_date = CURRENT_DATE
+                     )
+                   )::int AS due_today_item_count,
+                   (
+                     COUNT(*) FILTER (
+                       WHERE wi.status IN ('todo', 'in_progress', 'in_review')
+                         AND wi.due_date >= CURRENT_DATE
+                         AND wi.due_date <= CURRENT_DATE + 7
+                     )
+                   )::int AS due_this_week_item_count
+                 FROM prism_work_item_member_map wimm
+                        INNER JOIN prism_work_items_l wi
+                                   ON wi.workspace_id = wimm.workspace_id
+                                  AND wi.item_id = wimm.item_id
+                        INNER JOIN prism_projects_l p
+                                   ON p.workspace_id = wi.workspace_id
+                                  AND p.project_id = wi.project_id
+                 WHERE wimm.workspace_id = wm.workspace_id
+                   AND wimm.user_id = wm.user_id
+                   AND wi.deleted_at IS NULL
+                   AND p.status <> 'archived'
+               ) workload ON TRUE
+        WHERE wm.workspace_id = $1
+          AND ($2::uuid IS NULL OR wm.user_id = $2)
+        ORDER BY
+          CASE wm.role
+            WHEN 'owner' THEN 0
+            WHEN 'admin' THEN 1
+            WHEN 'member' THEN 2
+            ELSE 3
+            END,
+          u.username
+      `,
+      [workspaceId, targetUserId ?? null],
     );
   }
 

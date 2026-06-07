@@ -24,6 +24,7 @@ import {
   WorkspaceInvitationPreviewResponseDto,
   WorkspaceSummaryResponseDto,
   WorkspaceMemberResponseDto,
+  WorkspaceMemberWorkloadResponseDto,
   WorkspaceInvitationResponseDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
@@ -208,6 +209,82 @@ export class WorkspaceUseCase {
     }
 
     return this.repo.findWorkspaceMembersByWorkspaceId(workspaceId);
+  }
+
+  async getWorkspaceMemberWorkloads(
+    userId: string,
+    workspaceId: string,
+  ): Promise<WorkspaceMemberWorkloadResponseDto[]> {
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.repo.findWorkspaceMemberWorkloadsByWorkspaceId(
+      workspace.workspaceId,
+    );
+  }
+
+  async getWorkspaceMemberWorkload(
+    userId: string,
+    workspaceId: string,
+    targetUserId: string,
+  ): Promise<WorkspaceMemberWorkloadResponseDto> {
+    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+      workspaceId,
+      userId,
+    );
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    const workloads = await this.repo.findWorkspaceMemberWorkloadsByWorkspaceId(
+      workspace.workspaceId,
+      targetUserId,
+    );
+    const workload = workloads[0];
+    if (!workload) {
+      throw new WorkspaceMemberNotFoundError();
+    }
+
+    return workload;
+  }
+
+  async getWorkspaceMemberWorkloadsForInternal(
+    workspaceId: string,
+  ): Promise<WorkspaceMemberWorkloadResponseDto[]> {
+    const workspace = await this.repo.findWorkspaceById(workspaceId);
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    return this.repo.findWorkspaceMemberWorkloadsByWorkspaceId(
+      workspace.workspaceId,
+    );
+  }
+
+  async getWorkspaceMemberWorkloadForInternal(
+    workspaceId: string,
+    targetUserId: string,
+  ): Promise<WorkspaceMemberWorkloadResponseDto> {
+    const workspace = await this.repo.findWorkspaceById(workspaceId);
+    if (!workspace) {
+      throw new WorkspaceNotFoundError();
+    }
+
+    const workloads = await this.repo.findWorkspaceMemberWorkloadsByWorkspaceId(
+      workspace.workspaceId,
+      targetUserId,
+    );
+    const workload = workloads[0];
+    if (!workload) {
+      throw new WorkspaceMemberNotFoundError();
+    }
+
+    return workload;
   }
 
   async removeWorkspaceMember(

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { OciEmailModule } from '@/core/email';
+import { AdminModule } from '@/modules/admin';
 import {
   FeatureProvisioningController,
   WorkspaceController,
@@ -16,7 +17,7 @@ import {
 } from '@/modules/workspace/usecases';
 
 @Module({
-  imports: [OciEmailModule],
+  imports: [AdminModule, OciEmailModule],
   controllers: [WorkspaceController, FeatureProvisioningController],
   providers: [
     WorkspaceRepository,
