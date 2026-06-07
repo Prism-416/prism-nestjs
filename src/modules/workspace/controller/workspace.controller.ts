@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  ParseUUIDPipe,
   Patch,
   Post,
   Put,
@@ -15,6 +16,7 @@ import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
 import type { JwtPayload } from '@/core/auth/jwt-token.service';
+import { RequireInternalScopes } from '@/modules/admin';
 import { ProjectSummaryResponseDto } from '@/modules/project/dto';
 import {
   AcceptWorkspaceInvitationDto,
@@ -34,6 +36,7 @@ import {
   UpdateWorkspaceDto,
   WorkspaceSummaryResponseDto,
   WorkspaceMemberResponseDto,
+  WorkspaceMemberWorkloadResponseDto,
   WorkspaceInvitationResponseDto,
   WorkspaceResponseDto,
 } from '@/modules/workspace/dto';
@@ -119,6 +122,67 @@ export class WorkspaceController {
     @Param('workspaceId') workspaceId: string,
   ): Promise<WorkspaceMemberResponseDto[]> {
     return this.usecase.getWorkspaceMembers(String(user.sub), workspaceId);
+  }
+
+  @Get(':workspaceId/member-workloads')
+  @Authenticated()
+  @ApiOperation({
+    summary: 'Retrieve workload summaries for workspace members',
+  })
+  @ApiDataResponse(WorkspaceMemberWorkloadResponseDto, { isArray: true })
+  async getWorkspaceMemberWorkloads(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+  ): Promise<WorkspaceMemberWorkloadResponseDto[]> {
+    return this.usecase.getWorkspaceMemberWorkloads(
+      String(user.sub),
+      workspaceId,
+    );
+  }
+
+  @Get(':workspaceId/member-workloads/internal')
+  @RequireInternalScopes('projects:read')
+  @ApiOperation({
+    summary:
+      'Retrieve workload summaries for workspace members for internal workers',
+  })
+  @ApiDataResponse(WorkspaceMemberWorkloadResponseDto, { isArray: true })
+  async getWorkspaceMemberWorkloadsForInternal(
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+  ): Promise<WorkspaceMemberWorkloadResponseDto[]> {
+    return this.usecase.getWorkspaceMemberWorkloadsForInternal(workspaceId);
+  }
+
+  @Get(':workspaceId/member-workloads/internal/:userId')
+  @RequireInternalScopes('projects:read')
+  @ApiOperation({
+    summary: 'Retrieve a workspace member workload for internal workers',
+  })
+  @ApiDataResponse(WorkspaceMemberWorkloadResponseDto)
+  async getWorkspaceMemberWorkloadForInternal(
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('userId', ParseUUIDPipe) targetUserId: string,
+  ): Promise<WorkspaceMemberWorkloadResponseDto> {
+    return this.usecase.getWorkspaceMemberWorkloadForInternal(
+      workspaceId,
+      targetUserId,
+    );
+  }
+
+  @Get(':workspaceId/member-workloads/:userId')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve a workspace member workload' })
+  @ApiDataResponse(WorkspaceMemberWorkloadResponseDto)
+  async getWorkspaceMemberWorkload(
+    @CurrentUser() user: JwtPayload,
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Param('userId', ParseUUIDPipe) targetUserId: string,
+  ): Promise<WorkspaceMemberWorkloadResponseDto> {
+    return this.usecase.getWorkspaceMemberWorkload(
+      String(user.sub),
+      workspaceId,
+      targetUserId,
+    );
   }
 
   @Delete(':workspaceId/members/:userId')

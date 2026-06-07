@@ -184,6 +184,38 @@ export class WorkspaceMemberResponseDto {
   joinedAt!: Date | null;
 }
 
+export class WorkspaceMemberWorkloadResponseDto extends WorkspaceMemberResponseDto {
+  @ApiProperty()
+  assignedItemCount!: number;
+
+  @ApiProperty()
+  activeItemCount!: number;
+
+  @ApiProperty()
+  todoItemCount!: number;
+
+  @ApiProperty()
+  inProgressItemCount!: number;
+
+  @ApiProperty()
+  inReviewItemCount!: number;
+
+  @ApiProperty()
+  doneItemCount!: number;
+
+  @ApiProperty()
+  archivedItemCount!: number;
+
+  @ApiProperty()
+  overdueItemCount!: number;
+
+  @ApiProperty()
+  dueTodayItemCount!: number;
+
+  @ApiProperty()
+  dueThisWeekItemCount!: number;
+}
+
 export class WorkspaceSummaryResponseDto extends WorkspaceResponseDto {
   @ApiProperty()
   memberCount!: number;

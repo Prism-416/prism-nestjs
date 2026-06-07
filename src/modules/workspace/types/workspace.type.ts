@@ -36,6 +36,19 @@ export type WorkspaceMemberRow = {
   joinedAt: Date | null;
 };
 
+export type WorkspaceMemberWorkloadRow = WorkspaceMemberRow & {
+  assignedItemCount: number;
+  activeItemCount: number;
+  todoItemCount: number;
+  inProgressItemCount: number;
+  inReviewItemCount: number;
+  doneItemCount: number;
+  archivedItemCount: number;
+  overdueItemCount: number;
+  dueTodayItemCount: number;
+  dueThisWeekItemCount: number;
+};
+
 export type WorkspaceInvitationRow = {
   invitationId: string;
   workspaceId: string;
