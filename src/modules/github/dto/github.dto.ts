@@ -85,3 +85,17 @@ export class GithubInstallationCallbackResponseDto {
   @ApiProperty()
   redirectUrl!: string;
 }
+
+export class GithubWebhookResponseDto {
+  @ApiProperty()
+  accepted!: boolean;
+
+  @ApiProperty()
+  event!: string;
+
+  @ApiProperty({ nullable: true })
+  action!: string | null;
+
+  @ApiProperty()
+  ignored!: boolean;
+}

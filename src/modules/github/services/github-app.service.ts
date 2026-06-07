@@ -126,6 +126,10 @@ export class GithubAppService {
     }
   }
 
+  mapWebhookInstallation(payload: unknown): GithubInstallationSummary {
+    return this.mapInstallation(payload as GithubApiInstallation);
+  }
+
   async listInstallationRepositories(
     installationId: string,
   ): Promise<GithubRepositorySummary[]> {

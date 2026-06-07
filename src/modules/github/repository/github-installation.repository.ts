@@ -160,6 +160,70 @@ export class GithubInstallationRepository {
     return grants.length > 0;
   }
 
+  async markInstallationDeleted(
+    githubInstallationId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    const target = this.getManager(manager);
+
+    await target.query(
+      `
+        UPDATE prism_github_installations_l
+        SET
+          status = 'deleted',
+          last_synced_at = NOW(),
+          updated_at = NOW()
+        WHERE github_installation_id = $1
+      `,
+      [githubInstallationId],
+    );
+
+    await target.query(
+      `
+        DELETE FROM prism_workspace_repository_links_l
+        WHERE github_installation_id = $1
+      `,
+      [githubInstallationId],
+    );
+
+    await target.query(
+      `
+        DELETE FROM prism_github_installation_workspace_grants_l
+        WHERE github_installation_id = $1
+      `,
+      [githubInstallationId],
+    );
+
+    await target.query(
+      `
+        DELETE FROM prism_github_installation_user_grants_l
+        WHERE github_installation_id = $1
+      `,
+      [githubInstallationId],
+    );
+  }
+
+  async deleteWorkspaceRepositoryLinksByInstallationRepositories(
+    params: {
+      githubInstallationId: string;
+      githubRepositoryIds: string[];
+    },
+    manager?: EntityManager,
+  ): Promise<void> {
+    if (params.githubRepositoryIds.length === 0) {
+      return;
+    }
+
+    await this.getManager(manager).query(
+      `
+        DELETE FROM prism_workspace_repository_links_l
+        WHERE github_installation_id = $1
+          AND github_repository_id = ANY($2::bigint[])
+      `,
+      [params.githubInstallationId, params.githubRepositoryIds],
+    );
+  }
+
   private getManager(manager?: EntityManager): DataSource | EntityManager {
     return manager ?? this.dataSource;
   }
