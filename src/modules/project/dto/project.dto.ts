@@ -5,7 +5,6 @@ import {
   IsOptional,
   IsString,
   IsUUID,
-  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -101,55 +100,4 @@ export class UpdateProjectDto {
   @IsString()
   @MaxLength(1000)
   description?: string;
-}
-
-export class CreateProjectRepositoryLinkDto {
-  @ApiProperty()
-  @Matches(/^\d+$/)
-  githubInstallationId!: string;
-
-  @ApiProperty()
-  @Matches(/^\d+$/)
-  githubRepositoryId!: string;
-}
-
-export class ProjectRepositoryLinkResponseDto {
-  @ApiProperty()
-  linkId!: string;
-
-  @ApiProperty()
-  workspaceId!: string;
-
-  @ApiProperty()
-  projectId!: string;
-
-  @ApiProperty()
-  githubInstallationId!: string;
-
-  @ApiProperty()
-  githubRepositoryId!: string;
-
-  @ApiProperty()
-  repositoryOwner!: string;
-
-  @ApiProperty()
-  repositoryName!: string;
-
-  @ApiProperty()
-  repositoryFullName!: string;
-
-  @ApiProperty()
-  repositoryUrl!: string;
-
-  @ApiProperty({ nullable: true })
-  defaultBranch!: string | null;
-
-  @ApiProperty({ enum: ['public', 'private', 'internal'], nullable: true })
-  visibility!: 'public' | 'private' | 'internal' | null;
-
-  @ApiProperty({ nullable: true })
-  connectedByUserId!: string | null;
-
-  @ApiProperty()
-  connectedAt!: Date;
 }

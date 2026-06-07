@@ -30,7 +30,7 @@ export class GithubInstallationUseCase {
 
       return {
         redirectUrl: this.github.buildInstallationResultRedirectUrl({
-          projectId: state.projectId,
+          workspaceId: state.workspaceId,
           error: query.error,
           errorDescription: query.error_description,
           errorUri: query.error_uri,
@@ -56,10 +56,15 @@ export class GithubInstallationUseCase {
       githubInstallationId: installation.githubInstallationId,
       userId: state.userId,
     });
+    await this.repo.grantInstallationToWorkspace({
+      githubInstallationId: installation.githubInstallationId,
+      workspaceId: state.workspaceId,
+      grantedByUserId: state.userId,
+    });
 
     return {
       redirectUrl: this.github.buildInstallationResultRedirectUrl({
-        projectId: state.projectId,
+        workspaceId: state.workspaceId,
         installationId: query.installation_id,
         setupAction: query.setup_action,
       }),

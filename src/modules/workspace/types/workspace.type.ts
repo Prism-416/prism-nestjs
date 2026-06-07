@@ -111,6 +111,21 @@ export type WorkspaceProjectSummaryRow = {
   createdAt: Date;
 };
 
+export type WorkspaceRepositoryLinkRow = {
+  linkId: string;
+  workspaceId: string;
+  githubInstallationId: string;
+  githubRepositoryId: string;
+  repositoryOwner: string;
+  repositoryName: string;
+  repositoryFullName: string;
+  repositoryUrl: string;
+  defaultBranch: string | null;
+  visibility: 'public' | 'private' | 'internal' | null;
+  connectedByUserId: string | null;
+  connectedAt: Date;
+};
+
 export const FEATURE_PROVISIONING_REQUEST_STATUSES = [
   'pending',
   'queued',

@@ -68,12 +68,12 @@ export class GithubAppService {
   constructor(private readonly configService: ConfigService) {}
 
   createInstallationAuthorization(params: {
-    projectId: string;
+    workspaceId: string;
     userId: string;
   }): GithubInstallationAuthorization {
     const expiresAt = Date.now() + this.getStateTtlSec() * 1000;
     const state = this.signState({
-      projectId: params.projectId,
+      workspaceId: params.workspaceId,
       userId: params.userId,
       expiresAt,
       nonce: randomBytes(16).toString('hex'),
@@ -93,7 +93,7 @@ export class GithubAppService {
     const parsed = this.readSignedState(state);
 
     if (
-      typeof parsed.projectId !== 'string' ||
+      typeof parsed.workspaceId !== 'string' ||
       typeof parsed.userId !== 'string' ||
       typeof parsed.expiresAt !== 'number' ||
       typeof parsed.nonce !== 'string' ||
@@ -173,7 +173,7 @@ export class GithubAppService {
   }
 
   buildInstallationResultRedirectUrl(params: {
-    projectId?: string;
+    workspaceId?: string;
     installationId?: string;
     setupAction?: string;
     error?: string;
@@ -184,7 +184,7 @@ export class GithubAppService {
       this.getRequiredUrlConfig('GITHUB_INSTALLATION_RESULT_PAGE_URL'),
     );
 
-    this.setOptionalSearchParam(redirectUrl, 'projectId', params.projectId);
+    this.setOptionalSearchParam(redirectUrl, 'workspaceId', params.workspaceId);
     this.setOptionalSearchParam(
       redirectUrl,
       'installationId',
