@@ -151,6 +151,7 @@ export class AuthUseCase {
     const githubProfile = await this.oauthIdentity.verifyGithubIdentity({
       code: dto.code,
       state: dto.state,
+      transaction: dto.transaction,
       cookieHeader,
     });
 
@@ -186,6 +187,7 @@ export class AuthUseCase {
     const githubProfile = await this.oauthIdentity.verifyGithubIdentity({
       code: dto.code,
       state: dto.state,
+      transaction: dto.transaction,
       cookieHeader,
     });
 

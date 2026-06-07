@@ -128,6 +128,10 @@ export class SignInWithGithubDto {
   @IsString()
   @MinLength(8)
   state!: string;
+
+  @IsOptional()
+  @IsString()
+  transaction?: string;
 }
 
 export class GithubOAuthCallbackQueryDto {
@@ -161,6 +165,9 @@ export class GithubOAuthAuthorizeResponseDto {
 
   @ApiProperty()
   expiresAt: Date;
+
+  @ApiProperty()
+  transaction: string;
 }
 
 export class OAuthAccountLinkResponseDto {

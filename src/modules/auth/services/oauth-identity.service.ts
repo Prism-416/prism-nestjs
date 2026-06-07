@@ -44,6 +44,7 @@ export class OAuthIdentityService {
   async verifyGithubIdentity(params: {
     code: string;
     state: string;
+    transaction?: string;
     cookieHeader?: string;
   }): Promise<GithubProfile> {
     let profile: GithubProfile;

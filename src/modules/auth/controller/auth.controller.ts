@@ -156,6 +156,7 @@ export class AuthController {
       authorizationUrl: authorization.authorizationUrl,
       state: authorization.state,
       expiresAt: authorization.expiresAt,
+      transaction: authorization.transactionCookie.value,
     };
   }
 
@@ -178,6 +179,7 @@ export class AuthController {
       authorizationUrl: authorization.authorizationUrl,
       state: authorization.state,
       expiresAt: authorization.expiresAt,
+      transaction: authorization.transactionCookie.value,
     };
   }
 
