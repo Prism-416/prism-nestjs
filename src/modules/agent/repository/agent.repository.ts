@@ -14,6 +14,8 @@ import {
   CancelAgentActionParams,
   CancelAgentRunParams,
   CreateAgentActionEventParams,
+  CreateAgentRunForInternalParams,
+  CreateAgentRunForInternalResult,
   CreateAgentRunParams,
   SearchAgentRunsParams,
   SearchAgentRunsResult,
@@ -225,6 +227,124 @@ export class AgentRepository {
     return this.mapAgentRunRow(runs[0]);
   }
 
+  async createAgentRunForInternal(
+    params: CreateAgentRunForInternalParams,
+    manager?: EntityManager,
+  ): Promise<CreateAgentRunForInternalResult | null> {
+    const runs = await this.getManager(manager).query<
+      Array<AgentRunDbRow & { wasCreated: boolean }>
+    >(
+      `
+        WITH input_run AS (
+          SELECT
+            COALESCE($2::uuid, gen_random_uuid()) AS run_id,
+            $1::uuid AS workspace_id,
+            $3::uuid AS triggered_by_user_id,
+            $4::uuid AS work_item_id,
+            $5::uuid AS parent_run_id,
+            $6::text AS agent_type,
+            $7::text AS trigger_type,
+            $8::text AS status,
+            $9::text AS objective,
+            $10::text AS system_prompt_version
+        ),
+        inserted_run AS (
+          INSERT INTO prism_agent_runs_l (
+            run_id,
+            workspace_id,
+            triggered_by_user_id,
+            work_item_id,
+            parent_run_id,
+            agent_type,
+            trigger_type,
+            status,
+            objective,
+            system_prompt_version,
+            started_at,
+            completed_at
+          )
+          SELECT
+            input_run.run_id,
+            input_run.workspace_id,
+            input_run.triggered_by_user_id,
+            input_run.work_item_id,
+            input_run.parent_run_id,
+            input_run.agent_type,
+            input_run.trigger_type,
+            input_run.status,
+            input_run.objective,
+            input_run.system_prompt_version,
+            CASE WHEN input_run.status = 'running' THEN NOW() ELSE NULL END,
+            CASE
+              WHEN input_run.status IN ('completed', 'failed', 'cancelled') THEN NOW()
+              ELSE NULL
+            END
+          FROM input_run
+          ON CONFLICT (run_id) DO NOTHING
+          RETURNING
+            run_id AS "runId",
+            workspace_id AS "workspaceId",
+            triggered_by_user_id AS "triggeredByUserId",
+            work_item_id AS "workItemId",
+            parent_run_id AS "parentRunId",
+            agent_type AS "agentType",
+            trigger_type AS "triggerType",
+            status,
+            objective,
+            system_prompt_version AS "systemPromptVersion",
+            started_at AS "startedAt",
+            completed_at AS "completedAt",
+            created_at AS "createdAt",
+            TRUE AS "wasCreated"
+        )
+        SELECT *
+        FROM inserted_run
+        UNION ALL
+        SELECT
+          r.run_id AS "runId",
+          r.workspace_id AS "workspaceId",
+          r.triggered_by_user_id AS "triggeredByUserId",
+          r.work_item_id AS "workItemId",
+          r.parent_run_id AS "parentRunId",
+          r.agent_type AS "agentType",
+          r.trigger_type AS "triggerType",
+          r.status,
+          r.objective,
+          r.system_prompt_version AS "systemPromptVersion",
+          r.started_at AS "startedAt",
+          r.completed_at AS "completedAt",
+          r.created_at AS "createdAt",
+          FALSE AS "wasCreated"
+        FROM prism_agent_runs_l r
+               INNER JOIN input_run
+                          ON input_run.run_id = r.run_id
+        WHERE r.workspace_id = input_run.workspace_id
+          AND NOT EXISTS (SELECT 1 FROM inserted_run)
+        LIMIT 1
+      `,
+      [
+        params.workspaceId,
+        params.runId ?? null,
+        params.triggeredByUserId ?? null,
+        params.workItemId ?? null,
+        params.parentRunId ?? null,
+        params.agentType,
+        params.triggerType,
+        params.status,
+        params.objective,
+        params.systemPromptVersion ?? null,
+      ],
+    );
+
+    const run = runs[0];
+    if (!run) {
+      return null;
+    }
+
+    const { wasCreated, ...row } = run;
+    return { run: this.mapAgentRunRow(row), wasCreated };
+  }
+
   async findAgentRunById(
     workspaceId: string,
     runId: string,
@@ -299,14 +419,14 @@ export class AgentRepository {
       `
         UPDATE prism_agent_runs_l
         SET
-          status = $3,
+          status = $3::text,
           started_at = CASE
-            WHEN $3 = 'running' THEN COALESCE(started_at, NOW())
+            WHEN $3::text = 'running' THEN COALESCE(started_at, NOW())
             ELSE started_at
           END,
           completed_at = CASE
-            WHEN $3 IN ('completed', 'failed', 'cancelled') THEN COALESCE(completed_at, NOW())
-            WHEN $3 IN ('queued', 'running', 'waiting') THEN NULL
+            WHEN $3::text IN ('completed', 'failed', 'cancelled') THEN COALESCE(completed_at, NOW())
+            WHEN $3::text IN ('queued', 'running', 'waiting') THEN NULL
             ELSE completed_at
           END
         WHERE workspace_id = $1
@@ -379,15 +499,15 @@ export class AgentRepository {
           $2,
           $4,
           $5,
-          $6,
+          $6::text,
           $7,
           $8,
           $9,
           $10,
           $11,
           $12,
-          CASE WHEN $6 = 'running' THEN NOW() ELSE NULL END,
-          CASE WHEN $6 IN ('completed', 'failed', 'skipped') THEN NOW() ELSE NULL END
+          CASE WHEN $6::text = 'running' THEN NOW() ELSE NULL END,
+          CASE WHEN $6::text IN ('completed', 'failed', 'skipped') THEN NOW() ELSE NULL END
         FROM validated_step
         ON CONFLICT (run_id, step_order)
         DO UPDATE SET
@@ -617,14 +737,14 @@ export class AgentRepository {
           $5,
           $6,
           $7,
-          $8,
+          $8::text,
           $9,
           $10,
           $11,
           $12,
           $13,
-          CASE WHEN $8 = 'approved' AND $13::uuid IS NOT NULL THEN NOW() ELSE NULL END,
-          COALESCE($14::timestamptz, CASE WHEN $8 = 'executed' THEN NOW() ELSE NULL END),
+          CASE WHEN $8::text = 'approved' AND $13::uuid IS NOT NULL THEN NOW() ELSE NULL END,
+          COALESCE($14::timestamptz, CASE WHEN $8::text = 'executed' THEN NOW() ELSE NULL END),
           $15
         FROM validated_action
         ON CONFLICT (action_id)

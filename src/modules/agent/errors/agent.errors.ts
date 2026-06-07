@@ -66,6 +66,16 @@ export class AgentStepTargetMismatchError extends DomainError {
   }
 }
 
+export class AgentRunTargetMismatchError extends DomainError {
+  constructor() {
+    super(
+      'Agent run target does not match the current workspace state.',
+      'AGENT_RUN_TARGET_MISMATCH',
+      409,
+    );
+  }
+}
+
 export class AgentActionTargetMismatchError extends DomainError {
   constructor() {
     super(

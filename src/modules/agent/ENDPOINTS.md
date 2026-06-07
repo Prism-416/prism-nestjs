@@ -23,6 +23,7 @@ POST /workspaces/:workspaceId/agent-runs/:runId/cancel
 GET  /workspaces/:workspaceId/agent-runs/:runId/steps
 GET  /workspaces/:workspaceId/agent-runs/:runId/actions
 
+POST  /workspaces/:workspaceId/agent-runs/internal
 GET   /workspaces/:workspaceId/agent-runs/internal/:runId/state
 PATCH /workspaces/:workspaceId/agent-runs/internal/:runId/status
 POST  /workspaces/:workspaceId/agent-runs/internal/:runId/steps
@@ -65,6 +66,9 @@ agent run, step, action, and action-event updates for that workspace.
 - List runs by workspace with filters for `status`, `agentType`, `workItemId`,
   and pagination.
 - Create a manual run with `agentType`, `objective`, optional `workItemId`,
+  optional `parentRunId`, and optional `systemPromptVersion`.
+- Create an internal run with optional caller-provided `runId`, `triggerType`,
+  optional initial `status`, `agentType`, `objective`, optional `workItemId`,
   optional `parentRunId`, and optional `systemPromptVersion`.
 - Retrieve one run with its basic metadata.
 - Cancel a queued, running, or waiting run.

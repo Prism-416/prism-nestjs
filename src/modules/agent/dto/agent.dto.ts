@@ -73,6 +73,33 @@ export class CreateAgentRunDto {
   systemPromptVersion?: string;
 }
 
+export class CreateAgentRunForInternalDto extends CreateAgentRunDto {
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  runId?: string;
+
+  @ApiPropertyOptional()
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  triggeredByUserId?: string;
+
+  @ApiProperty({ enum: AGENT_RUN_TRIGGER_TYPES })
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsIn(AGENT_RUN_TRIGGER_TYPES)
+  triggerType!: AgentRunTriggerType;
+
+  @ApiPropertyOptional({ enum: AGENT_RUN_STATUSES, default: 'queued' })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsString()
+  @IsIn(AGENT_RUN_STATUSES)
+  status?: AgentRunStatus;
+}
+
 export class SearchAgentRunsQueryDto {
   @ApiPropertyOptional({ enum: AGENT_RUN_STATUSES })
   @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))

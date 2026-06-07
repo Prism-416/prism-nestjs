@@ -92,6 +92,19 @@ export type CreateAgentRunParams = {
   systemPromptVersion?: string;
 };
 
+export type CreateAgentRunForInternalParams = {
+  workspaceId: string;
+  runId?: string;
+  triggeredByUserId?: string;
+  workItemId?: string;
+  parentRunId?: string;
+  agentType: string;
+  triggerType: AgentRunTriggerType;
+  status: AgentRunStatus;
+  objective: string;
+  systemPromptVersion?: string;
+};
+
 export type CancelAgentRunParams = {
   workspaceId: string;
   runId: string;
@@ -261,5 +274,10 @@ export type UpsertAgentStepResult = {
 
 export type UpsertAgentActionResult = {
   action: AgentActionRow;
+  wasCreated: boolean;
+};
+
+export type CreateAgentRunForInternalResult = {
+  run: AgentRunRow;
   wasCreated: boolean;
 };

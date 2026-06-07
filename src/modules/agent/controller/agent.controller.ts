@@ -20,6 +20,7 @@ import {
   AgentRunResponseDto,
   AgentRunStateResponseDto,
   AgentStepResponseDto,
+  CreateAgentRunForInternalDto,
   CreateAgentRunDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
@@ -56,6 +57,17 @@ export class AgentController {
     @Body() dto: CreateAgentRunDto,
   ): Promise<AgentRunResponseDto> {
     return this.usecase.createAgentRun(String(user.sub), workspaceId, dto);
+  }
+
+  @Post('internal')
+  @RequireInternalScopes('agents:invoke')
+  @ApiOperation({ summary: 'Create agent run for internal workers' })
+  @ApiDataResponse(AgentRunResponseDto, { status: HttpStatus.CREATED })
+  async createAgentRunForInternal(
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+    @Body() dto: CreateAgentRunForInternalDto,
+  ): Promise<AgentRunResponseDto> {
+    return this.usecase.createAgentRunForInternal(workspaceId, dto);
   }
 
   @Get('internal/:runId/state')

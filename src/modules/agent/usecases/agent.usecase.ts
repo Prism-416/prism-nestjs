@@ -10,6 +10,7 @@ import {
   AgentRunResponseDto,
   AgentRunStateResponseDto,
   AgentStepResponseDto,
+  CreateAgentRunForInternalDto,
   CreateAgentRunDto,
   SearchAgentRunsQueryDto,
   SearchAgentRunsResponseDto,
@@ -30,6 +31,7 @@ import {
   AgentParentRunNotFoundError,
   AgentRunNotCancellableError,
   AgentRunNotFoundError,
+  AgentRunTargetMismatchError,
   AgentStepTargetMismatchError,
   AgentWorkspaceNotFoundError,
   AgentWorkItemNotFoundError,
@@ -126,6 +128,63 @@ export class AgentUseCase {
     this.realtimePublisher.publishAgentRunCreated(run);
 
     return run;
+  }
+
+  async createAgentRunForInternal(
+    workspaceId: string,
+    dto: CreateAgentRunForInternalDto,
+  ): Promise<AgentRunResponseDto> {
+    const result = await this.uow.run(async (manager) => {
+      const workspace = await this.getWorkspace(workspaceId, manager);
+
+      if (dto.workItemId !== undefined) {
+        const workItem = await this.repo.findWorkItemById(
+          workspace.workspaceId,
+          dto.workItemId,
+          manager,
+        );
+        if (!workItem) {
+          throw new AgentWorkItemNotFoundError();
+        }
+      }
+
+      if (dto.parentRunId !== undefined) {
+        const parentRun = await this.repo.findAgentRunById(
+          workspace.workspaceId,
+          dto.parentRunId,
+          manager,
+        );
+        if (!parentRun) {
+          throw new AgentParentRunNotFoundError();
+        }
+      }
+
+      return this.repo.createAgentRunForInternal(
+        {
+          workspaceId: workspace.workspaceId,
+          runId: dto.runId,
+          triggeredByUserId: dto.triggeredByUserId,
+          workItemId: dto.workItemId,
+          parentRunId: dto.parentRunId,
+          agentType: dto.agentType,
+          triggerType: dto.triggerType,
+          status: dto.status ?? 'queued',
+          objective: dto.objective,
+          systemPromptVersion: dto.systemPromptVersion,
+        },
+        manager,
+      );
+    });
+
+    if (!result) {
+      throw new AgentRunTargetMismatchError();
+    }
+
+    if (result.wasCreated) {
+      this.realtimePublisher.publishAgentRunCreated(result.run);
+    }
+
+    return result.run;
   }
 
   async cancelAgentRun(
@@ -636,8 +695,11 @@ export class AgentUseCase {
     return workspace;
   }
 
-  private async getWorkspace(workspaceId: string): Promise<AgentWorkspaceRow> {
-    const workspace = await this.repo.findWorkspaceById(workspaceId);
+  private async getWorkspace(
+    workspaceId: string,
+    manager?: EntityManager,
+  ): Promise<AgentWorkspaceRow> {
+    const workspace = await this.repo.findWorkspaceById(workspaceId, manager);
     if (!workspace) {
       throw new AgentWorkspaceNotFoundError();
     }
