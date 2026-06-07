@@ -1,15 +1,26 @@
 import { Module } from '@nestjs/common';
-import { GithubInstallationController } from '@/modules/github/controller';
+import {
+  GithubInstallationController,
+  GithubWebhookController,
+} from '@/modules/github/controller';
 import { GithubInstallationRepository } from '@/modules/github/repository';
-import { GithubAppService } from '@/modules/github/services';
-import { GithubInstallationUseCase } from '@/modules/github/usecases';
+import {
+  GithubAppService,
+  GithubWebhookService,
+} from '@/modules/github/services';
+import {
+  GithubInstallationUseCase,
+  GithubWebhookUseCase,
+} from '@/modules/github/usecases';
 
 @Module({
-  controllers: [GithubInstallationController],
+  controllers: [GithubInstallationController, GithubWebhookController],
   providers: [
     GithubAppService,
+    GithubWebhookService,
     GithubInstallationRepository,
     GithubInstallationUseCase,
+    GithubWebhookUseCase,
   ],
   exports: [GithubAppService, GithubInstallationRepository],
 })
