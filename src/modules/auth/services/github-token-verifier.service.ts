@@ -85,15 +85,19 @@ export class GithubTokenVerifierService {
     appRedirectUrl: string;
   }): GithubAuthorizationRequestResult {
     const transaction = this.createOAuthTransaction(params);
+    const signedTransaction = this.signOAuthTransaction(transaction);
     const maxAgeMs = Math.max(transaction.expiresAt - Date.now(), 1000);
 
     return {
-      authorizationUrl: this.buildAuthorizationUrl(transaction),
-      state: transaction.state,
+      authorizationUrl: this.buildAuthorizationUrl(
+        transaction,
+        signedTransaction,
+      ),
+      state: signedTransaction,
       expiresAt: new Date(transaction.expiresAt),
       transactionCookie: {
         name: GITHUB_OAUTH_TRANSACTION_COOKIE,
-        value: this.signOAuthTransaction(transaction),
+        value: signedTransaction,
         options: this.buildCookieOptions(maxAgeMs),
       },
     };
@@ -170,6 +174,7 @@ export class GithubTokenVerifierService {
 
   private buildAuthorizationUrl(
     transaction: GithubOAuthTransactionPayload,
+    signedTransaction: string,
   ): string {
     const url = new URL(GITHUB_AUTHORIZATION_URL);
 
@@ -177,7 +182,7 @@ export class GithubTokenVerifierService {
       'client_id',
       this.getRequiredConfig('GITHUB_CLIENT_ID'),
     );
-    url.searchParams.set('state', transaction.state);
+    url.searchParams.set('state', signedTransaction);
     url.searchParams.set(
       'code_challenge',
       this.createCodeChallenge(transaction.codeVerifier),
@@ -228,24 +233,43 @@ export class GithubTokenVerifierService {
     signedTransaction?: string;
     cookieHeader?: string;
   }): GithubOAuthTransactionPayload {
-    const cookieValue =
-      this.parseCookies(params.cookieHeader)[GITHUB_OAUTH_TRANSACTION_COOKIE] ??
-      params.signedTransaction;
+    const cookieValue = this.parseCookies(params.cookieHeader)[
+      GITHUB_OAUTH_TRANSACTION_COOKIE
+    ];
+    const candidates = [
+      params.signedTransaction,
+      cookieValue,
+      params.state,
+    ].filter((value): value is string => Boolean(value));
 
-    if (!cookieValue) {
-      throw new InvalidGithubOAuthStateError();
+    for (const candidate of new Set(candidates)) {
+      const transaction = this.tryReadSignedOAuthTransaction(candidate);
+      if (!transaction) {
+        continue;
+      }
+
+      if (transaction.expiresAt <= Date.now()) {
+        continue;
+      }
+
+      if (candidate !== params.state && transaction.state !== params.state) {
+        continue;
+      }
+
+      return transaction;
     }
 
-    const transaction = this.readSignedOAuthTransaction(cookieValue);
-    if (transaction.expiresAt <= Date.now()) {
-      throw new InvalidGithubOAuthStateError();
-    }
+    throw new InvalidGithubOAuthStateError();
+  }
 
-    if (transaction.state !== params.state) {
-      throw new InvalidGithubOAuthStateError();
+  private tryReadSignedOAuthTransaction(
+    cookieValue: string,
+  ): GithubOAuthTransactionPayload | null {
+    try {
+      return this.readSignedOAuthTransaction(cookieValue);
+    } catch {
+      return null;
     }
-
-    return transaction;
   }
 
   private readSignedOAuthTransaction(
