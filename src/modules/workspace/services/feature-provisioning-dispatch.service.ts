@@ -62,6 +62,7 @@ export class FeatureProvisioningDispatchService {
     }
 
     const result = await this.queue.publishMessages({
+      queueKind: 'agentEvents',
       messages: [
         {
           content: JSON.stringify(event),

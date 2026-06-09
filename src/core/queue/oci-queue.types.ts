@@ -1,6 +1,14 @@
+import type { OciQueueKind } from '@/core/queue/oci-queue.constants';
+
 export type OciQueueMessageMetadata = {
   channelId: string;
   customProperties?: Record<string, string>;
+};
+
+type OciQueueLocation = {
+  queueId?: string;
+  messagesEndpoint?: string;
+  queueKind?: OciQueueKind;
 };
 
 export type OciQueueMessageInput = {
@@ -8,10 +16,8 @@ export type OciQueueMessageInput = {
   metadata?: OciQueueMessageMetadata;
 };
 
-export type PublishQueueMessagesInput = {
+export type PublishQueueMessagesInput = OciQueueLocation & {
   messages: OciQueueMessageInput[];
-  queueId?: string;
-  messagesEndpoint?: string;
   opcRequestId?: string;
 };
 
@@ -25,9 +31,7 @@ export type PublishQueueMessagesResult = {
   opcRequestId: string;
 };
 
-export type ConsumeQueueMessagesInput = {
-  queueId?: string;
-  messagesEndpoint?: string;
+export type ConsumeQueueMessagesInput = OciQueueLocation & {
   visibilityInSeconds?: number;
   timeoutInSeconds?: number;
   limit?: number;
@@ -47,19 +51,15 @@ export type ConsumedQueueMessage = {
   metadata?: OciQueueMessageMetadata;
 };
 
-export type DeleteQueueMessageInput = {
+export type DeleteQueueMessageInput = OciQueueLocation & {
   receipt: string;
-  queueId?: string;
-  messagesEndpoint?: string;
   consumerGroupId?: string;
   opcRequestId?: string;
 };
 
-export type UpdateQueueMessageVisibilityInput = {
+export type UpdateQueueMessageVisibilityInput = OciQueueLocation & {
   receipt: string;
   visibilityInSeconds: number;
-  queueId?: string;
-  messagesEndpoint?: string;
   consumerGroupId?: string;
   opcRequestId?: string;
 };

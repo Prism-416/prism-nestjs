@@ -10,6 +10,10 @@ import {
   readOciAuthenticationConfig,
 } from '@/core/oci';
 import {
+  OCI_QUEUE_ENV_BY_KIND,
+  OciQueueKind,
+} from '@/core/queue/oci-queue.constants';
+import {
   ConsumedQueueMessage,
   ConsumeQueueMessagesInput,
   DeleteQueueMessageInput,
@@ -25,6 +29,12 @@ type QueueContext = {
   messagesEndpoint: string;
 };
 
+type QueueContextInput = {
+  queueId?: string;
+  messagesEndpoint?: string;
+  queueKind?: OciQueueKind;
+};
+
 @Injectable()
 export class OciQueueService {
   private readonly logger = new Logger(OciQueueService.name);
@@ -35,10 +45,6 @@ export class OciQueueService {
   );
   private readonly authMode = this.ociConfig.authMode;
   private readonly regionId = this.ociConfig.regionId;
-  private readonly defaultQueueId = this.getEnv('OCI_QUEUE_ID') ?? '';
-  private readonly configuredMessagesEndpoint = this.normalizeMessagesEndpoint(
-    this.getEnv('OCI_QUEUE_MESSAGES_ENDPOINT'),
-  );
 
   private adminClient?: queue.QueueAdminClient;
   private adminClientPromise?: Promise<queue.QueueAdminClient>;
@@ -213,17 +219,10 @@ export class OciQueueService {
     };
   }
 
-  private async resolveQueueContext(input: {
-    queueId?: string;
-    messagesEndpoint?: string;
-  }): Promise<QueueContext> {
-    const queueId = input.queueId ?? this.defaultQueueId;
-    if (!queueId) {
-      throw new InternalServerErrorException(
-        'Queue id is required. Set OCI_QUEUE_ID or provide queueId.',
-      );
-    }
-
+  private async resolveQueueContext(
+    input: QueueContextInput,
+  ): Promise<QueueContext> {
+    const queueId = this.resolveQueueId(input);
     const explicitMessagesEndpoint = this.normalizeMessagesEndpoint(
       input.messagesEndpoint,
     );
@@ -234,13 +233,12 @@ export class OciQueueService {
       };
     }
 
-    if (
-      this.configuredMessagesEndpoint &&
-      (!this.defaultQueueId || queueId === this.defaultQueueId)
-    ) {
+    const configuredMessagesEndpoint =
+      this.resolveConfiguredMessagesEndpoint(input);
+    if (configuredMessagesEndpoint) {
       return {
         queueId,
-        messagesEndpoint: this.configuredMessagesEndpoint,
+        messagesEndpoint: configuredMessagesEndpoint,
       };
     }
 
@@ -248,6 +246,39 @@ export class OciQueueService {
       queueId,
       messagesEndpoint: await this.getMessagesEndpoint(queueId),
     };
+  }
+
+  private resolveQueueId(input: QueueContextInput): string {
+    const directQueueId = input.queueId?.trim();
+    if (directQueueId) {
+      return directQueueId;
+    }
+
+    if (!input.queueKind) {
+      throw new InternalServerErrorException(
+        'Queue id is required. Provide queueKind or queueId.',
+      );
+    }
+
+    const envKey = OCI_QUEUE_ENV_BY_KIND[input.queueKind].queueId;
+    const queueId = this.getEnv(envKey)?.trim();
+    if (!queueId) {
+      throw new InternalServerErrorException(
+        `Queue id is required. Set ${envKey} or provide queueId.`,
+      );
+    }
+
+    return queueId;
+  }
+
+  private resolveConfiguredMessagesEndpoint(input: QueueContextInput): string {
+    if (!input.queueKind) {
+      return '';
+    }
+
+    return this.normalizeMessagesEndpoint(
+      this.getEnv(OCI_QUEUE_ENV_BY_KIND[input.queueKind].messagesEndpoint),
+    );
   }
 
   private async getMessagesEndpoint(queueId: string): Promise<string> {
@@ -258,7 +289,7 @@ export class OciQueueService {
 
     if (!this.regionId) {
       throw new InternalServerErrorException(
-        'Missing OCI queue configuration: OCI_REGION or OCI_QUEUE_MESSAGES_ENDPOINT',
+        'Missing OCI queue configuration: OCI_REGION or messagesEndpoint.',
       );
     }
 
@@ -372,7 +403,7 @@ export class OciQueueService {
       error.message.includes('not authorized or not found')
     ) {
       hints.push(
-        'verify OCI_QUEUE_ID points to an existing queue',
+        'verify the configured queue id points to an existing queue',
         'verify OCI_REGION matches the queue region',
         'verify the principal can access that queue',
       );

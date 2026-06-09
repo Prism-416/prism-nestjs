@@ -1,9 +1,11 @@
 import Joi from 'joi';
 import { OCI_OBJECT_STORAGE_BUCKET_ENV_BY_KIND } from '@/core/object-storage/oci-object-storage.constants';
+import { OCI_QUEUE_ENV_BY_KIND } from '@/core/queue/oci-queue.constants';
 
 const OBJECT_STORAGE_BUCKET_ENV_KEYS = Object.values(
   OCI_OBJECT_STORAGE_BUCKET_ENV_BY_KIND,
 );
+const AGENT_EVENTS_QUEUE_ENV = OCI_QUEUE_ENV_BY_KIND.agentEvents;
 
 type EnvValidationValues = Record<string, unknown>;
 
@@ -75,8 +77,8 @@ export const envValidationSchema = Joi.object({
   OCI_OBJECT_STORAGE_AGENT_PAYLOAD_BUCKET: Joi.string().allow('').default(''),
   OCI_OBJECT_STORAGE_DOCUMENTS_BUCKET: Joi.string().allow('').default(''),
   OCI_OBJECT_STORAGE_NAMESPACE: Joi.string().allow('').default(''),
-  OCI_QUEUE_ID: Joi.string().allow('').default(''),
-  OCI_QUEUE_MESSAGES_ENDPOINT: Joi.string().allow('').default(''),
+  OCI_QUEUE_AGENT_EVENTS_QUEUE_ID: Joi.string().allow('').default(''),
+  OCI_QUEUE_AGENT_EVENTS_MESSAGES_ENDPOINT: Joi.string().allow('').default(''),
   OCI_REGION: Joi.string().allow('').default(''),
   OCI_TENANCY_OCID: Joi.string().allow('').default(''),
   OCI_USER_OCID: Joi.string().allow('').default(''),
@@ -118,7 +120,18 @@ export const envValidationSchema = Joi.object({
     const emailEnabled = values.EMAIL_ENABLED === true;
     const queueEnabled = values.QUEUE_ENABLED === true;
     const objectStorageEnabled = values.OBJECT_STORAGE_ENABLED === true;
-    if (!emailEnabled && !queueEnabled && !objectStorageEnabled) {
+    const featureProvisioningDispatchMode =
+      typeof values.FEATURE_PROVISIONING_DISPATCH_MODE === 'string'
+        ? values.FEATURE_PROVISIONING_DISPATCH_MODE
+        : 'oci';
+    const featureProvisioningQueueEnabled =
+      featureProvisioningDispatchMode === 'oci';
+    if (
+      !emailEnabled &&
+      !queueEnabled &&
+      !objectStorageEnabled &&
+      !featureProvisioningQueueEnabled
+    ) {
       return values;
     }
 
@@ -130,16 +143,22 @@ export const envValidationSchema = Joi.object({
         .forEach((key) => missingKeys.add(key));
     }
 
-    if (queueEnabled) {
-      if (!hasConfiguredValue(values.OCI_QUEUE_ID)) {
-        missingKeys.add('OCI_QUEUE_ID');
+    if (queueEnabled || featureProvisioningQueueEnabled) {
+      if (!queueEnabled) {
+        missingKeys.add('QUEUE_ENABLED=true');
+      }
+
+      if (!hasConfiguredValue(values[AGENT_EVENTS_QUEUE_ENV.queueId])) {
+        missingKeys.add(AGENT_EVENTS_QUEUE_ENV.queueId);
       }
 
       if (
-        !hasConfiguredValue(values.OCI_QUEUE_MESSAGES_ENDPOINT) &&
+        !hasConfiguredValue(values[AGENT_EVENTS_QUEUE_ENV.messagesEndpoint]) &&
         !hasConfiguredValue(values.OCI_REGION)
       ) {
-        missingKeys.add('OCI_REGION or OCI_QUEUE_MESSAGES_ENDPOINT');
+        missingKeys.add(
+          `OCI_REGION or ${AGENT_EVENTS_QUEUE_ENV.messagesEndpoint}`,
+        );
       }
     }
 
