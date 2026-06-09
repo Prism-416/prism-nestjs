@@ -132,6 +132,7 @@ export class DocumentUseCase {
     }
 
     const object = await this.objectStorageService.getObjectBuffer({
+      bucketKind: 'documents',
       objectName: ref.storageObjectName,
       versionId: ref.storageVersionId ?? undefined,
     });
@@ -366,6 +367,7 @@ export class DocumentUseCase {
     });
     const contentType = file.mimetype || 'application/octet-stream';
     const putResult = await this.objectStorageService.putObject({
+      bucketKind: 'documents',
       objectName,
       body: file.buffer,
       contentLength: file.size,
@@ -457,6 +459,7 @@ export class DocumentUseCase {
 
       const deletionId = await this.objectStorageDeletionService.enqueue(
         {
+          bucketKind: 'documents',
           objectName: deletedDocument.storageObjectName,
           storageVersionId: deletedDocument.storageVersionId ?? undefined,
           reason: 'document_deleted',
@@ -485,6 +488,7 @@ export class DocumentUseCase {
     fallbackMessage: string,
   ): Promise<void> {
     await this.objectStorageDeletionService.enqueueAndProcess({
+      bucketKind: 'documents',
       objectName,
       storageVersionId: versionId,
       reason: fallbackMessage,

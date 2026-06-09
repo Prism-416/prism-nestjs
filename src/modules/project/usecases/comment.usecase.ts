@@ -478,6 +478,7 @@ export class CommentUseCase {
 
       try {
         const putResult = await this.objectStorageService.putObject({
+          bucketKind: 'documents',
           objectName,
           body: file.buffer,
           contentLength: file.size,
@@ -538,6 +539,7 @@ export class CommentUseCase {
     fallbackMessage: string,
   ): Promise<void> {
     await this.objectStorageDeletionService.enqueueAndProcess({
+      bucketKind: 'documents',
       objectName,
       storageVersionId: versionId,
       reason: fallbackMessage,

@@ -1,4 +1,5 @@
 import { Readable } from 'node:stream';
+import type { OciObjectStorageBucketKind } from '@/core/object-storage/oci-object-storage.constants';
 
 export type OciObjectStorageBody =
   | Uint8Array
@@ -17,6 +18,7 @@ export type OciObjectStorageRange = {
 type OciObjectStorageLocation = {
   namespaceName?: string;
   bucketName?: string;
+  bucketKind?: OciObjectStorageBucketKind;
 };
 
 export type PutObjectInput = OciObjectStorageLocation & {

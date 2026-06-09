@@ -12,6 +12,10 @@ import {
   readOciAuthenticationConfig,
 } from '@/core/oci';
 import {
+  OCI_OBJECT_STORAGE_BUCKET_ENV_BY_KIND,
+  OciObjectStorageBucketKind,
+} from '@/core/object-storage/oci-object-storage.constants';
+import {
   DeleteObjectInput,
   DeleteObjectResult,
   GetObjectBufferResult,
@@ -31,6 +35,12 @@ type ObjectLocation = {
   bucketName: string;
 };
 
+type ObjectLocationInput = {
+  namespaceName?: string;
+  bucketName?: string;
+  bucketKind?: OciObjectStorageBucketKind;
+};
+
 @Injectable()
 export class OciObjectStorageService {
   private readonly logger = new Logger(OciObjectStorageService.name);
@@ -43,8 +53,6 @@ export class OciObjectStorageService {
   private readonly regionId = this.ociConfig.regionId;
   private readonly defaultNamespaceName =
     this.getEnv('OCI_OBJECT_STORAGE_NAMESPACE') ?? '';
-  private readonly defaultBucketName =
-    this.getEnv('OCI_OBJECT_STORAGE_BUCKET_NAME') ?? '';
 
   private client?: objectStorage.ObjectStorageClient;
   private clientPromise?: Promise<objectStorage.ObjectStorageClient>;
@@ -245,17 +253,10 @@ export class OciObjectStorageService {
     }
   }
 
-  private async resolveLocation(input: {
-    namespaceName?: string;
-    bucketName?: string;
-  }): Promise<ObjectLocation> {
-    const bucketName = input.bucketName ?? this.defaultBucketName;
-    if (!bucketName) {
-      throw new InternalServerErrorException(
-        'Bucket name is required. Set OCI_OBJECT_STORAGE_BUCKET_NAME or provide bucketName.',
-      );
-    }
-
+  private async resolveLocation(
+    input: ObjectLocationInput,
+  ): Promise<ObjectLocation> {
+    const bucketName = this.resolveBucketName(input);
     const namespaceName =
       input.namespaceName ?? (await this.getNamespaceName());
 
@@ -263,6 +264,29 @@ export class OciObjectStorageService {
       namespaceName,
       bucketName,
     };
+  }
+
+  private resolveBucketName(input: ObjectLocationInput): string {
+    const directBucketName = input.bucketName?.trim();
+    if (directBucketName) {
+      return directBucketName;
+    }
+
+    if (!input.bucketKind) {
+      throw new InternalServerErrorException(
+        'Bucket name is required. Provide bucketKind or bucketName.',
+      );
+    }
+
+    const envKey = OCI_OBJECT_STORAGE_BUCKET_ENV_BY_KIND[input.bucketKind];
+    const bucketName = this.getEnv(envKey)?.trim();
+    if (!bucketName) {
+      throw new InternalServerErrorException(
+        `Bucket name is required. Set ${envKey} or provide bucketName.`,
+      );
+    }
+
+    return bucketName;
   }
 
   private async getNamespaceName(): Promise<string> {

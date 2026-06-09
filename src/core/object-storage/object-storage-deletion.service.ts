@@ -8,10 +8,12 @@ import {
 } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
+import type { OciObjectStorageBucketKind } from '@/core/object-storage/oci-object-storage.constants';
 import { OciObjectStorageService } from '@/core/object-storage/oci-object-storage.service';
 
 type ObjectDeletionRow = {
   deletionId: string;
+  bucketKind: OciObjectStorageBucketKind;
   objectName: string;
   storageVersionId: string | null;
   attempts: number;
@@ -59,6 +61,7 @@ export class ObjectStorageDeletionService
 
   async enqueue(
     params: {
+      bucketKind: OciObjectStorageBucketKind;
       objectName: string;
       storageVersionId?: string;
       reason: string;
@@ -74,14 +77,16 @@ export class ObjectStorageDeletionService
       `
         INSERT INTO prism_object_deletion_queue_l (
           deletion_id,
+          bucket_kind,
           object_name,
           storage_version_id,
           reason
         )
-        VALUES ($1, $2, $3, $4)
+        VALUES ($1, $2, $3, $4, $5)
       `,
       [
         deletionId,
+        params.bucketKind,
         params.objectName,
         params.storageVersionId ?? null,
         params.reason,
@@ -92,6 +97,7 @@ export class ObjectStorageDeletionService
   }
 
   async enqueueAndProcess(params: {
+    bucketKind: OciObjectStorageBucketKind;
     objectName: string;
     storageVersionId?: string;
     reason: string;
@@ -105,6 +111,7 @@ export class ObjectStorageDeletionService
 
     try {
       await this.objectStorageService.deleteObject({
+        bucketKind: params.bucketKind,
         objectName: params.objectName,
         versionId: params.storageVersionId,
       });
@@ -126,6 +133,7 @@ export class ObjectStorageDeletionService
       `
         SELECT
           deletion_id AS "deletionId",
+          bucket_kind AS "bucketKind",
           object_name AS "objectName",
           storage_version_id AS "storageVersionId",
           attempts
@@ -176,6 +184,7 @@ export class ObjectStorageDeletionService
           WHERE q.deletion_id = claimed.deletion_id
           RETURNING
             q.deletion_id AS "deletionId",
+            q.bucket_kind AS "bucketKind",
             q.object_name AS "objectName",
             q.storage_version_id AS "storageVersionId",
             q.attempts
@@ -204,6 +213,7 @@ export class ObjectStorageDeletionService
 
     try {
       await this.objectStorageService.deleteObject({
+        bucketKind: deletion.bucketKind,
         objectName: deletion.objectName,
         versionId: deletion.storageVersionId ?? undefined,
       });

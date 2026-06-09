@@ -935,6 +935,7 @@ export class WorkItemUseCase {
       for (const document of documents) {
         const deletionId = await this.objectStorageDeletionService.enqueue(
           {
+            bucketKind: 'documents',
             objectName: document.storageObjectName,
             storageVersionId: document.storageVersionId ?? undefined,
             reason: 'work_item_permanently_deleted',

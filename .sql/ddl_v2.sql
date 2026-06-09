@@ -736,6 +736,7 @@ CREATE INDEX IF NOT EXISTS idx_documents_source_work_item_snapshot
 CREATE TABLE IF NOT EXISTS prism_object_deletion_queue_l
 (
     deletion_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bucket_kind        VARCHAR(32)  NOT NULL,
     object_name        TEXT         NOT NULL,
     storage_version_id VARCHAR(255),
     reason             VARCHAR(255) NOT NULL,
