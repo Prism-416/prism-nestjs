@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   CreateMentionNotificationsParams,
+  CreateWorkspaceInvitationNotificationParams,
   ListNotificationsParams,
   ListNotificationsResult,
   NotificationRow,
@@ -94,6 +95,83 @@ export class NotificationRepository {
     );
 
     return notifications;
+  }
+
+  async createWorkspaceInvitationNotification(
+    params: CreateWorkspaceInvitationNotificationParams,
+    manager?: EntityManager,
+  ): Promise<NotificationRow> {
+    const notifications = await this.getManager(manager).query<
+      NotificationRow[]
+    >(
+      `
+        INSERT INTO prism_notifications_l (
+          recipient_user_id,
+          actor_user_id,
+          workspace_id,
+          project_id,
+          notification_type,
+          title,
+          body,
+          target_type,
+          target_id,
+          metadata
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          NULL,
+          'workspace_invitation',
+          'Workspace invitation',
+          CONCAT('You have been invited to join ', $5::text, ' as ', $6::text, '.'),
+          'workspace_invitation',
+          $4,
+          jsonb_build_object(
+            'workspaceId', $3::uuid,
+            'workspaceName', $5::text,
+            'role', $6::text,
+            'invitationLink', $7::text,
+            'expiresAt', $8::timestamptz
+          )
+        )
+        ON CONFLICT (recipient_user_id, notification_type, target_id)
+        DO UPDATE SET
+          actor_user_id = EXCLUDED.actor_user_id,
+          workspace_id = EXCLUDED.workspace_id,
+          title = EXCLUDED.title,
+          body = EXCLUDED.body,
+          metadata = EXCLUDED.metadata,
+          read_at = NULL,
+          created_at = NOW()
+        RETURNING
+          notification_id AS "notificationId",
+          recipient_user_id AS "recipientUserId",
+          actor_user_id AS "actorUserId",
+          workspace_id AS "workspaceId",
+          project_id AS "projectId",
+          notification_type AS "notificationType",
+          title,
+          body,
+          target_type AS "targetType",
+          target_id AS "targetId",
+          metadata,
+          read_at AS "readAt",
+          created_at AS "createdAt"
+      `,
+      [
+        params.recipientUserId,
+        params.actorUserId,
+        params.workspaceId,
+        params.invitationId,
+        params.workspaceName,
+        params.role,
+        params.invitationLink,
+        params.expiresAt,
+      ],
+    );
+
+    return notifications[0];
   }
 
   async listNotifications(

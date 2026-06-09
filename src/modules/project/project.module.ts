@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { AdminModule } from '@/modules/admin';
 import { DocumentRepository } from '@/modules/document/repository';
 import { NotificationModule } from '@/modules/notification';
+import { WorkspaceModule } from '@/modules/workspace/workspace.module';
 import {
   CommentController,
   ProjectController,
@@ -22,7 +23,7 @@ import {
 } from '@/modules/project/usecases';
 
 @Module({
-  imports: [AdminModule, NotificationModule],
+  imports: [AdminModule, NotificationModule, WorkspaceModule],
   controllers: [ProjectController, WorkItemController, CommentController],
   providers: [
     CommentRepository,

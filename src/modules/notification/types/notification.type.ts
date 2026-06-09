@@ -1,8 +1,14 @@
-export const NOTIFICATION_TYPES = ['work_item_comment_mention'] as const;
+export const NOTIFICATION_TYPES = [
+  'work_item_comment_mention',
+  'workspace_invitation',
+] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
-export const NOTIFICATION_TARGET_TYPES = ['work_item_comment'] as const;
+export const NOTIFICATION_TARGET_TYPES = [
+  'work_item_comment',
+  'workspace_invitation',
+] as const;
 
 export type NotificationTargetType = (typeof NOTIFICATION_TARGET_TYPES)[number];
 
@@ -45,4 +51,15 @@ export type CreateMentionNotificationsParams = {
   itemId: string;
   commentId: string;
   commentBody: string;
+};
+
+export type CreateWorkspaceInvitationNotificationParams = {
+  recipientUserId: string;
+  actorUserId: string;
+  workspaceId: string;
+  invitationId: string;
+  workspaceName: string;
+  role: string;
+  invitationLink: string;
+  expiresAt: Date;
 };

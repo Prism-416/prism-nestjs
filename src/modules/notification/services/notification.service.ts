@@ -2,8 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import {
   CreateMentionNotificationsParams,
+  CreateWorkspaceInvitationNotificationParams,
   NotificationRow,
 } from '@/modules/notification/types';
+import { WorkspaceAddedPayloadDto } from '@/modules/notification/dto';
 import { NotificationRepository } from '@/modules/notification/repository';
 import { NotificationRealtimePublisherService } from '@/modules/notification/services/notification-realtime-publisher.service';
 
@@ -25,9 +27,20 @@ export class NotificationService {
     return this.repo.createWorkItemCommentMentionNotifications(params, manager);
   }
 
+  async createWorkspaceInvitationNotification(
+    params: CreateWorkspaceInvitationNotificationParams,
+    manager?: EntityManager,
+  ): Promise<NotificationRow> {
+    return this.repo.createWorkspaceInvitationNotification(params, manager);
+  }
+
   publishNotifications(notifications: NotificationRow[]): void {
     for (const notification of notifications) {
       this.realtimePublisher.publishNotificationCreated(notification);
     }
+  }
+
+  publishWorkspaceAdded(payload: WorkspaceAddedPayloadDto): void {
+    this.realtimePublisher.publishWorkspaceAdded(payload);
   }
 }
