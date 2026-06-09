@@ -8,11 +8,20 @@ import {
   Param,
   Post,
   Query,
+  Res,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+  ApiNoContentResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiProduces,
+  ApiTags,
+} from '@nestjs/swagger';
+import type { Response } from 'express';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
@@ -77,6 +86,42 @@ export class DocumentController {
     @Param('documentId') documentId: string,
   ): Promise<DocumentSummaryResponseDto> {
     return this.usecase.getDocument(String(user.sub), projectId, documentId);
+  }
+
+  @Get(':documentId/download')
+  @Authenticated()
+  @ApiOperation({ summary: 'Download project document file' })
+  @ApiProduces('application/octet-stream')
+  @ApiOkResponse({
+    description: 'Document file stream',
+    content: {
+      'application/octet-stream': {
+        schema: { type: 'string', format: 'binary' },
+      },
+    },
+  })
+  async downloadDocument(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Param('documentId') documentId: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const file = await this.usecase.downloadDocument(
+      String(user.sub),
+      projectId,
+      documentId,
+    );
+
+    res.set({
+      // Always serve as an attachment stream so clients download to disk
+      // instead of rendering inline; the real type is kept for reference.
+      'Content-Type': 'application/octet-stream',
+      'X-Document-Content-Type': file.contentType,
+      'Content-Length': String(file.body.length),
+      'Content-Disposition': `attachment; filename="${file.fileName}"`,
+    });
+
+    return new StreamableFile(file.body);
   }
 
   @Post(':documentId/chunks')

@@ -12,6 +12,16 @@ export class DocumentNotFoundError extends NotExistsError {
   }
 }
 
+export class DocumentForbiddenError extends DomainError {
+  constructor() {
+    super(
+      'You do not have permission to perform this action on this document.',
+      'DOCUMENT_FORBIDDEN',
+      403,
+    );
+  }
+}
+
 export class DocumentFileRequiredError extends DomainError {
   constructor() {
     super('Document file is required.', 'DOCUMENT_FILE_REQUIRED', 400);

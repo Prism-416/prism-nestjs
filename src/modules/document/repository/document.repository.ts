@@ -6,6 +6,8 @@ import {
   DeletedDocumentRow,
   DocumentChunkEmbeddingRow,
   DocumentChunkRow,
+  DocumentDownloadRef,
+  DocumentMemberProjectRow,
   DocumentProjectRow,
   DocumentRow,
   SearchDocumentsParams,
@@ -26,12 +28,15 @@ export class DocumentRepository {
     projectId: string,
     userId: string,
     manager?: EntityManager,
-  ): Promise<DocumentProjectRow | null> {
-    const projects = await this.getManager(manager).query<DocumentProjectRow[]>(
+  ): Promise<DocumentMemberProjectRow | null> {
+    const projects = await this.getManager(manager).query<
+      DocumentMemberProjectRow[]
+    >(
       `
         SELECT
           p.project_id AS "projectId",
-          p.workspace_id AS "workspaceId"
+          p.workspace_id AS "workspaceId",
+          wm.role AS "role"
         FROM prism_projects_l p
                INNER JOIN prism_workspaces_l w
                           ON w.workspace_id = p.workspace_id
@@ -228,6 +233,41 @@ export class DocumentRepository {
     );
 
     return documents[0] ? this.mapDocumentRow(documents[0]) : null;
+  }
+
+  async findDocumentDownloadRef(
+    workspaceId: string,
+    projectId: string,
+    documentId: string,
+    manager?: EntityManager,
+  ): Promise<DocumentDownloadRef | null> {
+    type DownloadRefDbRow = Omit<DocumentDownloadRef, 'sizeBytes'> & {
+      sizeBytes: string | number;
+    };
+
+    const refs = await this.getManager(manager).query<DownloadRefDbRow[]>(
+      `
+        SELECT
+          file_name AS "fileName",
+          content_type AS "contentType",
+          size_bytes AS "sizeBytes",
+          storage_object_name AS "storageObjectName",
+          storage_version_id AS "storageVersionId"
+        FROM prism_documents_l
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND document_id = $3
+        LIMIT 1
+      `,
+      [workspaceId, projectId, documentId],
+    );
+
+    const ref = refs[0];
+    if (!ref) {
+      return null;
+    }
+
+    return { ...ref, sizeBytes: Number(ref.sizeBytes) };
   }
 
   async createDocument(
