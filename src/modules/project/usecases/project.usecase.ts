@@ -16,6 +16,7 @@ import { ProjectRepository } from '@/modules/project/repository';
 import { ProjectRealtimePublisherService } from '@/modules/project/services';
 import { generateProjectSlug } from '@/modules/project/utils';
 import { WorkspaceNotFoundError } from '@/modules/workspace/errors';
+import { WorkspaceRealtimePublisherService } from '@/modules/workspace/services';
 
 @Injectable()
 export class ProjectUseCase {
@@ -23,6 +24,7 @@ export class ProjectUseCase {
     private readonly repo: ProjectRepository,
     private readonly uow: UnitOfWork,
     private readonly realtimePublisher: ProjectRealtimePublisherService,
+    private readonly workspaceRealtimePublisher: WorkspaceRealtimePublisherService,
   ) {}
 
   async getProjects(
@@ -94,7 +96,7 @@ export class ProjectUseCase {
     userId: string,
     dto: CreateProjectDto,
   ): Promise<ProjectResponseDto> {
-    return this.uow.run(async (manager) => {
+    const project = await this.uow.run(async (manager) => {
       let project: ProjectResponseDto | null;
 
       try {
@@ -122,6 +124,10 @@ export class ProjectUseCase {
 
       return project;
     });
+
+    this.workspaceRealtimePublisher.publishProjectCreated(project);
+
+    return project;
   }
 
   async updateProject(
@@ -144,11 +150,20 @@ export class ProjectUseCase {
     });
 
     this.realtimePublisher.publishProjectUpdated(updatedProject);
+    this.workspaceRealtimePublisher.publishProjectUpdated(updatedProject);
 
     return updatedProject;
   }
 
   async deleteProject(userId: string, projectId: string): Promise<void> {
+    const project = await this.repo.findProjectByIdAndAdminUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
     const deleted = await this.repo.deleteProjectByIdAndAdminUserId(
       projectId,
       userId,
@@ -158,5 +173,9 @@ export class ProjectUseCase {
     }
 
     this.realtimePublisher.publishProjectDeleted({ projectId });
+    this.workspaceRealtimePublisher.publishProjectDeleted({
+      workspaceId: project.workspaceId,
+      projectId,
+    });
   }
 }

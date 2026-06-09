@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { isEmail } from 'class-validator';
 import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
+import { NotificationService } from '@/modules/notification/services';
 import { ProjectSummaryResponseDto } from '@/modules/project/dto';
 import {
   AcceptWorkspaceInvitationDto,
@@ -52,6 +53,7 @@ import { WorkspaceRepository } from '@/modules/workspace/repository';
 import {
   WorkspaceInvitationNotifierService,
   WorkspaceProvisioningService,
+  WorkspaceRealtimePublisherService,
 } from '@/modules/workspace/services';
 import { WorkspaceInvitationStatus } from '@/modules/workspace/constants';
 import {
@@ -73,6 +75,8 @@ export class WorkspaceUseCase {
     private readonly uow: UnitOfWork,
     private readonly invitationNotifier: WorkspaceInvitationNotifierService,
     private readonly workspaceProvisioning: WorkspaceProvisioningService,
+    private readonly notificationService: NotificationService,
+    private readonly realtimePublisher: WorkspaceRealtimePublisherService,
     private readonly configService: ConfigService,
   ) {
     this.invitationPageUrl = this.configService.get<string>(
@@ -331,6 +335,11 @@ export class WorkspaceUseCase {
         throw new WorkspaceMemberNotFoundError();
       }
     });
+
+    this.realtimePublisher.publishWorkspaceMemberRemoved({
+      workspaceId,
+      userId: targetUserId,
+    });
   }
 
   async updateWorkspaceMemberRole(
@@ -339,7 +348,7 @@ export class WorkspaceUseCase {
     targetUserId: string,
     dto: UpdateWorkspaceMemberRoleDto,
   ): Promise<WorkspaceMemberResponseDto> {
-    return this.uow.run(async (manager) => {
+    const updatedMember = await this.uow.run(async (manager) => {
       const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
         workspaceId,
         userId,
@@ -369,6 +378,13 @@ export class WorkspaceUseCase {
         manager,
       );
     });
+
+    this.realtimePublisher.publishWorkspaceMemberUpdated({
+      ...updatedMember,
+      workspaceId,
+    });
+
+    return updatedMember;
   }
 
   async updateWorkspaceMemberJobs(
@@ -377,7 +393,7 @@ export class WorkspaceUseCase {
     targetUserId: string,
     dto: UpdateWorkspaceMemberJobsDto,
   ): Promise<WorkspaceMemberResponseDto> {
-    return this.uow.run(async (manager) => {
+    const updatedMember = await this.uow.run(async (manager) => {
       const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
         workspaceId,
         userId,
@@ -423,6 +439,13 @@ export class WorkspaceUseCase {
 
       return updatedMember;
     });
+
+    this.realtimePublisher.publishWorkspaceMemberUpdated({
+      ...updatedMember,
+      workspaceId,
+    });
+
+    return updatedMember;
   }
 
   async transferWorkspaceOwner(
@@ -430,7 +453,7 @@ export class WorkspaceUseCase {
     workspaceId: string,
     dto: TransferWorkspaceOwnerDto,
   ): Promise<WorkspaceResponseDto> {
-    return this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const workspace = await this.repo.findWorkspaceById(workspaceId, manager);
       if (!workspace) {
         throw new WorkspaceNotFoundError();
@@ -449,26 +472,46 @@ export class WorkspaceUseCase {
         throw new WorkspaceMemberNotFoundError();
       }
 
-      await this.repo.updateWorkspaceMemberRole(
+      const previousOwnerMember = await this.repo.updateWorkspaceMemberRole(
         workspace.workspaceId,
         workspace.ownerId,
         'admin',
         manager,
       );
 
-      await this.repo.updateWorkspaceMemberRole(
+      const nextOwnerMember = await this.repo.updateWorkspaceMemberRole(
         workspace.workspaceId,
         member.userId,
         'owner',
         manager,
       );
 
-      return this.repo.updateWorkspaceOwner(
+      const updatedWorkspace = await this.repo.updateWorkspaceOwner(
         workspace.workspaceId,
         member.userId,
         manager,
       );
+
+      return {
+        workspace: updatedWorkspace,
+        previousOwnerMember,
+        nextOwnerMember,
+      };
     });
+
+    this.realtimePublisher.publishWorkspaceUpdated(result.workspace);
+    if (result.previousOwnerMember.userId !== result.nextOwnerMember.userId) {
+      this.realtimePublisher.publishWorkspaceMemberUpdated({
+        ...result.previousOwnerMember,
+        workspaceId,
+      });
+    }
+    this.realtimePublisher.publishWorkspaceMemberUpdated({
+      ...result.nextOwnerMember,
+      workspaceId,
+    });
+
+    return result.workspace;
   }
 
   async getWorkspaceJobs(
@@ -499,7 +542,7 @@ export class WorkspaceUseCase {
       throw new WorkspaceNotFoundError();
     }
 
-    return this.uow.run(async (manager) => {
+    const jobs = await this.uow.run(async (manager) => {
       try {
         return await this.repo.createWorkspaceJobs(
           {
@@ -519,6 +562,13 @@ export class WorkspaceUseCase {
         throw error;
       }
     });
+
+    this.realtimePublisher.publishWorkspaceJobsChanged({
+      workspaceId,
+      jobs,
+    });
+
+    return jobs;
   }
 
   async updateWorkspaceJobs(
@@ -534,7 +584,7 @@ export class WorkspaceUseCase {
       throw new WorkspaceNotFoundError();
     }
 
-    return this.uow.run(async (manager) => {
+    const jobs = await this.uow.run(async (manager) => {
       const updatedJobs: WorkspaceJobResponseDto[] = [];
 
       for (const job of dto.jobs) {
@@ -567,6 +617,13 @@ export class WorkspaceUseCase {
 
       return updatedJobs;
     });
+
+    this.realtimePublisher.publishWorkspaceJobsChanged({
+      workspaceId,
+      jobs,
+    });
+
+    return jobs;
   }
 
   async deleteWorkspaceJob(
@@ -574,7 +631,7 @@ export class WorkspaceUseCase {
     workspaceId: string,
     jobId: string,
   ): Promise<void> {
-    return this.uow.run(async (manager) => {
+    await this.uow.run(async (manager) => {
       const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
         workspaceId,
         userId,
@@ -592,6 +649,11 @@ export class WorkspaceUseCase {
       if (!deleted) {
         throw new WorkspaceJobNotFoundError();
       }
+    });
+
+    this.realtimePublisher.publishWorkspaceJobDeleted({
+      workspaceId,
+      jobId,
     });
   }
 
@@ -680,13 +742,29 @@ export class WorkspaceUseCase {
       eventType: 'sent',
     });
 
+    if (receiver.userId) {
+      const notification =
+        await this.notificationService.createWorkspaceInvitationNotification({
+          recipientUserId: receiver.userId,
+          actorUserId: userId,
+          workspaceId: invitationResponse.workspaceId,
+          invitationId: invitationResponse.invitationId,
+          workspaceName,
+          role: invitationResponse.role,
+          invitationLink: invitationResponse.invitationLink,
+          expiresAt: invitationResponse.expiresAt,
+        });
+
+      this.notificationService.publishNotifications([notification]);
+    }
+
     return invitationResponse;
   }
 
   async acceptWorkspaceInvitation(
     dto: AcceptWorkspaceInvitationDto,
   ): Promise<WorkspaceResponseDto> {
-    return this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const invitationContext = await this.getWorkspaceInvitationContext(
         dto.token,
         manager,
@@ -733,8 +811,28 @@ export class WorkspaceUseCase {
         manager,
       );
 
-      return workspace;
+      const member = await this.repo.findWorkspaceMember(
+        invitation.workspaceId,
+        receiver.userId,
+        manager,
+      );
+      if (!member) {
+        throw new WorkspaceMemberNotFoundError();
+      }
+
+      return { member, workspace };
     });
+
+    this.realtimePublisher.publishWorkspaceMemberCreated({
+      ...result.member,
+      workspaceId: result.workspace.workspaceId,
+    });
+    this.notificationService.publishWorkspaceAdded({
+      ...result.workspace,
+      recipientUserId: result.member.userId,
+    });
+
+    return result.workspace;
   }
 
   async declineWorkspaceInvitation(
@@ -790,7 +888,7 @@ export class WorkspaceUseCase {
     workspaceId: string,
     dto: UpdateWorkspaceDto,
   ): Promise<WorkspaceResponseDto> {
-    return this.uow.run(async (manager) => {
+    const workspace = await this.uow.run(async (manager) => {
       const workspace = await this.repo.findWorkspaceByIdAndAdminUserId(
         workspaceId,
         userId,
@@ -824,6 +922,10 @@ export class WorkspaceUseCase {
         manager,
       );
     });
+
+    this.realtimePublisher.publishWorkspaceUpdated(workspace);
+
+    return workspace;
   }
 
   async deleteWorkspace(userId: string, workspaceId: string): Promise<void> {
@@ -845,6 +947,10 @@ export class WorkspaceUseCase {
     if (!deleted) {
       throw new WorkspaceNotFoundError();
     }
+
+    this.realtimePublisher.publishWorkspaceDeleted({
+      workspaceId,
+    });
   }
 
   async restoreWorkspace(

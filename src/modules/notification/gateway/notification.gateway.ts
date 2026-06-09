@@ -15,7 +15,10 @@ import {
   NOTIFICATION_REALTIME_EVENTS,
   NOTIFICATION_REALTIME_NAMESPACE,
 } from '@/modules/notification/constants';
-import { NotificationCreatedPayloadDto } from '@/modules/notification/dto';
+import {
+  NotificationCreatedPayloadDto,
+  WorkspaceAddedPayloadDto,
+} from '@/modules/notification/dto';
 import { NotificationRealtimePublisherService } from '@/modules/notification/services';
 import { buildNotificationUserRoom } from '@/modules/notification/utils';
 
@@ -31,6 +34,9 @@ const resolveSocketCorsOrigin = (): string[] | true => {
 type NotificationServerToClientEvents = {
   [NOTIFICATION_REALTIME_EVENTS.NOTIFICATION_CREATED]: (
     payload: NotificationCreatedPayloadDto,
+  ) => void;
+  [NOTIFICATION_REALTIME_EVENTS.WORKSPACE_ADDED]: (
+    payload: WorkspaceAddedPayloadDto,
   ) => void;
 };
 

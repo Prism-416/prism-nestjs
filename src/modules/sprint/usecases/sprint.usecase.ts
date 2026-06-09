@@ -26,12 +26,14 @@ import {
 } from '@/modules/sprint/errors';
 import { SprintRepository } from '@/modules/sprint/repository';
 import { SPRINT_STATUSES } from '@/modules/sprint/types';
+import { WorkspaceRealtimePublisherService } from '@/modules/workspace/services';
 
 @Injectable()
 export class SprintUseCase {
   constructor(
     private readonly repo: SprintRepository,
     private readonly uow: UnitOfWork,
+    private readonly workspaceRealtimePublisher: WorkspaceRealtimePublisherService,
   ) {}
 
   async getSprints(
@@ -116,7 +118,7 @@ export class SprintUseCase {
   ): Promise<SprintResponseDto> {
     const { startsAt, endsAt } = this.parseSprintPeriod(dto);
 
-    return this.uow.run(async (manager) => {
+    const sprint = await this.uow.run(async (manager) => {
       const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
@@ -132,6 +134,10 @@ export class SprintUseCase {
         manager,
       );
     });
+
+    this.workspaceRealtimePublisher.publishSprintCreated(sprint);
+
+    return sprint;
   }
 
   async createSprintForInternal(
@@ -141,7 +147,7 @@ export class SprintUseCase {
   ): Promise<SprintResponseDto> {
     const { startsAt, endsAt } = this.parseSprintPeriod(dto);
 
-    return this.uow.run(async (manager) => {
+    const sprint = await this.uow.run(async (manager) => {
       const workspace = await this.getExistingWorkspace(
         workspaceId,
         userId,
@@ -157,6 +163,10 @@ export class SprintUseCase {
         manager,
       );
     });
+
+    this.workspaceRealtimePublisher.publishSprintCreated(sprint);
+
+    return sprint;
   }
 
   async updateSprintMetadata(
@@ -165,7 +175,7 @@ export class SprintUseCase {
     sprintId: string,
     dto: UpdateSprintMetadataDto,
   ): Promise<SprintResponseDto> {
-    return this.uow.run(async (manager) => {
+    const sprint = await this.uow.run(async (manager) => {
       const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
@@ -179,6 +189,10 @@ export class SprintUseCase {
         manager,
       );
     });
+
+    this.workspaceRealtimePublisher.publishSprintUpdated(sprint);
+
+    return sprint;
   }
 
   async updateSprintMetadataForInternal(
@@ -187,7 +201,7 @@ export class SprintUseCase {
     sprintId: string,
     dto: UpdateSprintMetadataDto,
   ): Promise<SprintResponseDto> {
-    return this.uow.run(async (manager) => {
+    const sprint = await this.uow.run(async (manager) => {
       const workspace = await this.getExistingWorkspace(
         workspaceId,
         userId,
@@ -201,6 +215,10 @@ export class SprintUseCase {
         manager,
       );
     });
+
+    this.workspaceRealtimePublisher.publishSprintUpdated(sprint);
+
+    return sprint;
   }
 
   async addSprintWorkItems(
@@ -209,7 +227,7 @@ export class SprintUseCase {
     sprintId: string,
     dto: AddSprintWorkItemsDto,
   ): Promise<void> {
-    return this.uow.run(async (manager) => {
+    await this.uow.run(async (manager) => {
       const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
@@ -223,6 +241,12 @@ export class SprintUseCase {
         dto,
         manager,
       );
+    });
+
+    this.workspaceRealtimePublisher.publishSprintWorkItemsChanged({
+      workspaceId,
+      sprintId,
+      itemIds: dto.itemIds,
     });
   }
 
@@ -232,7 +256,7 @@ export class SprintUseCase {
     sprintId: string,
     dto: AddSprintWorkItemsDto,
   ): Promise<void> {
-    return this.uow.run(async (manager) => {
+    await this.uow.run(async (manager) => {
       const workspace = await this.getExistingWorkspace(
         workspaceId,
         userId,
@@ -247,6 +271,12 @@ export class SprintUseCase {
         manager,
       );
     });
+
+    this.workspaceRealtimePublisher.publishSprintWorkItemsChanged({
+      workspaceId,
+      sprintId,
+      itemIds: dto.itemIds,
+    });
   }
 
   async removeSprintWorkItem(
@@ -255,7 +285,7 @@ export class SprintUseCase {
     sprintId: string,
     itemId: string,
   ): Promise<void> {
-    return this.uow.run(async (manager) => {
+    await this.uow.run(async (manager) => {
       const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
@@ -268,6 +298,12 @@ export class SprintUseCase {
         itemId,
         manager,
       );
+    });
+
+    this.workspaceRealtimePublisher.publishSprintWorkItemsChanged({
+      workspaceId,
+      sprintId,
+      itemIds: [itemId],
     });
   }
 
@@ -277,7 +313,7 @@ export class SprintUseCase {
     sprintId: string,
     itemId: string,
   ): Promise<void> {
-    return this.uow.run(async (manager) => {
+    await this.uow.run(async (manager) => {
       const workspace = await this.getExistingWorkspace(
         workspaceId,
         userId,
@@ -291,6 +327,12 @@ export class SprintUseCase {
         manager,
       );
     });
+
+    this.workspaceRealtimePublisher.publishSprintWorkItemsChanged({
+      workspaceId,
+      sprintId,
+      itemIds: [itemId],
+    });
   }
 
   async deleteSprint(
@@ -298,7 +340,7 @@ export class SprintUseCase {
     workspaceId: string,
     sprintId: string,
   ): Promise<void> {
-    return this.uow.run(async (manager) => {
+    await this.uow.run(async (manager) => {
       const workspace = await this.getWritableWorkspace(
         workspaceId,
         userId,
@@ -307,6 +349,11 @@ export class SprintUseCase {
 
       await this.deleteSprintInWorkspace(workspace, sprintId, manager);
     });
+
+    this.workspaceRealtimePublisher.publishSprintDeleted({
+      workspaceId,
+      sprintId,
+    });
   }
 
   async deleteSprintForInternal(
@@ -314,7 +361,7 @@ export class SprintUseCase {
     workspaceId: string,
     sprintId: string,
   ): Promise<void> {
-    return this.uow.run(async (manager) => {
+    await this.uow.run(async (manager) => {
       const workspace = await this.getExistingWorkspace(
         workspaceId,
         userId,
@@ -322,6 +369,11 @@ export class SprintUseCase {
       );
 
       await this.deleteSprintInWorkspace(workspace, sprintId, manager);
+    });
+
+    this.workspaceRealtimePublisher.publishSprintDeleted({
+      workspaceId,
+      sprintId,
     });
   }
 
