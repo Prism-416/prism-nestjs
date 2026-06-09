@@ -233,6 +233,22 @@ export class OciObjectStorageService {
         opcClientRequestId: response.opcClientRequestId,
       };
     } catch (error) {
+      // Deleting an object that is already gone is the desired end state, so
+      // treat a missing object as a successful (idempotent) no-op instead of
+      // failing and retrying forever.
+      if (error instanceof common.OciError && error.statusCode === 404) {
+        this.logger.debug(
+          `Object already absent, treating delete as success: bucket=${location.bucketName}, object=${input.objectName}`,
+        );
+        return {
+          lastModified: new Date(),
+          versionId: input.versionId ?? '',
+          isDeleteMarker: false,
+          opcRequestId: error.opcRequestId ?? '',
+          opcClientRequestId: input.opcClientRequestId ?? '',
+        };
+      }
+
       const err = error as Error;
       this.logger.error(
         this.formatObjectStorageFailureMessage(
