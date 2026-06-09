@@ -3,6 +3,7 @@ import {
   ExecutionContext,
   Injectable,
   NestInterceptor,
+  StreamableFile,
 } from '@nestjs/common';
 import { map, Observable } from 'rxjs';
 
@@ -16,6 +17,11 @@ export class DataResponseInterceptor implements NestInterceptor {
     return next.handle().pipe(
       map((data: unknown) => {
         if (data === undefined || data === null) {
+          return data;
+        }
+        // Binary file responses must stream through untouched; wrapping a
+        // StreamableFile in { data } would JSON-serialize and corrupt it.
+        if (data instanceof StreamableFile) {
           return data;
         }
         return { data };

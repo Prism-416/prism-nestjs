@@ -20,16 +20,21 @@ import {
   DocumentChunkDuplicateIndexError,
   DocumentFileEmptyError,
   DocumentFileRequiredError,
+  DocumentForbiddenError,
   DocumentNotFoundError,
   DocumentProjectNotFoundError,
 } from '@/modules/document/errors';
 import { DocumentRepository } from '@/modules/document/repository';
-import { DocumentUploadFile } from '@/modules/document/types';
+import {
+  DocumentDownloadResult,
+  DocumentUploadFile,
+} from '@/modules/document/types';
 import {
   buildDocumentObjectName,
   sanitizeDocumentFileName,
 } from '@/modules/document/utils';
 import { ProjectRealtimePublisherService } from '@/modules/project/services';
+import type { WorkspaceMemberRole } from '@/modules/workspace/constants';
 
 @Injectable()
 export class DocumentUseCase {
@@ -86,6 +91,45 @@ export class DocumentUseCase {
     }
 
     return document;
+  }
+
+  async downloadDocument(
+    userId: string,
+    projectId: string,
+    documentId: string,
+  ): Promise<DocumentDownloadResult> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new DocumentProjectNotFoundError();
+    }
+    this.assertCanContribute(project.role);
+
+    const ref = await this.repo.findDocumentDownloadRef(
+      project.workspaceId,
+      project.projectId,
+      documentId,
+    );
+    if (!ref) {
+      throw new DocumentNotFoundError();
+    }
+
+    const object = await this.objectStorageService.getObjectBuffer({
+      objectName: ref.storageObjectName,
+      versionId: ref.storageVersionId ?? undefined,
+    });
+    if (!object.body) {
+      throw new DocumentNotFoundError();
+    }
+
+    return {
+      fileName: ref.fileName,
+      contentType: ref.contentType,
+      sizeBytes: ref.sizeBytes,
+      body: object.body,
+    };
   }
 
   async appendDocumentChunks(
@@ -265,6 +309,7 @@ export class DocumentUseCase {
     if (!project) {
       throw new DocumentProjectNotFoundError();
     }
+    this.assertCanContribute(project.role);
 
     const documentId = randomUUID();
     const fileName = sanitizeDocumentFileName(file.originalname);
@@ -329,6 +374,7 @@ export class DocumentUseCase {
     if (!project) {
       throw new DocumentProjectNotFoundError();
     }
+    this.assertCanManage(project.role);
 
     const deletedDocument = await this.repo.deleteDocument(
       project.workspaceId,
@@ -362,6 +408,18 @@ export class DocumentUseCase {
       this.logger.warn(
         cleanupError instanceof Error ? cleanupError.message : fallbackMessage,
       );
+    }
+  }
+
+  private assertCanContribute(role: WorkspaceMemberRole): void {
+    if (role === 'viewer') {
+      throw new DocumentForbiddenError();
+    }
+  }
+
+  private assertCanManage(role: WorkspaceMemberRole): void {
+    if (role !== 'owner' && role !== 'admin') {
+      throw new DocumentForbiddenError();
     }
   }
 

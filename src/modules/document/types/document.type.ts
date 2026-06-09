@@ -1,3 +1,5 @@
+import type { WorkspaceMemberRole } from '@/modules/workspace/constants';
+
 export type DocumentRow = {
   documentId: string;
   workspaceId: string;
@@ -43,6 +45,25 @@ export type DocumentChunkEmbeddingRow = {
 export type DocumentProjectRow = {
   projectId: string;
   workspaceId: string;
+};
+
+export type DocumentMemberProjectRow = DocumentProjectRow & {
+  role: WorkspaceMemberRole;
+};
+
+export type DocumentDownloadRef = {
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  storageObjectName: string;
+  storageVersionId: string | null;
+};
+
+export type DocumentDownloadResult = {
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  body: Buffer;
 };
 
 export type DeletedDocumentRow = {
