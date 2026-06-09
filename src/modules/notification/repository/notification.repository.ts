@@ -127,9 +127,10 @@ export class NotificationRepository {
           'Workspace invitation',
           CONCAT('You have been invited to join ', $5::text, ' as ', $6::text, '.'),
           'workspace_invitation',
-          $4,
+          gen_random_uuid(),
           jsonb_build_object(
             'workspaceId', $3::uuid,
+            'invitationId', $4::uuid,
             'workspaceName', $5::text,
             'role', $6::text,
             'invitationLink', $7::text,
@@ -137,15 +138,6 @@ export class NotificationRepository {
             'expiresAt', $9::timestamptz
           )
         )
-        ON CONFLICT (recipient_user_id, notification_type, target_id)
-        DO UPDATE SET
-          actor_user_id = EXCLUDED.actor_user_id,
-          workspace_id = EXCLUDED.workspace_id,
-          title = EXCLUDED.title,
-          body = EXCLUDED.body,
-          metadata = EXCLUDED.metadata,
-          read_at = NULL,
-          created_at = NOW()
         RETURNING
           notification_id AS "notificationId",
           recipient_user_id AS "recipientUserId",
