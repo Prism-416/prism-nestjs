@@ -3,6 +3,7 @@ import { EntityManager } from 'typeorm';
 import {
   CreateMentionNotificationsParams,
   CreateWorkspaceInvitationNotificationParams,
+  CreateWorkspaceMemberRemovedNotificationParams,
   NotificationRow,
 } from '@/modules/notification/types';
 import { WorkspaceAddedPayloadDto } from '@/modules/notification/dto';
@@ -32,6 +33,13 @@ export class NotificationService {
     manager?: EntityManager,
   ): Promise<NotificationRow> {
     return this.repo.createWorkspaceInvitationNotification(params, manager);
+  }
+
+  async createWorkspaceMemberRemovedNotification(
+    params: CreateWorkspaceMemberRemovedNotificationParams,
+    manager?: EntityManager,
+  ): Promise<NotificationRow> {
+    return this.repo.createWorkspaceMemberRemovedNotification(params, manager);
   }
 
   publishNotifications(notifications: NotificationRow[]): void {
