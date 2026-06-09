@@ -677,6 +677,11 @@ CREATE TABLE IF NOT EXISTS prism_documents_l
     storage_object_name TEXT         NOT NULL,
     storage_etag        VARCHAR(255),
     storage_version_id  VARCHAR(255),
+    source_kind         VARCHAR(20)  NOT NULL DEFAULT 'direct',
+    source_work_item_id UUID,
+    source_work_item_id_snapshot UUID,
+    source_work_item_title_snapshot VARCHAR(100),
+    source_comment_id   UUID,
     created_by          UUID         NOT NULL REFERENCES prism_users_l (user_id) ON DELETE RESTRICT,
     updated_by          UUID         NOT NULL REFERENCES prism_users_l (user_id) ON DELETE RESTRICT,
     created_at          TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -686,9 +691,30 @@ CREATE TABLE IF NOT EXISTS prism_documents_l
         FOREIGN KEY (workspace_id, project_id)
             REFERENCES prism_projects_l (workspace_id, project_id)
             ON DELETE CASCADE,
+    CONSTRAINT fk_documents_source_work_item
+        FOREIGN KEY (source_work_item_id)
+            REFERENCES prism_work_items_l (item_id)
+            ON DELETE SET NULL,
+    CONSTRAINT fk_documents_source_comment
+        FOREIGN KEY (source_comment_id)
+            REFERENCES prism_work_item_comments_l (comment_id)
+            ON DELETE SET NULL,
     CONSTRAINT uq_documents_project_document UNIQUE (project_id, document_id),
     CONSTRAINT uq_documents_storage_object_name UNIQUE (storage_object_name),
     CONSTRAINT ck_documents_title_not_blank CHECK (LENGTH(TRIM(title)) > 0),
+    CONSTRAINT ck_documents_source_kind CHECK (source_kind IN ('direct', 'work_item')),
+    CONSTRAINT ck_documents_source_comment_requires_work_item CHECK (
+        source_comment_id IS NULL OR source_kind = 'work_item'
+    ),
+    CONSTRAINT ck_documents_source_kind_direct CHECK (
+        source_kind <> 'direct'
+            OR (
+                source_work_item_id IS NULL
+                AND source_work_item_id_snapshot IS NULL
+                AND source_comment_id IS NULL
+                AND source_work_item_title_snapshot IS NULL
+            )
+    ),
     CONSTRAINT ck_documents_size_bytes_positive CHECK (size_bytes > 0)
 );
 
@@ -697,6 +723,35 @@ CREATE INDEX IF NOT EXISTS idx_documents_project_created_at
 
 CREATE INDEX IF NOT EXISTS idx_documents_workspace_project
     ON prism_documents_l (workspace_id, project_id);
+
+CREATE INDEX IF NOT EXISTS idx_documents_source_work_item
+    ON prism_documents_l (source_work_item_id);
+
+CREATE INDEX IF NOT EXISTS idx_documents_source_comment
+    ON prism_documents_l (source_comment_id);
+
+CREATE INDEX IF NOT EXISTS idx_documents_source_work_item_snapshot
+    ON prism_documents_l (source_work_item_id_snapshot);
+
+CREATE TABLE IF NOT EXISTS prism_object_deletion_queue_l
+(
+    deletion_id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    bucket_kind        VARCHAR(32)  NOT NULL,
+    object_name        TEXT         NOT NULL,
+    storage_version_id VARCHAR(255),
+    reason             VARCHAR(255) NOT NULL,
+    attempts           INTEGER      NOT NULL DEFAULT 0,
+    next_attempt_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    last_error         VARCHAR(2000),
+    created_at         TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+    completed_at       TIMESTAMPTZ,
+
+    CONSTRAINT ck_object_deletion_queue_attempts_nonnegative CHECK (attempts >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_object_deletion_queue_pending
+    ON prism_object_deletion_queue_l (next_attempt_at, created_at)
+    WHERE completed_at IS NULL;
 
 -- =========================================================
 -- Agent Runs / Actions / Memory

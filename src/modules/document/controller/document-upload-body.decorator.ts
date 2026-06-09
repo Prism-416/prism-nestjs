@@ -21,6 +21,18 @@ export function ApiDocumentUploadBody() {
             type: 'string',
             maxLength: 1000,
           },
+          workItemId: {
+            type: 'string',
+            format: 'uuid',
+            description:
+              'Work item to associate the document with (set when sharing from a work item).',
+          },
+          commentId: {
+            type: 'string',
+            format: 'uuid',
+            description:
+              'Comment the document is shared in (requires workItemId).',
+          },
         },
       },
     }),

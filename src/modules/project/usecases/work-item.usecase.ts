@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
+import { ObjectStorageDeletionService } from '@/core/object-storage';
+import { DocumentRepository } from '@/modules/document/repository';
 import {
   PROJECT_EMBEDDING_DIMENSIONS,
   WORK_ITEM_TRASH_RETENTION_DAYS,
@@ -40,6 +43,8 @@ export class WorkItemUseCase {
   constructor(
     private readonly projectRepository: ProjectRepository,
     private readonly workItemRepository: WorkItemRepository,
+    private readonly documentRepository: DocumentRepository,
+    private readonly objectStorageDeletionService: ObjectStorageDeletionService,
     private readonly uow: UnitOfWork,
     private readonly realtimePublisher: ProjectRealtimePublisherService,
   ) {}
@@ -671,10 +676,16 @@ export class WorkItemUseCase {
       throw new ProjectNotFoundError();
     }
 
-    await this.workItemRepository.purgeExpiredTrashedWorkItems(
+    const expiredRootIds =
+      await this.workItemRepository.findExpiredTrashedWorkItemRootIds(
+        project.workspaceId,
+        project.projectId,
+        WORK_ITEM_TRASH_RETENTION_DAYS,
+      );
+    await this.permanentlyDeleteTrashedWorkItemRoots(
       project.workspaceId,
       project.projectId,
-      WORK_ITEM_TRASH_RETENTION_DAYS,
+      expiredRootIds,
     );
 
     const items = await this.workItemRepository.searchTrashedWorkItems(
@@ -747,34 +758,15 @@ export class WorkItemUseCase {
     projectId: string,
     itemId: string,
   ): Promise<void> {
-    await this.uow.run(async (manager) => {
-      const project =
-        await this.projectRepository.findProjectByIdAndMemberUserId(
-          projectId,
-          userId,
-          manager,
-        );
-      if (!project) {
-        throw new ProjectNotFoundError();
-      }
-
-      const root = await this.workItemRepository.findTrashedWorkItemRootById(
-        project.workspaceId,
-        project.projectId,
-        itemId,
-        manager,
+    const deletedIds =
+      await this.permanentlyDeleteAuthorizedTrashedWorkItemRoots(
+        userId,
+        projectId,
+        [itemId],
       );
-      if (!root) {
-        throw new WorkItemNotFoundError();
-      }
-
-      await this.workItemRepository.deleteWorkItem(
-        project.workspaceId,
-        project.projectId,
-        itemId,
-        manager,
-      );
-    });
+    if (deletedIds.length === 0) {
+      throw new WorkItemNotFoundError();
+    }
 
     this.realtimePublisher.publishWorkItemDeleted({ projectId, itemId });
   }
@@ -846,7 +838,42 @@ export class WorkItemUseCase {
     projectId: string,
     itemIds: string[],
   ): Promise<void> {
-    const deletedIds = await this.uow.run(async (manager) => {
+    const deletedIds =
+      await this.permanentlyDeleteAuthorizedTrashedWorkItemRoots(
+        userId,
+        projectId,
+        itemIds,
+      );
+
+    for (const itemId of deletedIds) {
+      this.realtimePublisher.publishWorkItemDeleted({ projectId, itemId });
+    }
+  }
+
+  private async permanentlyDeleteTrashedWorkItemRoots(
+    workspaceId: string,
+    projectId: string,
+    itemIds: string[],
+  ): Promise<string[]> {
+    if (itemIds.length === 0) {
+      return [];
+    }
+
+    const result = await this.uow.run((manager) =>
+      this.deleteTrashedWorkItemRoots(workspaceId, projectId, itemIds, manager),
+    );
+
+    await this.processObjectDeletions(result.deletionIds);
+
+    return result.removed;
+  }
+
+  private async permanentlyDeleteAuthorizedTrashedWorkItemRoots(
+    userId: string,
+    projectId: string,
+    itemIds: string[],
+  ): Promise<string[]> {
+    const result = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -857,32 +884,84 @@ export class WorkItemUseCase {
         throw new ProjectNotFoundError();
       }
 
-      const removed: string[] = [];
-      for (const itemId of itemIds) {
-        const root = await this.workItemRepository.findTrashedWorkItemRootById(
-          project.workspaceId,
-          project.projectId,
-          itemId,
-          manager,
-        );
-        if (!root) {
-          continue;
-        }
-
-        await this.workItemRepository.deleteWorkItem(
-          project.workspaceId,
-          project.projectId,
-          itemId,
-          manager,
-        );
-        removed.push(itemId);
-      }
-
-      return removed;
+      return this.deleteTrashedWorkItemRoots(
+        project.workspaceId,
+        project.projectId,
+        itemIds,
+        manager,
+      );
     });
 
-    for (const itemId of deletedIds) {
-      this.realtimePublisher.publishWorkItemDeleted({ projectId, itemId });
+    await this.processObjectDeletions(result.deletionIds);
+
+    return result.removed;
+  }
+
+  private async deleteTrashedWorkItemRoots(
+    workspaceId: string,
+    projectId: string,
+    itemIds: string[],
+    manager: EntityManager,
+  ): Promise<{ removed: string[]; deletionIds: string[] }> {
+    const removed: string[] = [];
+    const deletionIds: string[] = [];
+
+    for (const itemId of new Set(itemIds)) {
+      const root = await this.workItemRepository.findTrashedWorkItemRootById(
+        workspaceId,
+        projectId,
+        itemId,
+        manager,
+      );
+      if (!root) {
+        continue;
+      }
+
+      const subtreeIds =
+        await this.workItemRepository.findTrashedWorkItemSubtreeIds(
+          workspaceId,
+          projectId,
+          itemId,
+          manager,
+        );
+      const documents =
+        await this.documentRepository.deleteDocumentsBySourceWorkItemIds(
+          workspaceId,
+          projectId,
+          subtreeIds,
+          manager,
+        );
+
+      for (const document of documents) {
+        const deletionId = await this.objectStorageDeletionService.enqueue(
+          {
+            bucketKind: 'documents',
+            objectName: document.storageObjectName,
+            storageVersionId: document.storageVersionId ?? undefined,
+            reason: 'work_item_permanently_deleted',
+          },
+          manager,
+        );
+        if (deletionId) {
+          deletionIds.push(deletionId);
+        }
+      }
+
+      await this.workItemRepository.deleteWorkItem(
+        workspaceId,
+        projectId,
+        itemId,
+        manager,
+      );
+      removed.push(itemId);
+    }
+
+    return { removed, deletionIds };
+  }
+
+  private async processObjectDeletions(deletionIds: string[]): Promise<void> {
+    for (const deletionId of deletionIds) {
+      await this.objectStorageDeletionService.processDeletion(deletionId);
     }
   }
 }

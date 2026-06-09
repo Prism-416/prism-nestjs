@@ -72,6 +72,18 @@ export class DocumentCreatedPayloadDto {
 
   sizeBytes!: number;
 
+  sourceKind!: 'direct' | 'work_item';
+
+  sourceWorkItemId!: string | null;
+
+  sourceWorkItemIdSnapshot!: string | null;
+
+  sourceWorkItemTitle!: string | null;
+
+  sourceWorkItemTitleSnapshot!: string | null;
+
+  sourceCommentId!: string | null;
+
   createdBy!: string;
 
   createdAt!: Date;

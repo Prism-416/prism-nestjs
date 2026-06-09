@@ -841,6 +841,40 @@ export class WorkItemRepository {
     return items[0] ?? null;
   }
 
+  async findTrashedWorkItemSubtreeIds(
+    workspaceId: string,
+    projectId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<string[]> {
+    const rows = await this.getManager(manager).query<
+      Array<{ itemId: string }>
+    >(
+      `
+        WITH RECURSIVE subtree AS (
+          SELECT item_id
+          FROM prism_work_items_l
+          WHERE workspace_id = $1
+            AND project_id = $2
+            AND item_id = $3
+            AND deleted_at IS NOT NULL
+          UNION ALL
+          SELECT child.item_id
+          FROM prism_work_items_l child
+                 INNER JOIN subtree ON child.parent_id = subtree.item_id
+          WHERE child.workspace_id = $1
+            AND child.project_id = $2
+            AND child.deleted_at IS NOT NULL
+        )
+        SELECT item_id AS "itemId"
+        FROM subtree
+      `,
+      [workspaceId, projectId, itemId],
+    );
+
+    return rows.map((row) => row.itemId);
+  }
+
   /**
    * List trashed deletion roots with the count of their trashed descendants.
    */
@@ -928,31 +962,39 @@ export class WorkItemRepository {
     );
   }
 
-  /**
-   * Permanently delete trashed work items whose retention window has elapsed.
-   * Descendants are removed via the ON DELETE CASCADE parent foreign key.
-   */
-  async purgeExpiredTrashedWorkItems(
+  async findExpiredTrashedWorkItemRootIds(
     workspaceId: string,
     projectId: string,
     retentionDays: number,
     manager?: EntityManager,
-  ): Promise<number> {
+  ): Promise<string[]> {
     const rows = await this.getManager(manager).query<
       Array<{ itemId: string }>
     >(
       `
-        DELETE FROM prism_work_items_l
-        WHERE workspace_id = $1
-          AND project_id = $2
-          AND deleted_at IS NOT NULL
-          AND deleted_at < NOW() - make_interval(days => $3::int)
-        RETURNING item_id AS "itemId"
+        SELECT wi.item_id AS "itemId"
+        FROM prism_work_items_l wi
+        WHERE wi.workspace_id = $1
+          AND wi.project_id = $2
+          AND wi.deleted_at IS NOT NULL
+          AND wi.deleted_at < NOW() - make_interval(days => $3::int)
+          AND (
+            wi.parent_id IS NULL
+            OR NOT EXISTS (
+              SELECT 1
+              FROM prism_work_items_l parent
+              WHERE parent.workspace_id = wi.workspace_id
+                AND parent.project_id = wi.project_id
+                AND parent.item_id = wi.parent_id
+                AND parent.deleted_at IS NOT NULL
+            )
+          )
+        ORDER BY wi.deleted_at, wi.item_id
       `,
       [workspaceId, projectId, retentionDays],
     );
 
-    return rows.length;
+    return rows.map((row) => row.itemId);
   }
 
   async findWorkspaceMembersByUsernames(

@@ -1,5 +1,8 @@
 import type { WorkspaceMemberRole } from '@/modules/workspace/constants';
 
+export type DocumentSourceKind = 'direct' | 'work_item';
+export type DocumentSourceFilter = DocumentSourceKind;
+
 export type DocumentRow = {
   documentId: string;
   workspaceId: string;
@@ -11,6 +14,12 @@ export type DocumentRow = {
   sizeBytes: number;
   storageETag: string | null;
   storageVersionId: string | null;
+  sourceKind: DocumentSourceKind;
+  sourceWorkItemId: string | null;
+  sourceWorkItemIdSnapshot: string | null;
+  sourceWorkItemTitle: string | null;
+  sourceWorkItemTitleSnapshot: string | null;
+  sourceCommentId: string | null;
   createdBy: string;
   updatedBy: string;
   createdAt: Date;
@@ -67,8 +76,11 @@ export type DocumentDownloadResult = {
 };
 
 export type DeletedDocumentRow = {
+  documentId: string;
   storageObjectName: string;
   storageVersionId: string | null;
+  sourceCommentId: string | null;
+  createdBy: string;
 };
 
 export type DocumentUploadFile = {
@@ -90,6 +102,11 @@ export type CreateDocumentParams = {
   storageObjectName: string;
   storageETag?: string;
   storageVersionId?: string;
+  sourceKind?: DocumentSourceKind;
+  sourceWorkItemId?: string | null;
+  sourceWorkItemIdSnapshot?: string | null;
+  sourceWorkItemTitleSnapshot?: string | null;
+  sourceCommentId?: string | null;
   createdBy: string;
 };
 
@@ -97,6 +114,8 @@ export type SearchDocumentsParams = {
   workspaceId: string;
   projectId: string;
   query?: string;
+  workItemId?: string;
+  source?: DocumentSourceFilter;
   limit: number;
   offset: number;
 };
@@ -106,6 +125,14 @@ export type SearchDocumentsResult = {
   total: number;
   limit: number;
   offset: number;
+};
+
+export type DocumentSourceGroupRow = {
+  kind: DocumentSourceFilter;
+  workItemId: string | null;
+  workItemIdSnapshot: string | null;
+  title: string;
+  count: number;
 };
 
 export type UpsertDocumentChunkInput = {

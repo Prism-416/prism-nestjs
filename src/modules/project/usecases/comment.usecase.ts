@@ -1,6 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { randomUUID } from 'node:crypto';
+import { Injectable, Logger } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
+import {
+  ObjectStorageDeletionService,
+  OciObjectStorageService,
+} from '@/core/object-storage';
+import {
+  DocumentAttachmentUploadFailedError,
+  DocumentFileEmptyError,
+  DocumentForbiddenError,
+} from '@/modules/document/errors';
+import { DocumentRepository } from '@/modules/document/repository';
+import { DocumentRow, DocumentUploadFile } from '@/modules/document/types';
+import {
+  buildDocumentObjectName,
+  sanitizeDocumentFileName,
+} from '@/modules/document/utils';
 import { PROJECT_EMBEDDING_DIMENSIONS } from '@/modules/project/constants';
 import {
   CommentResponseDto,
@@ -28,10 +44,15 @@ import { NotificationRow } from '@/modules/notification/types';
 
 @Injectable()
 export class CommentUseCase {
+  private readonly logger = new Logger(CommentUseCase.name);
+
   constructor(
     private readonly projectRepository: ProjectRepository,
     private readonly workItemRepository: WorkItemRepository,
     private readonly commentRepository: CommentRepository,
+    private readonly documentRepository: DocumentRepository,
+    private readonly objectStorageService: OciObjectStorageService,
+    private readonly objectStorageDeletionService: ObjectStorageDeletionService,
     private readonly uow: UnitOfWork,
     private readonly realtimePublisher: ProjectRealtimePublisherService,
     private readonly notificationService: NotificationService,
@@ -42,58 +63,111 @@ export class CommentUseCase {
     projectId: string,
     itemId: string,
     dto: CreateCommentDto,
+    files: DocumentUploadFile[] = [],
   ): Promise<CommentResponseDto> {
-    const result = await this.uow.run(async (manager) => {
-      const project =
-        await this.projectRepository.findProjectByIdAndMemberUserId(
-          projectId,
-          userId,
+    const uploadedObjects: Array<{ objectName: string; versionId?: string }> =
+      [];
+
+    try {
+      const result = await this.uow.run(async (manager) => {
+        const project =
+          await this.projectRepository.findProjectByIdAndMemberUserId(
+            projectId,
+            userId,
+            manager,
+          );
+        if (!project) {
+          throw new ProjectNotFoundError();
+        }
+
+        if (files.length > 0) {
+          const documentProject =
+            await this.documentRepository.findProjectByIdAndMemberUserId(
+              project.projectId,
+              userId,
+              manager,
+            );
+          if (!documentProject || documentProject.role === 'viewer') {
+            throw new DocumentForbiddenError();
+          }
+        }
+
+        const workItem = await this.workItemRepository.findWorkItemRecordById(
+          project.workspaceId,
+          project.projectId,
+          itemId,
           manager,
         );
-      if (!project) {
-        throw new ProjectNotFoundError();
+        if (!workItem) {
+          throw new WorkItemNotFoundError();
+        }
+
+        const comment = await this.commentRepository.createWorkItemComment(
+          {
+            workspaceId: project.workspaceId,
+            projectId: project.projectId,
+            itemId,
+            authorUserId: userId,
+            body: dto.body,
+          },
+          manager,
+        );
+
+        const documents = await this.createCommentAttachments(
+          {
+            workspaceId: project.workspaceId,
+            projectId: project.projectId,
+            itemId,
+            workItemTitle: workItem.title,
+            commentId: comment.commentId,
+            userId,
+            files,
+            uploadedObjects,
+          },
+          manager,
+        );
+
+        const notifications = await this.dispatchMentionNotifications(
+          {
+            workspaceId: project.workspaceId,
+            projectId: project.projectId,
+            itemId,
+            commentId: comment.commentId,
+            commentBody: comment.body,
+            authorUserId: userId,
+          },
+          manager,
+        );
+
+        return {
+          comment: {
+            ...comment,
+            attachments: documents,
+          },
+          documents,
+          notifications,
+        };
+      });
+
+      this.realtimePublisher.publishCommentCreated(result.comment);
+      for (const document of result.documents) {
+        this.realtimePublisher.publishDocumentCreated(document);
       }
+      this.notificationService.publishNotifications(result.notifications);
 
-      const workItem = await this.workItemRepository.findWorkItemById(
-        project.workspaceId,
-        project.projectId,
-        itemId,
-        manager,
+      return result.comment;
+    } catch (error) {
+      await Promise.all(
+        uploadedObjects.map((object) =>
+          this.cleanupObject(
+            object.objectName,
+            object.versionId,
+            'Failed to cleanup uploaded comment attachment object.',
+          ),
+        ),
       );
-      if (!workItem) {
-        throw new WorkItemNotFoundError();
-      }
-
-      const comment = await this.commentRepository.createWorkItemComment(
-        {
-          workspaceId: project.workspaceId,
-          projectId: project.projectId,
-          itemId,
-          authorUserId: userId,
-          body: dto.body,
-        },
-        manager,
-      );
-
-      const notifications = await this.dispatchMentionNotifications(
-        {
-          workspaceId: project.workspaceId,
-          projectId: project.projectId,
-          itemId,
-          commentId: comment.commentId,
-          commentBody: comment.body,
-          authorUserId: userId,
-        },
-        manager,
-      );
-
-      return { comment, notifications };
-    });
-
-    this.realtimePublisher.publishCommentCreated(result.comment);
-    this.notificationService.publishNotifications(result.notifications);
-
-    return result.comment;
+      throw error;
+    }
   }
 
   async updateWorkItemComment(
@@ -151,7 +225,21 @@ export class CommentUseCase {
         manager,
       );
 
-      return { comment, notifications };
+      const attachments =
+        await this.documentRepository.findDocumentsByCommentIds(
+          project.workspaceId,
+          project.projectId,
+          [comment.commentId],
+          manager,
+        );
+
+      return {
+        comment: {
+          ...comment,
+          attachments,
+        },
+        notifications,
+      };
     });
 
     this.realtimePublisher.publishCommentUpdated(result.comment);
@@ -234,13 +322,40 @@ export class CommentUseCase {
       throw new WorkItemNotFoundError();
     }
 
-    return this.commentRepository.searchWorkItemComments({
+    const result = await this.commentRepository.searchWorkItemComments({
       workspaceId: project.workspaceId,
       projectId: project.projectId,
       itemId,
       limit: query.limit ?? 50,
       offset: query.offset ?? 0,
     });
+
+    const documents = await this.documentRepository.findDocumentsByCommentIds(
+      project.workspaceId,
+      project.projectId,
+      result.comments.map((comment) => comment.commentId),
+    );
+    const attachmentsByCommentId = new Map<string, DocumentRow[]>();
+    for (const document of documents) {
+      if (!document.sourceCommentId) {
+        continue;
+      }
+
+      const existing = attachmentsByCommentId.get(document.sourceCommentId);
+      if (existing) {
+        existing.push(document);
+      } else {
+        attachmentsByCommentId.set(document.sourceCommentId, [document]);
+      }
+    }
+
+    return {
+      ...result,
+      comments: result.comments.map((comment) => ({
+        ...comment,
+        attachments: attachmentsByCommentId.get(comment.commentId) ?? [],
+      })),
+    };
   }
 
   async upsertWorkItemCommentEmbedding(
@@ -330,6 +445,105 @@ export class CommentUseCase {
     }
 
     return embedding;
+  }
+
+  private async createCommentAttachments(
+    params: {
+      workspaceId: string;
+      projectId: string;
+      itemId: string;
+      workItemTitle: string;
+      commentId: string;
+      userId: string;
+      files: DocumentUploadFile[];
+      uploadedObjects: Array<{ objectName: string; versionId?: string }>;
+    },
+    manager: EntityManager,
+  ): Promise<DocumentRow[]> {
+    const documents: DocumentRow[] = [];
+
+    for (const file of params.files) {
+      if (file.size <= 0) {
+        throw new DocumentFileEmptyError();
+      }
+
+      const documentId = randomUUID();
+      const fileName = sanitizeDocumentFileName(file.originalname);
+      const objectName = buildDocumentObjectName({
+        projectId: params.projectId,
+        documentId,
+        fileName,
+      });
+      const contentType = file.mimetype || 'application/octet-stream';
+
+      try {
+        const putResult = await this.objectStorageService.putObject({
+          bucketKind: 'documents',
+          objectName,
+          body: file.buffer,
+          contentLength: file.size,
+          contentType,
+          metadata: {
+            projectId: params.projectId,
+            documentId,
+            itemId: params.itemId,
+            commentId: params.commentId,
+            uploadedBy: params.userId,
+          },
+        });
+
+        params.uploadedObjects.push({
+          objectName,
+          versionId: putResult.versionId,
+        });
+
+        const document = await this.documentRepository.createDocument(
+          {
+            documentId,
+            workspaceId: params.workspaceId,
+            projectId: params.projectId,
+            title: fileName,
+            fileName,
+            contentType,
+            sizeBytes: file.size,
+            storageObjectName: objectName,
+            storageETag: putResult.eTag,
+            storageVersionId: putResult.versionId,
+            sourceKind: 'work_item',
+            sourceWorkItemId: params.itemId,
+            sourceWorkItemIdSnapshot: params.itemId,
+            sourceWorkItemTitleSnapshot: params.workItemTitle,
+            sourceCommentId: params.commentId,
+            createdBy: params.userId,
+          },
+          manager,
+        );
+
+        documents.push(document);
+      } catch (error) {
+        this.logger.warn(
+          error instanceof Error
+            ? error.message
+            : 'Comment attachment could not be uploaded.',
+        );
+        throw new DocumentAttachmentUploadFailedError();
+      }
+    }
+
+    return documents;
+  }
+
+  private async cleanupObject(
+    objectName: string,
+    versionId: string | undefined,
+    fallbackMessage: string,
+  ): Promise<void> {
+    await this.objectStorageDeletionService.enqueueAndProcess({
+      bucketKind: 'documents',
+      objectName,
+      storageVersionId: versionId,
+      reason: fallbackMessage,
+    });
   }
 
   private async dispatchMentionNotifications(

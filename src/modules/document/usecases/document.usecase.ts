@@ -1,6 +1,10 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { OciObjectStorageService } from '@/core/object-storage';
+import { UnitOfWork } from '@/core/database';
+import {
+  ObjectStorageDeletionService,
+  OciObjectStorageService,
+} from '@/core/object-storage';
 import { DOCUMENT_EMBEDDING_DIMENSIONS } from '@/modules/document/constants';
 import {
   AppendDocumentChunkEmbeddingsDto,
@@ -18,11 +22,14 @@ import {
   DocumentChunkEmbeddingTargetMismatchError,
   DocumentChunkDuplicateContentHashError,
   DocumentChunkDuplicateIndexError,
+  DocumentCommentNotFoundError,
+  DocumentCommentWorkItemRequiredError,
   DocumentFileEmptyError,
   DocumentFileRequiredError,
   DocumentForbiddenError,
   DocumentNotFoundError,
   DocumentProjectNotFoundError,
+  DocumentWorkItemNotFoundError,
 } from '@/modules/document/errors';
 import { DocumentRepository } from '@/modules/document/repository';
 import {
@@ -38,11 +45,11 @@ import type { WorkspaceMemberRole } from '@/modules/workspace/constants';
 
 @Injectable()
 export class DocumentUseCase {
-  private readonly logger = new Logger(DocumentUseCase.name);
-
   constructor(
     private readonly repo: DocumentRepository,
     private readonly objectStorageService: OciObjectStorageService,
+    private readonly objectStorageDeletionService: ObjectStorageDeletionService,
+    private readonly uow: UnitOfWork,
     private readonly realtimePublisher: ProjectRealtimePublisherService,
   ) {}
 
@@ -59,13 +66,21 @@ export class DocumentUseCase {
       throw new DocumentProjectNotFoundError();
     }
 
-    return this.repo.searchDocuments({
+    const params = {
       workspaceId: project.workspaceId,
       projectId: project.projectId,
       query: query.query,
+      workItemId: query.workItemId,
+      source: query.source,
       limit: query.limit ?? 50,
       offset: query.offset ?? 0,
-    });
+    };
+    const [result, groups] = await Promise.all([
+      this.repo.searchDocuments(params),
+      this.repo.searchDocumentGroups(params),
+    ]);
+
+    return { ...result, groups };
   }
 
   async getDocument(
@@ -312,6 +327,37 @@ export class DocumentUseCase {
     }
     this.assertCanContribute(project.role);
 
+    let sourceWorkItemTitleSnapshot: string | null = null;
+
+    if (dto.workItemId) {
+      sourceWorkItemTitleSnapshot = await this.repo.findWorkItemTitle(
+        project.workspaceId,
+        project.projectId,
+        dto.workItemId,
+      );
+      if (!sourceWorkItemTitleSnapshot) {
+        throw new DocumentWorkItemNotFoundError();
+      }
+    }
+
+    // A comment association only makes sense within its work item.
+    if (dto.commentId) {
+      if (!dto.workItemId) {
+        throw new DocumentCommentWorkItemRequiredError();
+      }
+
+      const commentExists = await this.repo.commentExistsForWorkItem(
+        project.workspaceId,
+        project.projectId,
+        dto.workItemId,
+        dto.commentId,
+        userId,
+      );
+      if (!commentExists) {
+        throw new DocumentCommentNotFoundError();
+      }
+    }
+
     const documentId = randomUUID();
     const fileName = sanitizeDocumentFileName(file.originalname);
     const objectName = buildDocumentObjectName({
@@ -348,6 +394,11 @@ export class DocumentUseCase {
         storageObjectName: objectName,
         storageETag: putResult.eTag,
         storageVersionId: putResult.versionId,
+        sourceKind: dto.workItemId ? 'work_item' : 'direct',
+        sourceWorkItemId: dto.workItemId ?? null,
+        sourceWorkItemIdSnapshot: dto.workItemId ?? null,
+        sourceWorkItemTitleSnapshot,
+        sourceCommentId: dto.commentId ?? null,
         createdBy: userId,
       });
     } catch (error) {
@@ -369,32 +420,64 @@ export class DocumentUseCase {
     projectId: string,
     documentId: string,
   ): Promise<void> {
-    const project = await this.repo.findProjectByIdAndMemberUserId(
-      projectId,
-      userId,
-    );
-    if (!project) {
-      throw new DocumentProjectNotFoundError();
-    }
-    this.assertCanManage(project.role);
+    const result = await this.uow.run(async (manager) => {
+      const project = await this.repo.findProjectByIdAndMemberUserId(
+        projectId,
+        userId,
+        manager,
+      );
+      if (!project) {
+        throw new DocumentProjectNotFoundError();
+      }
 
-    const deletedDocument = await this.repo.deleteDocument(
-      project.workspaceId,
-      project.projectId,
-      documentId,
-    );
-    if (!deletedDocument) {
-      throw new DocumentNotFoundError();
-    }
+      const document = await this.repo.findDocumentById(
+        project.workspaceId,
+        project.projectId,
+        documentId,
+        manager,
+      );
+      if (!document) {
+        throw new DocumentNotFoundError();
+      }
 
-    await this.cleanupObject(
-      deletedDocument.storageObjectName,
-      deletedDocument.storageVersionId ?? undefined,
-      'Failed to cleanup deleted document object.',
-    );
+      const canDeleteDocument =
+        this.canManage(project.role) ||
+        (document.sourceCommentId !== null && document.createdBy === userId);
+      if (!canDeleteDocument) {
+        throw new DocumentForbiddenError();
+      }
+
+      const deletedDocument = await this.repo.deleteDocument(
+        project.workspaceId,
+        project.projectId,
+        document.documentId,
+        manager,
+      );
+      if (!deletedDocument) {
+        throw new DocumentNotFoundError();
+      }
+
+      const deletionId = await this.objectStorageDeletionService.enqueue(
+        {
+          bucketKind: 'documents',
+          objectName: deletedDocument.storageObjectName,
+          storageVersionId: deletedDocument.storageVersionId ?? undefined,
+          reason: 'document_deleted',
+        },
+        manager,
+      );
+
+      return { projectId: project.projectId, deletionId };
+    });
+
+    if (result.deletionId) {
+      await this.objectStorageDeletionService.processDeletion(
+        result.deletionId,
+      );
+    }
 
     this.realtimePublisher.publishDocumentDeleted({
-      projectId: project.projectId,
+      projectId: result.projectId,
       documentId,
     });
   }
@@ -404,17 +487,12 @@ export class DocumentUseCase {
     versionId: string | undefined,
     fallbackMessage: string,
   ): Promise<void> {
-    try {
-      await this.objectStorageService.deleteObject({
-        bucketKind: 'documents',
-        objectName,
-        versionId,
-      });
-    } catch (cleanupError) {
-      this.logger.warn(
-        cleanupError instanceof Error ? cleanupError.message : fallbackMessage,
-      );
-    }
+    await this.objectStorageDeletionService.enqueueAndProcess({
+      bucketKind: 'documents',
+      objectName,
+      storageVersionId: versionId,
+      reason: fallbackMessage,
+    });
   }
 
   private assertCanContribute(role: WorkspaceMemberRole): void {
@@ -424,9 +502,13 @@ export class DocumentUseCase {
   }
 
   private assertCanManage(role: WorkspaceMemberRole): void {
-    if (role !== 'owner' && role !== 'admin') {
+    if (!this.canManage(role)) {
       throw new DocumentForbiddenError();
     }
+  }
+
+  private canManage(role: WorkspaceMemberRole): boolean {
+    return role === 'owner' || role === 'admin';
   }
 
   private assertUniqueChunkIndexes(dto: AppendDocumentChunksDto): void {
