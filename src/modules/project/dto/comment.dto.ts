@@ -14,6 +14,7 @@ import {
   Min,
 } from 'class-validator';
 import { PROJECT_EMBEDDING_DIMENSIONS } from '@/modules/project/constants';
+import { DocumentSummaryResponseDto } from '@/modules/document/dto';
 import { normalizeTrimmedString } from '@/modules/project/utils';
 
 export class CreateCommentDto {
@@ -66,6 +67,9 @@ export class CommentResponseDto {
 
   @ApiProperty({ nullable: true })
   updatedAt!: Date | null;
+
+  @ApiProperty({ type: [DocumentSummaryResponseDto], required: false })
+  attachments?: DocumentSummaryResponseDto[];
 }
 
 export class SearchCommentsResponseDto {

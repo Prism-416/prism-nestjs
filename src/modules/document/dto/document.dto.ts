@@ -6,6 +6,7 @@ import {
   ArrayUnique,
   IsArray,
   IsInt,
+  IsIn,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -52,6 +53,24 @@ export class UploadDocumentDto {
   @IsString()
   @MaxLength(1000)
   description?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Associates the document with a work item so it is grouped under that work item in the project documents view.',
+  })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  workItemId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Comment this document was shared in. Requires workItemId; lets the work item conversation show the file under that comment.',
+  })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  commentId?: string;
 }
 
 export class SearchDocumentsQueryDto {
@@ -63,6 +82,23 @@ export class SearchDocumentsQueryDto {
   @IsString()
   @MaxLength(100)
   query?: string;
+
+  @ApiPropertyOptional({
+    description: 'Only return documents shared from this work item',
+  })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsUUID()
+  workItemId?: string;
+
+  @ApiPropertyOptional({
+    enum: ['direct', 'work_item'],
+    description: 'Only return documents from this source group.',
+  })
+  @Transform(({ value }) => normalizeOptionalTrimmedString(value as unknown))
+  @IsOptional()
+  @IsIn(['direct', 'work_item'])
+  source?: 'direct' | 'work_item';
 
   @ApiPropertyOptional({ default: 50, minimum: 1, maximum: 100 })
   @Type(() => Number)
@@ -111,6 +147,44 @@ export class DocumentSummaryResponseDto {
   @ApiProperty({ nullable: true })
   storageVersionId!: string | null;
 
+  @ApiProperty({
+    enum: ['direct', 'work_item'],
+    description: 'Original source kind for grouping documents.',
+  })
+  sourceKind!: 'direct' | 'work_item';
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Work item this document was shared from, if any.',
+  })
+  sourceWorkItemId!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Immutable source work item identifier retained after the source is deleted.',
+  })
+  sourceWorkItemIdSnapshot!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Title of the source work item, if any.',
+  })
+  sourceWorkItemTitle!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Snapshot of the source work item title retained after the source is deleted.',
+  })
+  sourceWorkItemTitleSnapshot!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description: 'Comment this document was shared in, if any.',
+  })
+  sourceCommentId!: string | null;
+
   @ApiProperty()
   createdBy!: string;
 
@@ -136,6 +210,26 @@ export class SearchDocumentsResponseDto {
 
   @ApiProperty()
   offset!: number;
+
+  @ApiProperty({ type: () => [DocumentSourceGroupResponseDto] })
+  groups!: DocumentSourceGroupResponseDto[];
+}
+
+export class DocumentSourceGroupResponseDto {
+  @ApiProperty({ enum: ['direct', 'work_item'] })
+  kind!: 'direct' | 'work_item';
+
+  @ApiProperty({ nullable: true })
+  workItemId!: string | null;
+
+  @ApiProperty({ nullable: true })
+  workItemIdSnapshot!: string | null;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty()
+  count!: number;
 }
 
 export class AppendDocumentChunkDto {

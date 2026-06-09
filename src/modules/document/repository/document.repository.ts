@@ -10,6 +10,7 @@ import {
   DocumentMemberProjectRow,
   DocumentProjectRow,
   DocumentRow,
+  DocumentSourceGroupRow,
   SearchDocumentsParams,
   SearchDocumentsResult,
   UpsertDocumentChunkEmbeddingsParams,
@@ -94,6 +95,12 @@ export class DocumentRepository {
       sizeBytes: string | number | null;
       storageETag: string | null;
       storageVersionId: string | null;
+      sourceKind: 'direct' | 'work_item' | null;
+      sourceWorkItemId: string | null;
+      sourceWorkItemIdSnapshot: string | null;
+      sourceWorkItemTitle: string | null;
+      sourceWorkItemTitleSnapshot: string | null;
+      sourceCommentId: string | null;
       createdBy: string | null;
       updatedBy: string | null;
       createdAt: Date | null;
@@ -115,6 +122,11 @@ export class DocumentRepository {
             d.size_bytes,
             d.storage_etag,
             d.storage_version_id,
+            d.source_kind,
+            d.source_work_item_id,
+            d.source_work_item_id_snapshot,
+            d.source_work_item_title_snapshot,
+            d.source_comment_id,
             d.created_by,
             d.updated_by,
             d.created_at,
@@ -123,9 +135,46 @@ export class DocumentRepository {
           WHERE d.workspace_id = $1
             AND d.project_id = $2
             AND (
+              d.source_kind = 'direct'
+              OR EXISTS (
+                SELECT 1
+                FROM prism_work_items_l wi_visible
+                WHERE wi_visible.workspace_id = d.workspace_id
+                  AND wi_visible.project_id = d.project_id
+                  AND wi_visible.item_id = d.source_work_item_id
+                  AND wi_visible.deleted_at IS NULL
+              )
+            )
+            AND (
               $3::text IS NULL
               OR d.title ILIKE '%' || $3 || '%'
               OR d.file_name ILIKE '%' || $3 || '%'
+              OR d.description ILIKE '%' || $3 || '%'
+              OR d.source_work_item_title_snapshot ILIKE '%' || $3 || '%'
+              OR EXISTS (
+                SELECT 1
+                FROM prism_work_items_l wi_search
+                WHERE wi_search.workspace_id = d.workspace_id
+                  AND wi_search.project_id = d.project_id
+                  AND wi_search.item_id = d.source_work_item_id
+                  AND wi_search.deleted_at IS NULL
+                  AND wi_search.title ILIKE '%' || $3 || '%'
+              )
+            )
+            AND (
+              $4::uuid IS NULL
+              OR d.source_work_item_id = $4::uuid
+            )
+            AND (
+              $5::text IS NULL
+              OR (
+                $5 = 'direct'
+                AND d.source_kind = 'direct'
+              )
+              OR (
+                $5 = 'work_item'
+                AND d.source_kind = 'work_item'
+              )
             )
         ),
         total_count AS (
@@ -136,8 +185,8 @@ export class DocumentRepository {
           SELECT *
           FROM filtered_documents
           ORDER BY created_at DESC, document_id DESC
-          LIMIT $4
-          OFFSET $5
+          LIMIT $6
+          OFFSET $7
         )
         SELECT
           pd.document_id AS "documentId",
@@ -150,6 +199,12 @@ export class DocumentRepository {
           pd.size_bytes AS "sizeBytes",
           pd.storage_etag AS "storageETag",
           pd.storage_version_id AS "storageVersionId",
+          pd.source_kind AS "sourceKind",
+          pd.source_work_item_id AS "sourceWorkItemId",
+          pd.source_work_item_id_snapshot AS "sourceWorkItemIdSnapshot",
+          wi.title AS "sourceWorkItemTitle",
+          pd.source_work_item_title_snapshot AS "sourceWorkItemTitleSnapshot",
+          pd.source_comment_id AS "sourceCommentId",
           pd.created_by AS "createdBy",
           pd.updated_by AS "updatedBy",
           pd.created_at AS "createdAt",
@@ -158,6 +213,11 @@ export class DocumentRepository {
         FROM total_count tc
                LEFT JOIN paged_documents pd
                          ON TRUE
+               LEFT JOIN prism_work_items_l wi
+                        ON wi.workspace_id = pd.workspace_id
+                        AND wi.project_id = pd.project_id
+                        AND wi.item_id = pd.source_work_item_id
+                        AND wi.deleted_at IS NULL
         ORDER BY pd.created_at DESC NULLS LAST,
                  pd.document_id DESC NULLS LAST
       `,
@@ -165,6 +225,8 @@ export class DocumentRepository {
         params.workspaceId,
         params.projectId,
         params.query ?? null,
+        params.workItemId ?? null,
+        params.source ?? null,
         params.limit,
         params.offset,
       ],
@@ -188,6 +250,12 @@ export class DocumentRepository {
             sizeBytes: row.sizeBytes as string | number,
             storageETag: row.storageETag,
             storageVersionId: row.storageVersionId,
+            sourceKind: row.sourceKind as 'direct' | 'work_item',
+            sourceWorkItemId: row.sourceWorkItemId,
+            sourceWorkItemIdSnapshot: row.sourceWorkItemIdSnapshot,
+            sourceWorkItemTitle: row.sourceWorkItemTitle,
+            sourceWorkItemTitleSnapshot: row.sourceWorkItemTitleSnapshot,
+            sourceCommentId: row.sourceCommentId,
             createdBy: row.createdBy as string,
             updatedBy: row.updatedBy as string,
             createdAt: row.createdAt as Date,
@@ -198,6 +266,137 @@ export class DocumentRepository {
       limit: params.limit,
       offset: params.offset,
     };
+  }
+
+  async searchDocumentGroups(
+    params: SearchDocumentsParams,
+    manager?: EntityManager,
+  ): Promise<DocumentSourceGroupRow[]> {
+    const rows = await this.getManager(manager).query<
+      Array<Omit<DocumentSourceGroupRow, 'count'> & { count: number | string }>
+    >(
+      `
+        WITH filtered_documents AS (
+          SELECT
+            d.source_kind,
+            d.source_work_item_id,
+            d.source_work_item_id_snapshot,
+            d.source_work_item_title_snapshot,
+            wi.item_id AS live_work_item_id,
+            wi.title AS live_work_item_title
+          FROM prism_documents_l d
+                 LEFT JOIN prism_work_items_l wi
+                           ON wi.workspace_id = d.workspace_id
+                          AND wi.project_id = d.project_id
+                          AND wi.item_id = d.source_work_item_id
+                          AND wi.deleted_at IS NULL
+          WHERE d.workspace_id = $1
+            AND d.project_id = $2
+            AND (
+              d.source_kind = 'direct'
+              OR wi.item_id IS NOT NULL
+            )
+            AND (
+              $3::text IS NULL
+              OR d.title ILIKE '%' || $3 || '%'
+              OR d.file_name ILIKE '%' || $3 || '%'
+              OR d.description ILIKE '%' || $3 || '%'
+              OR d.source_work_item_title_snapshot ILIKE '%' || $3 || '%'
+              OR wi.title ILIKE '%' || $3 || '%'
+            )
+            AND (
+              $4::uuid IS NULL
+              OR d.source_work_item_id = $4::uuid
+            )
+            AND (
+              $5::text IS NULL
+              OR ($5 = 'direct' AND d.source_kind = 'direct')
+              OR (
+                $5 = 'work_item'
+                AND d.source_kind = 'work_item'
+              )
+            )
+        )
+        SELECT
+          source_kind AS "kind",
+          source_work_item_id AS "workItemId",
+          CASE
+            WHEN source_kind = 'direct' THEN NULL
+            ELSE COALESCE(source_work_item_id_snapshot, source_work_item_id)
+          END AS "workItemIdSnapshot",
+          CASE
+            WHEN source_kind = 'direct' THEN 'Direct uploads'
+            ELSE live_work_item_title
+          END AS "title",
+          COUNT(*)::int AS "count"
+        FROM filtered_documents
+        GROUP BY
+          source_kind,
+          source_work_item_id,
+          source_work_item_id_snapshot,
+          live_work_item_title
+        ORDER BY "kind", "title"
+      `,
+      [
+        params.workspaceId,
+        params.projectId,
+        params.query ?? null,
+        params.workItemId ?? null,
+        params.source ?? null,
+      ],
+    );
+
+    return rows.map((row) => ({ ...row, count: Number(row.count) }));
+  }
+
+  async findDocumentsByCommentIds(
+    workspaceId: string,
+    projectId: string,
+    commentIds: string[],
+    manager?: EntityManager,
+  ): Promise<DocumentRow[]> {
+    if (commentIds.length === 0) {
+      return [];
+    }
+
+    const documents = await this.getManager(manager).query<DocumentDbRow[]>(
+      `
+        SELECT
+          d.document_id AS "documentId",
+          d.workspace_id AS "workspaceId",
+          d.project_id AS "projectId",
+          d.title,
+          d.description,
+          d.file_name AS "fileName",
+          d.content_type AS "contentType",
+          d.size_bytes AS "sizeBytes",
+          d.storage_etag AS "storageETag",
+          d.storage_version_id AS "storageVersionId",
+          d.source_kind AS "sourceKind",
+          d.source_work_item_id AS "sourceWorkItemId",
+          d.source_work_item_id_snapshot AS "sourceWorkItemIdSnapshot",
+          wi.title AS "sourceWorkItemTitle",
+          d.source_work_item_title_snapshot AS "sourceWorkItemTitleSnapshot",
+          d.source_comment_id AS "sourceCommentId",
+          d.created_by AS "createdBy",
+          d.updated_by AS "updatedBy",
+          d.created_at AS "createdAt",
+          d.updated_at AS "updatedAt"
+        FROM prism_documents_l d
+               LEFT JOIN prism_work_items_l wi
+                         ON wi.workspace_id = d.workspace_id
+                        AND wi.project_id = d.project_id
+                        AND wi.item_id = d.source_work_item_id
+                        AND wi.deleted_at IS NULL
+        WHERE d.workspace_id = $1
+          AND d.project_id = $2
+          AND d.source_comment_id = ANY($3::uuid[])
+        ORDER BY d.created_at, d.document_id
+      `,
+      [workspaceId, projectId, commentIds],
+    );
+
+    return documents.map((document) => this.mapDocumentRow(document));
   }
 
   async findDocumentById(
@@ -219,6 +418,12 @@ export class DocumentRepository {
           size_bytes AS "sizeBytes",
           storage_etag AS "storageETag",
           storage_version_id AS "storageVersionId",
+          source_kind AS "sourceKind",
+          source_work_item_id AS "sourceWorkItemId",
+          source_work_item_id_snapshot AS "sourceWorkItemIdSnapshot",
+          NULL AS "sourceWorkItemTitle",
+          source_work_item_title_snapshot AS "sourceWorkItemTitleSnapshot",
+          source_comment_id AS "sourceCommentId",
           created_by AS "createdBy",
           updated_by AS "updatedBy",
           created_at AS "createdAt",
@@ -227,6 +432,17 @@ export class DocumentRepository {
         WHERE workspace_id = $1
           AND project_id = $2
           AND document_id = $3
+          AND (
+            source_kind = 'direct'
+            OR EXISTS (
+              SELECT 1
+              FROM prism_work_items_l wi_visible
+              WHERE wi_visible.workspace_id = prism_documents_l.workspace_id
+                AND wi_visible.project_id = prism_documents_l.project_id
+                AND wi_visible.item_id = prism_documents_l.source_work_item_id
+                AND wi_visible.deleted_at IS NULL
+            )
+          )
         LIMIT 1
       `,
       [workspaceId, projectId, documentId],
@@ -257,6 +473,17 @@ export class DocumentRepository {
         WHERE workspace_id = $1
           AND project_id = $2
           AND document_id = $3
+          AND (
+            source_kind = 'direct'
+            OR EXISTS (
+              SELECT 1
+              FROM prism_work_items_l wi_visible
+              WHERE wi_visible.workspace_id = prism_documents_l.workspace_id
+                AND wi_visible.project_id = prism_documents_l.project_id
+                AND wi_visible.item_id = prism_documents_l.source_work_item_id
+                AND wi_visible.deleted_at IS NULL
+            )
+          )
         LIMIT 1
       `,
       [workspaceId, projectId, documentId],
@@ -288,6 +515,11 @@ export class DocumentRepository {
           storage_object_name,
           storage_etag,
           storage_version_id,
+          source_kind,
+          source_work_item_id,
+          source_work_item_id_snapshot,
+          source_work_item_title_snapshot,
+          source_comment_id,
           created_by,
           updated_by
         )
@@ -304,7 +536,12 @@ export class DocumentRepository {
           $10,
           $11,
           $12,
-          $12
+          $13,
+          $14,
+          $15,
+          $16,
+          $17,
+          $17
         )
         RETURNING
           document_id AS "documentId",
@@ -317,6 +554,12 @@ export class DocumentRepository {
           size_bytes AS "sizeBytes",
           storage_etag AS "storageETag",
           storage_version_id AS "storageVersionId",
+          source_kind AS "sourceKind",
+          source_work_item_id AS "sourceWorkItemId",
+          source_work_item_id_snapshot AS "sourceWorkItemIdSnapshot",
+          NULL AS "sourceWorkItemTitle",
+          source_work_item_title_snapshot AS "sourceWorkItemTitleSnapshot",
+          source_comment_id AS "sourceCommentId",
           created_by AS "createdBy",
           updated_by AS "updatedBy",
           created_at AS "createdAt",
@@ -334,6 +577,11 @@ export class DocumentRepository {
         params.storageObjectName,
         params.storageETag ?? null,
         params.storageVersionId ?? null,
+        params.sourceKind ?? 'direct',
+        params.sourceWorkItemId ?? null,
+        params.sourceWorkItemIdSnapshot ?? null,
+        params.sourceWorkItemTitleSnapshot ?? null,
+        params.sourceCommentId ?? null,
         params.createdBy,
       ],
     );
@@ -555,18 +803,142 @@ export class DocumentRepository {
       DeletedDocumentRow[]
     >(
       `
-        DELETE FROM prism_documents_l
-        WHERE workspace_id = $1
-          AND project_id = $2
-          AND document_id = $3
-        RETURNING
+        WITH deleted_document AS (
+          DELETE FROM prism_documents_l
+          WHERE workspace_id = $1
+            AND project_id = $2
+            AND document_id = $3
+          RETURNING
+            document_id,
+            storage_object_name,
+            storage_version_id,
+            source_comment_id,
+            created_by
+        )
+        SELECT
+          document_id AS "documentId",
           storage_object_name AS "storageObjectName",
-          storage_version_id AS "storageVersionId"
+          storage_version_id AS "storageVersionId",
+          source_comment_id AS "sourceCommentId",
+          created_by AS "createdBy"
+        FROM deleted_document
       `,
       [workspaceId, projectId, documentId],
     );
 
     return documents[0] ?? null;
+  }
+
+  async deleteDocumentsBySourceWorkItemIds(
+    workspaceId: string,
+    projectId: string,
+    itemIds: string[],
+    manager?: EntityManager,
+  ): Promise<DeletedDocumentRow[]> {
+    if (itemIds.length === 0) {
+      return [];
+    }
+
+    return this.getManager(manager).query<DeletedDocumentRow[]>(
+      `
+        WITH deleted_documents AS (
+          DELETE FROM prism_documents_l
+          WHERE workspace_id = $1
+            AND project_id = $2
+            AND source_kind = 'work_item'
+            AND source_work_item_id_snapshot = ANY($3::uuid[])
+          RETURNING
+            document_id,
+            storage_object_name,
+            storage_version_id,
+            source_comment_id,
+            created_by
+        )
+        SELECT
+          document_id AS "documentId",
+          storage_object_name AS "storageObjectName",
+          storage_version_id AS "storageVersionId",
+          source_comment_id AS "sourceCommentId",
+          created_by AS "createdBy"
+        FROM deleted_documents
+      `,
+      [workspaceId, projectId, itemIds],
+    );
+  }
+
+  async workItemExists(
+    workspaceId: string,
+    projectId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const rows = await this.getManager(manager).query<{ exists: boolean }[]>(
+      `
+        SELECT EXISTS (
+          SELECT 1
+          FROM prism_work_items_l
+          WHERE workspace_id = $1
+            AND project_id = $2
+            AND item_id = $3
+            AND deleted_at IS NULL
+        ) AS "exists"
+      `,
+      [workspaceId, projectId, itemId],
+    );
+
+    return rows[0]?.exists ?? false;
+  }
+
+  async findWorkItemTitle(
+    workspaceId: string,
+    projectId: string,
+    itemId: string,
+    manager?: EntityManager,
+  ): Promise<string | null> {
+    const rows = await this.getManager(manager).query<Array<{ title: string }>>(
+      `
+        SELECT title
+        FROM prism_work_items_l
+        WHERE workspace_id = $1
+          AND project_id = $2
+          AND item_id = $3
+          AND deleted_at IS NULL
+        LIMIT 1
+      `,
+      [workspaceId, projectId, itemId],
+    );
+
+    return rows[0]?.title ?? null;
+  }
+
+  async commentExistsForWorkItem(
+    workspaceId: string,
+    projectId: string,
+    itemId: string,
+    commentId: string,
+    authorUserId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const rows = await this.getManager(manager).query<{ exists: boolean }[]>(
+      `
+        SELECT EXISTS (
+          SELECT 1
+          FROM prism_work_item_comments_l c
+                 INNER JOIN prism_work_items_l wi
+                            ON wi.workspace_id = c.workspace_id
+                           AND wi.item_id = c.item_id
+          WHERE c.workspace_id = $1
+            AND wi.project_id = $2
+            AND c.item_id = $3
+            AND c.comment_id = $4
+            AND c.author_user_id = $5
+            AND wi.deleted_at IS NULL
+        ) AS "exists"
+      `,
+      [workspaceId, projectId, itemId, commentId, authorUserId],
+    );
+
+    return rows[0]?.exists ?? false;
   }
 
   private mapDocumentRow(row: DocumentDbRow): DocumentRow {

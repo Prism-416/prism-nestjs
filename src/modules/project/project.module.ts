@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { AdminModule } from '@/modules/admin';
+import { DocumentRepository } from '@/modules/document/repository';
 import { NotificationModule } from '@/modules/notification';
 import {
   CommentController,
@@ -25,6 +26,7 @@ import {
   controllers: [ProjectController, WorkItemController, CommentController],
   providers: [
     CommentRepository,
+    DocumentRepository,
     ProjectRepository,
     WorkItemRepository,
     CommentUseCase,

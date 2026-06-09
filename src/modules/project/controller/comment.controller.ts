@@ -10,11 +10,22 @@ import {
   Post,
   Put,
   Query,
+  UploadedFiles,
+  UseInterceptors,
 } from '@nestjs/common';
-import { ApiNoContentResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import {
+  ApiBody,
+  ApiConsumes,
+  ApiNoContentResponse,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { Authenticated, CurrentUser } from '@/core/auth';
 import type { JwtPayload } from '@/core/auth';
 import { ApiDataResponse } from '@/core/response';
+import { MAX_DOCUMENT_FILE_SIZE_BYTES } from '@/modules/document/constants';
+import type { DocumentUploadFile } from '@/modules/document/types';
 import {
   CommentResponseDto,
   CreateCommentDto,
@@ -32,19 +43,46 @@ export class CommentController {
 
   @Post()
   @Authenticated()
+  @UseInterceptors(
+    FilesInterceptor('files', 10, {
+      limits: { fileSize: MAX_DOCUMENT_FILE_SIZE_BYTES },
+    }),
+  )
   @ApiOperation({ summary: 'Create work item comment' })
+  @ApiConsumes('application/json', 'multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['body'],
+      properties: {
+        body: {
+          type: 'string',
+          maxLength: 2000,
+        },
+        files: {
+          type: 'array',
+          items: {
+            type: 'string',
+            format: 'binary',
+          },
+        },
+      },
+    },
+  })
   @ApiDataResponse(CommentResponseDto, { status: HttpStatus.CREATED })
   async createWorkItemComment(
     @CurrentUser() user: JwtPayload,
     @Param('projectId') projectId: string,
     @Param('itemId') itemId: string,
     @Body() dto: CreateCommentDto,
+    @UploadedFiles() files?: DocumentUploadFile[],
   ): Promise<CommentResponseDto> {
     return this.usecase.createWorkItemComment(
       String(user.sub),
       projectId,
       itemId,
       dto,
+      files,
     );
   }
 

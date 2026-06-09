@@ -12,6 +12,28 @@ export class DocumentNotFoundError extends NotExistsError {
   }
 }
 
+export class DocumentWorkItemNotFoundError extends NotExistsError {
+  constructor() {
+    super('Work item not found.', 'WORK_ITEM_NOT_FOUND');
+  }
+}
+
+export class DocumentCommentNotFoundError extends NotExistsError {
+  constructor() {
+    super('Comment not found.', 'COMMENT_NOT_FOUND');
+  }
+}
+
+export class DocumentCommentWorkItemRequiredError extends DomainError {
+  constructor() {
+    super(
+      'workItemId is required when attaching a document to a comment.',
+      'DOCUMENT_COMMENT_WORK_ITEM_REQUIRED',
+      400,
+    );
+  }
+}
+
 export class DocumentForbiddenError extends DomainError {
   constructor() {
     super(
@@ -31,6 +53,16 @@ export class DocumentFileRequiredError extends DomainError {
 export class DocumentFileEmptyError extends DomainError {
   constructor() {
     super('Document file is empty.', 'DOCUMENT_FILE_EMPTY', 400);
+  }
+}
+
+export class DocumentAttachmentUploadFailedError extends DomainError {
+  constructor() {
+    super(
+      'Comment attachment could not be uploaded.',
+      'DOCUMENT_ATTACHMENT_UPLOAD_FAILED',
+      500,
+    );
   }
 }
 
