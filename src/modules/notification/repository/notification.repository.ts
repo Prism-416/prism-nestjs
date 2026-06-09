@@ -4,6 +4,7 @@ import { DataSource, EntityManager } from 'typeorm';
 import {
   CreateMentionNotificationsParams,
   CreateWorkspaceInvitationNotificationParams,
+  CreateWorkspaceMemberRemovedNotificationParams,
   ListNotificationsParams,
   ListNotificationsResult,
   NotificationRow,
@@ -132,7 +133,8 @@ export class NotificationRepository {
             'workspaceName', $5::text,
             'role', $6::text,
             'invitationLink', $7::text,
-            'expiresAt', $8::timestamptz
+            'invitationToken', $8::text,
+            'expiresAt', $9::timestamptz
           )
         )
         ON CONFLICT (recipient_user_id, notification_type, target_id)
@@ -167,7 +169,78 @@ export class NotificationRepository {
         params.workspaceName,
         params.role,
         params.invitationLink,
+        params.invitationToken,
         params.expiresAt,
+      ],
+    );
+
+    return notifications[0];
+  }
+
+  async createWorkspaceMemberRemovedNotification(
+    params: CreateWorkspaceMemberRemovedNotificationParams,
+    manager?: EntityManager,
+  ): Promise<NotificationRow> {
+    const notifications = await this.getManager(manager).query<
+      NotificationRow[]
+    >(
+      `
+        INSERT INTO prism_notifications_l (
+          recipient_user_id,
+          actor_user_id,
+          workspace_id,
+          project_id,
+          notification_type,
+          title,
+          body,
+          target_type,
+          target_id,
+          metadata
+        )
+        VALUES (
+          $1,
+          $2,
+          $3,
+          NULL,
+          'workspace_member_removed',
+          'Workspace access removed',
+          CONCAT('You were removed from ', $4::text, '.'),
+          'workspace',
+          $3,
+          jsonb_build_object(
+            'workspaceId', $3::uuid,
+            'workspaceName', $4::text
+          )
+        )
+        ON CONFLICT (recipient_user_id, notification_type, target_id)
+        DO UPDATE SET
+          actor_user_id = EXCLUDED.actor_user_id,
+          workspace_id = EXCLUDED.workspace_id,
+          title = EXCLUDED.title,
+          body = EXCLUDED.body,
+          metadata = EXCLUDED.metadata,
+          read_at = NULL,
+          created_at = NOW()
+        RETURNING
+          notification_id AS "notificationId",
+          recipient_user_id AS "recipientUserId",
+          actor_user_id AS "actorUserId",
+          workspace_id AS "workspaceId",
+          project_id AS "projectId",
+          notification_type AS "notificationType",
+          title,
+          body,
+          target_type AS "targetType",
+          target_id AS "targetId",
+          metadata,
+          read_at AS "readAt",
+          created_at AS "createdAt"
+      `,
+      [
+        params.recipientUserId,
+        params.actorUserId,
+        params.workspaceId,
+        params.workspaceName,
       ],
     );
 

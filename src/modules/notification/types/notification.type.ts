@@ -1,6 +1,7 @@
 export const NOTIFICATION_TYPES = [
   'work_item_comment_mention',
   'workspace_invitation',
+  'workspace_member_removed',
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -8,6 +9,7 @@ export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 export const NOTIFICATION_TARGET_TYPES = [
   'work_item_comment',
   'workspace_invitation',
+  'workspace',
 ] as const;
 
 export type NotificationTargetType = (typeof NOTIFICATION_TARGET_TYPES)[number];
@@ -61,5 +63,13 @@ export type CreateWorkspaceInvitationNotificationParams = {
   workspaceName: string;
   role: string;
   invitationLink: string;
+  invitationToken: string;
   expiresAt: Date;
+};
+
+export type CreateWorkspaceMemberRemovedNotificationParams = {
+  recipientUserId: string;
+  actorUserId: string;
+  workspaceId: string;
+  workspaceName: string;
 };

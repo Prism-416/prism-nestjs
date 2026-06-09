@@ -296,7 +296,7 @@ export class WorkspaceUseCase {
     workspaceId: string,
     targetUserId: string,
   ): Promise<void> {
-    await this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const isLeavingSelf = userId === targetUserId;
       const workspace = isLeavingSelf
         ? await this.repo.findWorkspaceByIdAndMemberUserId(
@@ -334,12 +334,32 @@ export class WorkspaceUseCase {
       if (!deleted) {
         throw new WorkspaceMemberNotFoundError();
       }
+
+      return {
+        isLeavingSelf,
+        workspace,
+        member,
+      };
     });
 
     this.realtimePublisher.publishWorkspaceMemberRemoved({
       workspaceId,
       userId: targetUserId,
     });
+
+    if (!result.isLeavingSelf) {
+      const notification =
+        await this.notificationService.createWorkspaceMemberRemovedNotification(
+          {
+            recipientUserId: result.member.userId,
+            actorUserId: userId,
+            workspaceId: result.workspace.workspaceId,
+            workspaceName: result.workspace.name,
+          },
+        );
+
+      this.notificationService.publishNotifications([notification]);
+    }
   }
 
   async updateWorkspaceMemberRole(
@@ -752,6 +772,7 @@ export class WorkspaceUseCase {
           workspaceName,
           role: invitationResponse.role,
           invitationLink: invitationResponse.invitationLink,
+          invitationToken: invitationResponse.token,
           expiresAt: invitationResponse.expiresAt,
         });
 
