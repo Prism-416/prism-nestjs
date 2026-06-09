@@ -167,7 +167,11 @@ export class ObjectStorageDeletionService
       // executeDeletion then overwrites that with the final completed_at or
       // the real backoff time. If a worker dies mid-batch, the lease expires
       // and the row becomes eligible again.
-      const rows = await this.dataSource.query<ObjectDeletionRow[]>(
+      // TypeORM's query() returns `[rows, affectedCount]` for UPDATE ...
+      // RETURNING, unlike a plain SELECT which returns the rows directly.
+      const result = await this.dataSource.query<
+        [ObjectDeletionRow[], number] | ObjectDeletionRow[]
+      >(
         `
           WITH claimed AS (
             SELECT deletion_id
@@ -191,6 +195,9 @@ export class ObjectStorageDeletionService
         `,
         [ObjectStorageDeletionService.LEASE_SECONDS],
       );
+      const rows: ObjectDeletionRow[] = Array.isArray(result[0])
+        ? result[0]
+        : (result as ObjectDeletionRow[]);
 
       for (const row of rows) {
         await this.executeDeletion(row);
