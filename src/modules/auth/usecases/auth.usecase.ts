@@ -8,6 +8,7 @@ import {
   ChangePasswordResponseDto,
   AuthMeResponseDto,
   AuthTokenPairResponseDto,
+  AuthTokenResponseDto,
   OAuthAccountLinkResponseDto,
   OAuthConnectedAccountsResponseDto,
   RequestEmailVerificationDto,
@@ -198,7 +199,7 @@ export class AuthUseCase {
     });
   }
 
-  async refresh(refreshToken: string): Promise<AuthTokenPairResponseDto> {
+  async refresh(refreshToken: string): Promise<AuthTokenResponseDto> {
     const payload = this.jwtService.verifyRefreshToken(refreshToken);
     const userId = String(payload.sub);
 
@@ -208,6 +209,9 @@ export class AuthUseCase {
         throw new InvalidRefreshTokenError();
       }
 
+      // The refresh token is not rotated: validate it against the stored active
+      // token (so logout still revokes the session) and issue only a new access
+      // token. Concurrent refreshes therefore never race over a single-use token.
       const storedRefreshToken = await this.repo.findValidRefreshTokenByUserId(
         userId,
         new Date(),
@@ -223,16 +227,7 @@ export class AuthUseCase {
         throw new InvalidRefreshTokenError();
       }
 
-      await this.repo.invalidateRefreshToken(
-        storedRefreshToken.refreshTokenId,
-        manager,
-      );
-
-      return await this.authSession.issueTokenPair(
-        user.userId,
-        user.email,
-        manager,
-      );
+      return this.authSession.issueAccessToken(user.userId, user.email);
     });
   }
 

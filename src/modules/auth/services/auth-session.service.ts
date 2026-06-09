@@ -3,6 +3,7 @@ import { JwtTokenService } from '@/core/auth';
 import { PasswordService } from '@/core/security';
 import {
   AuthTokenPairResponseDto,
+  AuthTokenResponseDto,
   RefreshTokenResponseDto,
 } from '@/modules/auth/dto';
 import { AuthRepository } from '@/modules/auth/repository';
@@ -38,6 +39,17 @@ export class AuthSessionService {
     const refreshToken = await this.persistRefreshToken(userId, email, manager);
 
     return { refreshToken };
+  }
+
+  /**
+   * Issues a fresh access token without touching the refresh token. Used on refresh:
+   * the refresh token is not rotated, so concurrent refreshes simply hand out new
+   * access tokens against the same stored token and never conflict.
+   */
+  issueAccessToken(userId: string, email: string): AuthTokenResponseDto {
+    return {
+      accessToken: this.jwtService.createAccessToken(userId, { email }),
+    };
   }
 
   private async persistRefreshToken(

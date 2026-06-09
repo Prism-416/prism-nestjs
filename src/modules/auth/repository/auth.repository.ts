@@ -169,6 +169,11 @@ export class AuthRepository {
     );
   }
 
+  /**
+   * Returns the user's current active (non-revoked, unexpired) refresh token.
+   * Refresh tokens are not rotated on use, so a single active token exists per
+   * session and is only replaced on sign-in or revoked on logout.
+   */
   async findValidRefreshTokenByUserId(
     userId: string,
     now: Date,
@@ -192,21 +197,6 @@ export class AuthRepository {
     );
 
     return tokens[0] ?? null;
-  }
-
-  async invalidateRefreshToken(
-    refreshTokenId: string,
-    manager?: EntityManager,
-  ): Promise<void> {
-    await this.getManager(manager).query(
-      `
-        UPDATE prism_refresh_tokens_l
-        SET revoked_at = NOW()
-        WHERE refresh_token_id = $1
-          AND revoked_at IS NULL
-      `,
-      [refreshTokenId],
-    );
   }
 
   async invalidateRefreshTokensByUserId(
