@@ -1,4 +1,9 @@
 import Joi from 'joi';
+import { OCI_OBJECT_STORAGE_BUCKET_ENV_BY_KIND } from '@/core/object-storage/oci-object-storage.constants';
+
+const OBJECT_STORAGE_BUCKET_ENV_KEYS = Object.values(
+  OCI_OBJECT_STORAGE_BUCKET_ENV_BY_KIND,
+);
 
 type EnvValidationValues = Record<string, unknown>;
 
@@ -67,7 +72,8 @@ export const envValidationSchema = Joi.object({
     .valid('api_key', 'instance_principal', 'resource_principal')
     .default('api_key'),
   OCI_COMPARTMENT_ID: Joi.string().allow('').default(''),
-  OCI_OBJECT_STORAGE_BUCKET_NAME: Joi.string().allow('').default(''),
+  OCI_OBJECT_STORAGE_AGENT_PAYLOAD_BUCKET: Joi.string().allow('').default(''),
+  OCI_OBJECT_STORAGE_DOCUMENTS_BUCKET: Joi.string().allow('').default(''),
   OCI_OBJECT_STORAGE_NAMESPACE: Joi.string().allow('').default(''),
   OCI_QUEUE_ID: Joi.string().allow('').default(''),
   OCI_QUEUE_MESSAGES_ENDPOINT: Joi.string().allow('').default(''),
@@ -137,8 +143,14 @@ export const envValidationSchema = Joi.object({
       }
     }
 
-    if (objectStorageEnabled && !hasConfiguredValue(values.OCI_REGION)) {
-      missingKeys.add('OCI_REGION');
+    if (objectStorageEnabled) {
+      if (!hasConfiguredValue(values.OCI_REGION)) {
+        missingKeys.add('OCI_REGION');
+      }
+
+      OBJECT_STORAGE_BUCKET_ENV_KEYS.filter(
+        (key) => !hasConfiguredValue(values[key]),
+      ).forEach((key) => missingKeys.add(key));
     }
 
     if (values.OCI_AUTH_MODE === 'api_key') {

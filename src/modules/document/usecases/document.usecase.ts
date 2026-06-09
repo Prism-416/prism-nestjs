@@ -117,6 +117,7 @@ export class DocumentUseCase {
     }
 
     const object = await this.objectStorageService.getObjectBuffer({
+      bucketKind: 'documents',
       objectName: ref.storageObjectName,
       versionId: ref.storageVersionId ?? undefined,
     });
@@ -320,6 +321,7 @@ export class DocumentUseCase {
     });
     const contentType = file.mimetype || 'application/octet-stream';
     const putResult = await this.objectStorageService.putObject({
+      bucketKind: 'documents',
       objectName,
       body: file.buffer,
       contentLength: file.size,
@@ -403,7 +405,11 @@ export class DocumentUseCase {
     fallbackMessage: string,
   ): Promise<void> {
     try {
-      await this.objectStorageService.deleteObject({ objectName, versionId });
+      await this.objectStorageService.deleteObject({
+        bucketKind: 'documents',
+        objectName,
+        versionId,
+      });
     } catch (cleanupError) {
       this.logger.warn(
         cleanupError instanceof Error ? cleanupError.message : fallbackMessage,

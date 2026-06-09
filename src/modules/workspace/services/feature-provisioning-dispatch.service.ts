@@ -33,6 +33,7 @@ export class FeatureProvisioningDispatchService {
     payload: FeatureProvisioningPayload;
   }): Promise<{ payloadVersionId: string | null }> {
     const result = await this.objectStorage.putObject({
+      bucketKind: 'agentPayload',
       objectName: params.objectName,
       body: JSON.stringify(params.payload),
       contentType: 'application/json',
