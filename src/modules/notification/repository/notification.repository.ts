@@ -362,6 +362,19 @@ export class NotificationRepository {
     return result.length > 0;
   }
 
+  async deleteAllNotifications(
+    recipientUserId: string,
+    manager?: EntityManager,
+  ): Promise<void> {
+    await this.getManager(manager).query(
+      `
+        DELETE FROM prism_notifications_l
+        WHERE recipient_user_id = $1
+      `,
+      [recipientUserId],
+    );
+  }
+
   private getManager(manager?: EntityManager): EntityManager {
     return manager ?? this.dataSource.manager;
   }

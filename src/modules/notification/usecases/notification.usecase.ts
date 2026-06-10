@@ -42,6 +42,10 @@ export class NotificationUseCase {
     await this.repo.markAllNotificationsRead(userId);
   }
 
+  async deleteAllNotifications(userId: string): Promise<void> {
+    await this.repo.deleteAllNotifications(userId);
+  }
+
   async deleteNotification(
     userId: string,
     notificationId: string,
