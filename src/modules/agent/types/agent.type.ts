@@ -105,6 +105,22 @@ export type CreateAgentRunForInternalParams = {
   systemPromptVersion?: string;
 };
 
+export type AgentRunRequestedEvent = {
+  type: 'agent.run.requested';
+  version: '1.0';
+  runId: string;
+  workspaceId: string;
+  projectId: string;
+  agentType: string;
+  requestedAt: string;
+  target: {
+    kind: 'github_pull_request';
+    repositoryFullName: string;
+    pullNumber: number;
+    headSha: string;
+  };
+};
+
 export type CancelAgentRunParams = {
   workspaceId: string;
   runId: string;

@@ -227,27 +227,178 @@ export class ProjectRepository {
         SELECT
           p.project_id AS "projectId",
           p.workspace_id AS "workspaceId",
+          link.link_id AS "workspaceRepositoryLinkId",
           link.github_installation_id::text AS "githubInstallationId",
           link.github_repository_id::text AS "githubRepositoryId",
           link.repository_owner AS "repositoryOwner",
           link.repository_name AS "repositoryName",
-          link.repository_full_name AS "repositoryFullName"
+          link.repository_full_name AS "repositoryFullName",
+          link.repository_url AS "repositoryUrl",
+          link.default_branch AS "defaultBranch",
+          link.visibility,
+          prl.connected_by AS "connectedByUserId",
+          prl.connected_at AS "connectedAt"
         FROM prism_projects_l p
                INNER JOIN prism_workspaces_l w
                           ON w.workspace_id = p.workspace_id
+               INNER JOIN prism_project_repository_links_l prl
+                          ON prl.project_id = p.project_id
                INNER JOIN prism_workspace_repository_links_l link
-                          ON link.workspace_id = p.workspace_id
+                          ON link.link_id = prl.workspace_repository_link_id
         WHERE p.project_id = $1
           AND w.deleted_at IS NULL
           AND w.status = 'active'
           AND p.status <> 'archived'
-        ORDER BY link.connected_at DESC
         LIMIT 1
       `,
       [projectId],
     );
 
     return links[0] ?? null;
+  }
+
+  async findGithubRepositoryLinkByInstallationRepository(
+    params: {
+      githubInstallationId: string;
+      githubRepositoryId: string;
+    },
+    manager?: EntityManager,
+  ): Promise<ProjectGithubRepositoryLinkRow | null> {
+    const links = await this.getManager(manager).query<
+      ProjectGithubRepositoryLinkRow[]
+    >(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId",
+          link.link_id AS "workspaceRepositoryLinkId",
+          link.github_installation_id::text AS "githubInstallationId",
+          link.github_repository_id::text AS "githubRepositoryId",
+          link.repository_owner AS "repositoryOwner",
+          link.repository_name AS "repositoryName",
+          link.repository_full_name AS "repositoryFullName",
+          link.repository_url AS "repositoryUrl",
+          link.default_branch AS "defaultBranch",
+          link.visibility,
+          prl.connected_by AS "connectedByUserId",
+          prl.connected_at AS "connectedAt"
+        FROM prism_workspace_repository_links_l link
+               INNER JOIN prism_project_repository_links_l prl
+                          ON prl.workspace_repository_link_id = link.link_id
+               INNER JOIN prism_projects_l p
+                          ON p.project_id = prl.project_id
+               INNER JOIN prism_workspaces_l w
+                          ON w.workspace_id = p.workspace_id
+        WHERE link.github_installation_id = $1
+          AND link.github_repository_id = $2
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+          AND p.status <> 'archived'
+        ORDER BY prl.connected_at DESC
+        LIMIT 1
+      `,
+      [params.githubInstallationId, params.githubRepositoryId],
+    );
+
+    return links[0] ?? null;
+  }
+
+  async upsertGithubRepositoryLink(
+    params: {
+      projectId: string;
+      workspaceRepositoryLinkId: string;
+      connectedByUserId: string;
+    },
+    manager?: EntityManager,
+  ): Promise<ProjectGithubRepositoryLinkRow | null> {
+    const links = await this.getManager(manager).query<
+      ProjectGithubRepositoryLinkRow[]
+    >(
+      `
+        WITH selected_project AS (
+          SELECT p.project_id, p.workspace_id
+          FROM prism_projects_l p
+                 INNER JOIN prism_workspaces_l w
+                            ON w.workspace_id = p.workspace_id
+          WHERE p.project_id = $1
+            AND w.deleted_at IS NULL
+            AND w.status = 'active'
+            AND p.status <> 'archived'
+          LIMIT 1
+        ),
+        selected_link AS (
+          SELECT link.*
+          FROM prism_workspace_repository_links_l link
+                 INNER JOIN selected_project p
+                            ON p.workspace_id = link.workspace_id
+          WHERE link.link_id = $2
+          LIMIT 1
+        ),
+        upserted AS (
+          INSERT INTO prism_project_repository_links_l (
+            project_id,
+            workspace_id,
+            workspace_repository_link_id,
+            connected_by
+          )
+          SELECT
+            selected_project.project_id,
+            selected_project.workspace_id,
+            selected_link.link_id,
+            $3
+          FROM selected_project, selected_link
+          ON CONFLICT (project_id)
+            DO UPDATE SET
+              workspace_id = EXCLUDED.workspace_id,
+              workspace_repository_link_id = EXCLUDED.workspace_repository_link_id,
+              connected_by = EXCLUDED.connected_by,
+              updated_at = NOW()
+          RETURNING *
+        )
+        SELECT
+          upserted.project_id AS "projectId",
+          upserted.workspace_id AS "workspaceId",
+          link.link_id AS "workspaceRepositoryLinkId",
+          link.github_installation_id::text AS "githubInstallationId",
+          link.github_repository_id::text AS "githubRepositoryId",
+          link.repository_owner AS "repositoryOwner",
+          link.repository_name AS "repositoryName",
+          link.repository_full_name AS "repositoryFullName",
+          link.repository_url AS "repositoryUrl",
+          link.default_branch AS "defaultBranch",
+          link.visibility,
+          upserted.connected_by AS "connectedByUserId",
+          upserted.connected_at AS "connectedAt"
+        FROM upserted
+               INNER JOIN prism_workspace_repository_links_l link
+                          ON link.link_id = upserted.workspace_repository_link_id
+      `,
+      [
+        params.projectId,
+        params.workspaceRepositoryLinkId,
+        params.connectedByUserId,
+      ],
+    );
+
+    return links[0] ?? null;
+  }
+
+  async deleteGithubRepositoryLink(
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<boolean> {
+    const deletedLinks = await this.getManager(manager).query<
+      Array<{ projectId: string }>
+    >(
+      `
+        DELETE FROM prism_project_repository_links_l
+        WHERE project_id = $1
+        RETURNING project_id AS "projectId"
+      `,
+      [projectId],
+    );
+
+    return deletedLinks.length > 0;
   }
 
   async findProjectByIdAndAdminUserId(

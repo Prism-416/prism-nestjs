@@ -101,3 +101,50 @@ export class UpdateProjectDto {
   @MaxLength(1000)
   description?: string;
 }
+
+export class UpsertProjectRepositoryLinkDto {
+  @ApiProperty()
+  @IsUUID()
+  workspaceRepositoryLinkId!: string;
+}
+
+export class ProjectRepositoryLinkResponseDto {
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  workspaceRepositoryLinkId!: string;
+
+  @ApiProperty()
+  githubInstallationId!: string;
+
+  @ApiProperty()
+  githubRepositoryId!: string;
+
+  @ApiProperty()
+  repositoryOwner!: string;
+
+  @ApiProperty()
+  repositoryName!: string;
+
+  @ApiProperty()
+  repositoryFullName!: string;
+
+  @ApiProperty()
+  repositoryUrl!: string;
+
+  @ApiProperty({ nullable: true })
+  defaultBranch!: string | null;
+
+  @ApiProperty({ enum: ['public', 'private', 'internal'], nullable: true })
+  visibility!: 'public' | 'private' | 'internal' | null;
+
+  @ApiProperty({ nullable: true })
+  connectedByUserId!: string | null;
+
+  @ApiProperty()
+  connectedAt!: Date;
+}

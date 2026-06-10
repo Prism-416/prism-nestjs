@@ -17,9 +17,11 @@ import { ApiDataResponse } from '@/core/response';
 import {
   CreateProjectDto,
   GetProjectsQueryDto,
+  ProjectRepositoryLinkResponseDto,
   ProjectResponseDto,
   ProjectSummaryResponseDto,
   UpdateProjectDto,
+  UpsertProjectRepositoryLinkDto,
 } from '@/modules/project/dto';
 import { ProjectUseCase } from '@/modules/project/usecases';
 
@@ -70,6 +72,17 @@ export class ProjectController {
     return this.usecase.getProjectBySlug(String(user.sub), projectSlug);
   }
 
+  @Get(':projectId/repository-link')
+  @Authenticated()
+  @ApiOperation({ summary: 'Retrieve project GitHub repository link' })
+  @ApiDataResponse(ProjectRepositoryLinkResponseDto)
+  async getProjectRepositoryLink(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+  ): Promise<ProjectRepositoryLinkResponseDto> {
+    return this.usecase.getProjectRepositoryLink(String(user.sub), projectId);
+  }
+
   @Get(':projectId')
   @Authenticated()
   @ApiOperation({ summary: 'Retrieve project metadata' })
@@ -102,6 +115,36 @@ export class ProjectController {
     @Body() dto: UpdateProjectDto,
   ): Promise<ProjectResponseDto> {
     return this.usecase.updateProject(String(user.sub), projectId, dto);
+  }
+
+  @Patch(':projectId/repository-link')
+  @Authenticated()
+  @ApiOperation({ summary: 'Connect a GitHub repository to a project' })
+  @ApiDataResponse(ProjectRepositoryLinkResponseDto)
+  async upsertProjectRepositoryLink(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+    @Body() dto: UpsertProjectRepositoryLinkDto,
+  ): Promise<ProjectRepositoryLinkResponseDto> {
+    return this.usecase.upsertProjectRepositoryLink(
+      String(user.sub),
+      projectId,
+      dto,
+    );
+  }
+
+  @Delete(':projectId/repository-link')
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Disconnect a GitHub repository from a project' })
+  @ApiNoContentResponse({
+    description: 'Successfully disconnected project GitHub repository',
+  })
+  async deleteProjectRepositoryLink(
+    @CurrentUser() user: JwtPayload,
+    @Param('projectId') projectId: string,
+  ): Promise<void> {
+    await this.usecase.deleteProjectRepositoryLink(String(user.sub), projectId);
   }
 
   @Delete(':projectId')

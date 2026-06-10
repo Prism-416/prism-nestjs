@@ -1,4 +1,6 @@
 import { Module } from '@nestjs/common';
+import { AgentRepository } from '@/modules/agent/repository';
+import { AgentDispatchService } from '@/modules/agent/services';
 import {
   GithubInstallationController,
   GithubWebhookController,
@@ -12,15 +14,19 @@ import {
   GithubInstallationUseCase,
   GithubWebhookUseCase,
 } from '@/modules/github/usecases';
+import { ProjectRepository } from '@/modules/project/repository';
 
 @Module({
   controllers: [GithubInstallationController, GithubWebhookController],
   providers: [
+    AgentDispatchService,
+    AgentRepository,
     GithubAppService,
     GithubWebhookService,
     GithubInstallationRepository,
     GithubInstallationUseCase,
     GithubWebhookUseCase,
+    ProjectRepository,
   ],
   exports: [GithubAppService, GithubInstallationRepository],
 })

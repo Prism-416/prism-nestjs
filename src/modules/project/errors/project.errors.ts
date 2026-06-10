@@ -5,6 +5,9 @@ const PROJECT_SLUG_UNIQUE_CONSTRAINTS = new Set([
   'uq_projects_slug',
   'uq_projects_workspace_slug',
 ]);
+const PROJECT_REPOSITORY_LINK_UNIQUE_CONSTRAINTS = new Set([
+  'uq_project_repository_links_workspace_repository',
+]);
 
 export class ProjectSlugAlreadyExistsError extends DuplicateError {
   constructor() {
@@ -23,6 +26,15 @@ export class ProjectRepositoryLinkNotFoundError extends NotExistsError {
     super(
       'Project repository link not found.',
       'PROJECT_REPOSITORY_LINK_NOT_FOUND',
+    );
+  }
+}
+
+export class ProjectRepositoryLinkAlreadyAssignedError extends DuplicateError {
+  constructor() {
+    super(
+      'Project repository link is already assigned to another project.',
+      'PROJECT_REPOSITORY_LINK_ALREADY_ASSIGNED',
     );
   }
 }
@@ -66,5 +78,23 @@ export function isProjectSlugUniqueViolation(error: unknown): boolean {
     driverError?.code === '23505' &&
     typeof driverError.constraint === 'string' &&
     PROJECT_SLUG_UNIQUE_CONSTRAINTS.has(driverError.constraint)
+  );
+}
+
+export function isProjectRepositoryLinkUniqueViolation(
+  error: unknown,
+): boolean {
+  if (!(error instanceof QueryFailedError)) {
+    return false;
+  }
+
+  const driverError = error.driverError as
+    | { code?: string; constraint?: string }
+    | undefined;
+
+  return (
+    driverError?.code === '23505' &&
+    typeof driverError.constraint === 'string' &&
+    PROJECT_REPOSITORY_LINK_UNIQUE_CONSTRAINTS.has(driverError.constraint)
   );
 }
