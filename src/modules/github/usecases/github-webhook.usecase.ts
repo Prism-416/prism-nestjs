@@ -69,7 +69,11 @@ export class GithubWebhookUseCase {
         await this.handleInstallationRepositories(payload);
         break;
       case 'pull_request':
-        ignored = !(await this.handlePullRequest(action, payload));
+        ignored = !(await this.handlePullRequest(
+          action,
+          payload,
+          params.deliveryId,
+        ));
         break;
       default:
         ignored = true;
@@ -141,14 +145,21 @@ export class GithubWebhookUseCase {
   private async handlePullRequest(
     action: string | null,
     payload: GithubWebhookPayload,
+    deliveryId?: string,
   ): Promise<boolean> {
     if (!action || !REVIEWABLE_PULL_REQUEST_ACTIONS.has(action)) {
+      this.logger.log(
+        `GitHub pull_request webhook ignored reason=unsupported_action action=${action ?? 'missing'} delivery=${deliveryId ?? 'unknown'}`,
+      );
       return false;
     }
 
     const pullRequest = this.getPayloadRecord(payload.pull_request);
     const draft = pullRequest.draft === true;
     if (draft && action !== 'ready_for_review') {
+      this.logger.log(
+        `GitHub pull_request webhook ignored reason=draft action=${action} delivery=${deliveryId ?? 'unknown'}`,
+      );
       return false;
     }
 
@@ -167,8 +178,8 @@ export class GithubWebhookUseCase {
       });
 
     if (!link) {
-      this.logger.debug(
-        `Ignored pull_request webhook for unlinked repository=${repositoryId} installation=${installationId}`,
+      this.logger.log(
+        `GitHub pull_request webhook ignored reason=unlinked_repository action=${action} delivery=${deliveryId ?? 'unknown'} installation=${installationId} repositoryId=${repositoryId} repository=${repositoryFullName} pullNumber=${pullNumber} headSha=${headSha}`,
       );
       return false;
     }
@@ -201,16 +212,23 @@ export class GithubWebhookUseCase {
     }
 
     if (!result.wasCreated) {
+      this.logger.log(
+        `GitHub pull_request initial comment skipped reason=duplicate_run action=${action} delivery=${deliveryId ?? 'unknown'} runId=${runId} installation=${installationId} repositoryId=${repositoryId} repository=${repositoryFullName} pullNumber=${pullNumber} headSha=${headSha}`,
+      );
       return true;
     }
 
     await this.createPullRequestStartedComment({
       action,
+      deliveryId,
+      runId,
       installationId,
+      repositoryId,
       owner: link.repositoryOwner,
       repo: link.repositoryName,
       pullNumber,
       repositoryFullName,
+      headSha,
     });
 
     const requestedAt = result.run.createdAt.toISOString();
@@ -232,31 +250,108 @@ export class GithubWebhookUseCase {
 
   private async createPullRequestStartedComment(params: {
     action: string;
+    deliveryId?: string;
+    runId: string;
     installationId: string;
+    repositoryId: string;
     owner: string;
     repo: string;
     pullNumber: number;
     repositoryFullName: string;
+    headSha: string;
   }): Promise<void> {
     if (!INITIAL_COMMENT_PULL_REQUEST_ACTIONS.has(params.action)) {
+      this.logger.log(
+        `GitHub pull_request initial comment skipped reason=action_not_initial action=${params.action} delivery=${params.deliveryId ?? 'unknown'} runId=${params.runId} installation=${params.installationId} repositoryId=${params.repositoryId} repository=${params.repositoryFullName} pullNumber=${params.pullNumber} headSha=${params.headSha}`,
+      );
       return;
     }
 
     try {
-      await this.github.createPullRequestComment({
+      const comment = await this.github.createPullRequestComment({
         installationId: params.installationId,
         owner: params.owner,
         repo: params.repo,
         pullNumber: params.pullNumber,
         body: PULL_REQUEST_REVIEW_STARTED_COMMENT,
       });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
 
+      this.logger.log(
+        `GitHub pull_request initial comment created action=${params.action} delivery=${params.deliveryId ?? 'unknown'} runId=${params.runId} installation=${params.installationId} repositoryId=${params.repositoryId} repository=${params.repositoryFullName} pullNumber=${params.pullNumber} headSha=${params.headSha} commentId=${comment.commentId} commentUrl=${comment.url}`,
+      );
+    } catch (error) {
       this.logger.warn(
-        `Unable to create initial pull request comment for repository=${params.repositoryFullName} pullNumber=${params.pullNumber}: ${message}`,
+        `GitHub pull_request initial comment failed action=${params.action} delivery=${params.deliveryId ?? 'unknown'} runId=${params.runId} installation=${params.installationId} repositoryId=${params.repositoryId} repository=${params.repositoryFullName} pullNumber=${params.pullNumber} headSha=${params.headSha} ${this.formatErrorForLog(error)}`,
       );
     }
+  }
+
+  private formatErrorForLog(error: unknown): string {
+    const message = error instanceof Error ? error.message : String(error);
+    const errorName = error instanceof Error ? error.name : typeof error;
+    const details = [
+      `errorName=${JSON.stringify(errorName)}`,
+      `errorMessage=${JSON.stringify(message)}`,
+    ];
+    const status = this.getNestedLogValue(error, ['status']);
+    const requestMethod = this.getNestedLogValue(error, ['request', 'method']);
+    const requestUrl = this.getNestedLogValue(error, ['request', 'url']);
+    const responseMessage = this.getNestedLogValue(error, [
+      'response',
+      'data',
+      'message',
+    ]);
+    const documentationUrl = this.getNestedLogValue(error, [
+      'response',
+      'data',
+      'documentation_url',
+    ]);
+
+    if (status) {
+      details.push(`githubStatus=${JSON.stringify(status)}`);
+    }
+
+    if (requestMethod) {
+      details.push(`githubRequestMethod=${JSON.stringify(requestMethod)}`);
+    }
+
+    if (requestUrl) {
+      details.push(`githubRequestUrl=${JSON.stringify(requestUrl)}`);
+    }
+
+    if (responseMessage) {
+      details.push(`githubResponseMessage=${JSON.stringify(responseMessage)}`);
+    }
+
+    if (documentationUrl) {
+      details.push(
+        `githubDocumentationUrl=${JSON.stringify(documentationUrl)}`,
+      );
+    }
+
+    return details.join(' ');
+  }
+
+  private getNestedLogValue(source: unknown, path: string[]): string | null {
+    let current: unknown = source;
+
+    for (const key of path) {
+      if (!current || typeof current !== 'object') {
+        return null;
+      }
+
+      current = (current as Record<string, unknown>)[key];
+    }
+
+    if (
+      typeof current === 'string' ||
+      typeof current === 'number' ||
+      typeof current === 'boolean'
+    ) {
+      return String(current);
+    }
+
+    return null;
   }
 
   private getPayloadRecord(payload: unknown): GithubWebhookPayload {
