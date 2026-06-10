@@ -8,6 +8,7 @@ import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { App, RequestError } from 'octokit';
 import {
   GithubInstallationNotFoundError,
+  GithubPullRequestNotFoundError,
   GithubInstallationStateError,
   GithubRepositoryNotFoundError,
 } from '@/modules/github/errors';
@@ -15,11 +16,23 @@ import type {
   GithubInstallationAccountType,
   GithubInstallationState,
   GithubInstallationStatus,
+  GithubPullRequestCommit,
+  GithubPullRequestContent,
+  GithubPullRequestFile,
+  GithubPullRequestFileStatus,
+  GithubPullRequestReviewComment,
+  GithubPullRequestReviewEvent,
+  GithubPullRequestReviewResult,
+  GithubPullRequestState,
   GithubInstallationSummary,
   GithubRepositorySelection,
   GithubRepositorySummary,
   GithubRepositoryVisibility,
 } from '@/modules/github/types';
+
+type GithubInstallationOctokit = Awaited<
+  ReturnType<App['getInstallationOctokit']>
+>;
 
 type GithubApiAccount = {
   id?: number | string;
@@ -53,6 +66,36 @@ type GithubRepositoryListResponse = {
   repositories?: GithubApiRepository[];
 };
 
+type GithubApiPullRequest = {
+  number?: number;
+  title?: string;
+  state?: string;
+  merged?: boolean;
+  head?: { sha?: string } | null;
+  base?: { sha?: string } | null;
+  user?: { login?: string } | null;
+  body?: string | null;
+};
+
+type GithubApiPullRequestFile = {
+  filename?: string;
+  status?: string;
+  additions?: number;
+  deletions?: number;
+  patch?: string;
+};
+
+type GithubApiPullRequestCommit = {
+  sha?: string;
+  commit?: { message?: string } | null;
+};
+
+type GithubApiPullRequestReview = {
+  id?: number | string;
+  html_url?: string | null;
+  url?: string | null;
+};
+
 type GithubSignedStatePayload = GithubInstallationState;
 
 export type GithubInstallationAuthorization = {
@@ -63,6 +106,9 @@ export type GithubInstallationAuthorization = {
 
 @Injectable()
 export class GithubAppService {
+  private readonly pullRequestFilePageSize = 100;
+  private readonly maxPullRequestFiles = 300;
+  private readonly maxPullRequestPatchChars = 250000;
   private app?: App;
 
   constructor(private readonly configService: ConfigService) {}
@@ -176,6 +222,100 @@ export class GithubAppService {
     return repository;
   }
 
+  async getPullRequestContent(params: {
+    installationId: string;
+    owner: string;
+    repo: string;
+    pullNumber: number;
+    includeDiff: boolean;
+    includeFiles: boolean;
+  }): Promise<GithubPullRequestContent> {
+    const octokit = await this.getApp().getInstallationOctokit(
+      Number(params.installationId),
+    );
+    const pullRequest = await this.fetchPullRequest(octokit, params);
+    const [filesResult, commits] = await Promise.all([
+      params.includeFiles
+        ? this.listPullRequestFiles(octokit, params, params.includeDiff)
+        : Promise.resolve({ files: [], truncated: false }),
+      this.listPullRequestCommits(octokit, params),
+    ]);
+
+    return {
+      ...pullRequest,
+      files: filesResult.files,
+      commits,
+      truncated: filesResult.truncated,
+    };
+  }
+
+  async getPullRequestHeadSha(params: {
+    installationId: string;
+    owner: string;
+    repo: string;
+    pullNumber: number;
+  }): Promise<string> {
+    const octokit = await this.getApp().getInstallationOctokit(
+      Number(params.installationId),
+    );
+    const pullRequest = await this.fetchPullRequest(octokit, params);
+
+    return pullRequest.headSha;
+  }
+
+  async createPullRequestReview(params: {
+    installationId: string;
+    owner: string;
+    repo: string;
+    pullNumber: number;
+    headSha: string;
+    event: GithubPullRequestReviewEvent;
+    summary: string;
+    comments: GithubPullRequestReviewComment[];
+  }): Promise<GithubPullRequestReviewResult> {
+    const octokit = await this.getApp().getInstallationOctokit(
+      Number(params.installationId),
+    );
+
+    try {
+      const { data } = await octokit.request(
+        'POST /repos/{owner}/{repo}/pulls/{pull_number}/reviews',
+        {
+          owner: params.owner,
+          repo: params.repo,
+          pull_number: params.pullNumber,
+          commit_id: params.headSha,
+          event: params.event,
+          body: params.summary,
+          comments: params.comments.map((comment) => ({
+            path: comment.path,
+            line: comment.line,
+            side: comment.side,
+            body: comment.body,
+          })),
+        },
+      );
+      const review = data as GithubApiPullRequestReview;
+
+      if (!review.id || (!review.html_url && !review.url)) {
+        throw new BadRequestException(
+          'Invalid GitHub pull request review response.',
+        );
+      }
+
+      return {
+        reviewId: String(review.id),
+        url: review.html_url ?? String(review.url),
+      };
+    } catch (error) {
+      if (error instanceof RequestError && error.status === 404) {
+        throw new GithubPullRequestNotFoundError();
+      }
+
+      throw error;
+    }
+  }
+
   buildInstallationResultRedirectUrl(params: {
     workspaceId?: string;
     installationId?: string;
@@ -215,6 +355,133 @@ export class GithubAppService {
     }
 
     return this.app;
+  }
+
+  private async fetchPullRequest(
+    octokit: GithubInstallationOctokit,
+    params: {
+      owner: string;
+      repo: string;
+      pullNumber: number;
+    },
+  ): Promise<
+    Omit<GithubPullRequestContent, 'files' | 'commits' | 'truncated'>
+  > {
+    try {
+      const { data } = await octokit.request(
+        'GET /repos/{owner}/{repo}/pulls/{pull_number}',
+        {
+          owner: params.owner,
+          repo: params.repo,
+          pull_number: params.pullNumber,
+        },
+      );
+
+      return this.mapPullRequest(data as GithubApiPullRequest);
+    } catch (error) {
+      if (error instanceof RequestError && error.status === 404) {
+        throw new GithubPullRequestNotFoundError();
+      }
+
+      throw error;
+    }
+  }
+
+  private async listPullRequestFiles(
+    octokit: GithubInstallationOctokit,
+    params: {
+      owner: string;
+      repo: string;
+      pullNumber: number;
+    },
+    includeDiff: boolean,
+  ): Promise<{ files: GithubPullRequestFile[]; truncated: boolean }> {
+    const files: GithubPullRequestFile[] = [];
+    let truncated = false;
+    let patchChars = 0;
+
+    for (let page = 1; ; page += 1) {
+      const { data } = await octokit.request(
+        'GET /repos/{owner}/{repo}/pulls/{pull_number}/files',
+        {
+          owner: params.owner,
+          repo: params.repo,
+          pull_number: params.pullNumber,
+          per_page: this.pullRequestFilePageSize,
+          page,
+        },
+      );
+      const pageFiles = data as GithubApiPullRequestFile[];
+
+      for (const file of pageFiles) {
+        if (files.length >= this.maxPullRequestFiles) {
+          truncated = true;
+          break;
+        }
+
+        const mappedFile = this.mapPullRequestFile(file);
+        if (!includeDiff) {
+          mappedFile.patch = '';
+        } else if (
+          mappedFile.patch &&
+          patchChars + mappedFile.patch.length > this.maxPullRequestPatchChars
+        ) {
+          mappedFile.patch = '';
+          truncated = true;
+        }
+
+        patchChars += mappedFile.patch.length;
+        files.push(mappedFile);
+      }
+
+      if (
+        truncated ||
+        pageFiles.length < this.pullRequestFilePageSize ||
+        files.length >= this.maxPullRequestFiles
+      ) {
+        if (pageFiles.length === this.pullRequestFilePageSize) {
+          truncated = truncated || files.length >= this.maxPullRequestFiles;
+        }
+        break;
+      }
+    }
+
+    return { files, truncated };
+  }
+
+  private async listPullRequestCommits(
+    octokit: GithubInstallationOctokit,
+    params: {
+      owner: string;
+      repo: string;
+      pullNumber: number;
+    },
+  ): Promise<GithubPullRequestCommit[]> {
+    const commits: GithubPullRequestCommit[] = [];
+
+    for (let page = 1; ; page += 1) {
+      const { data } = await octokit.request(
+        'GET /repos/{owner}/{repo}/pulls/{pull_number}/commits',
+        {
+          owner: params.owner,
+          repo: params.repo,
+          pull_number: params.pullNumber,
+          per_page: 100,
+          page,
+        },
+      );
+      const pageCommits = data as GithubApiPullRequestCommit[];
+
+      commits.push(
+        ...pageCommits.map((commit) => this.mapPullRequestCommit(commit)),
+      );
+
+      if (pageCommits.length < 100) {
+        break;
+      }
+    }
+
+    return commits;
   }
 
   private mapInstallation(
@@ -272,6 +539,71 @@ export class GithubAppService {
     };
   }
 
+  private mapPullRequest(
+    pullRequest: GithubApiPullRequest,
+  ): Omit<GithubPullRequestContent, 'files' | 'commits' | 'truncated'> {
+    if (
+      !pullRequest.number ||
+      !pullRequest.title ||
+      !pullRequest.state ||
+      !pullRequest.head?.sha ||
+      !pullRequest.base?.sha ||
+      !pullRequest.user?.login
+    ) {
+      throw new BadRequestException('Invalid GitHub pull request response.');
+    }
+
+    return {
+      pullNumber: pullRequest.number,
+      title: pullRequest.title,
+      state: this.normalizePullRequestState(
+        pullRequest.state,
+        pullRequest.merged ?? false,
+      ),
+      headSha: pullRequest.head.sha,
+      baseSha: pullRequest.base.sha,
+      author: pullRequest.user.login,
+      body: pullRequest.body ?? '',
+    };
+  }
+
+  private mapPullRequestFile(
+    file: GithubApiPullRequestFile,
+  ): GithubPullRequestFile {
+    if (
+      !file.filename ||
+      typeof file.additions !== 'number' ||
+      typeof file.deletions !== 'number'
+    ) {
+      throw new BadRequestException(
+        'Invalid GitHub pull request file response.',
+      );
+    }
+
+    return {
+      filename: file.filename,
+      status: this.normalizePullRequestFileStatus(file.status),
+      additions: file.additions,
+      deletions: file.deletions,
+      patch: file.patch ?? '',
+    };
+  }
+
+  private mapPullRequestCommit(
+    commit: GithubApiPullRequestCommit,
+  ): GithubPullRequestCommit {
+    if (!commit.sha || !commit.commit?.message) {
+      throw new BadRequestException(
+        'Invalid GitHub pull request commit response.',
+      );
+    }
+
+    return {
+      sha: commit.sha,
+      message: commit.commit.message,
+    };
+  }
+
   private normalizeAccountType(
     accountType: string,
   ): GithubInstallationAccountType {
@@ -297,6 +629,32 @@ export class GithubAppService {
     }
 
     return isPrivate ? 'private' : 'public';
+  }
+
+  private normalizePullRequestState(
+    state: string,
+    merged: boolean,
+  ): GithubPullRequestState {
+    if (merged) {
+      return 'merged';
+    }
+
+    return state === 'closed' ? 'closed' : 'open';
+  }
+
+  private normalizePullRequestFileStatus(
+    status: string | null | undefined,
+  ): GithubPullRequestFileStatus {
+    if (
+      status === 'added' ||
+      status === 'modified' ||
+      status === 'removed' ||
+      status === 'renamed'
+    ) {
+      return status;
+    }
+
+    return 'modified';
   }
 
   private getInstallationStatus(

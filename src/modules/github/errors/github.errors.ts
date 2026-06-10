@@ -21,3 +21,9 @@ export class GithubRepositoryNotFoundError extends NotExistsError {
     super('GitHub repository not found.', 'GITHUB_REPOSITORY_NOT_FOUND');
   }
 }
+
+export class GithubPullRequestNotFoundError extends NotExistsError {
+  constructor() {
+    super('GitHub pull request not found.', 'GITHUB_PULL_REQUEST_NOT_FOUND');
+  }
+}

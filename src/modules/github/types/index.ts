@@ -34,3 +34,53 @@ export type GithubRepositorySummary = {
   private: boolean;
   archived: boolean;
 };
+
+export type GithubPullRequestState = 'open' | 'closed' | 'merged';
+export type GithubPullRequestFileStatus =
+  | 'added'
+  | 'modified'
+  | 'removed'
+  | 'renamed';
+export type GithubPullRequestReviewEvent =
+  | 'COMMENT'
+  | 'APPROVE'
+  | 'REQUEST_CHANGES';
+export type GithubPullRequestReviewCommentSide = 'LEFT' | 'RIGHT';
+
+export type GithubPullRequestFile = {
+  filename: string;
+  status: GithubPullRequestFileStatus;
+  additions: number;
+  deletions: number;
+  patch: string;
+};
+
+export type GithubPullRequestCommit = {
+  sha: string;
+  message: string;
+};
+
+export type GithubPullRequestContent = {
+  pullNumber: number;
+  title: string;
+  state: GithubPullRequestState;
+  headSha: string;
+  baseSha: string;
+  author: string;
+  body: string;
+  files: GithubPullRequestFile[];
+  commits: GithubPullRequestCommit[];
+  truncated: boolean;
+};
+
+export type GithubPullRequestReviewComment = {
+  path: string;
+  line: number;
+  side: GithubPullRequestReviewCommentSide;
+  body: string;
+};
+
+export type GithubPullRequestReviewResult = {
+  reviewId: string;
+  url: string;
+};
