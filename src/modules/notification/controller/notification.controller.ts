@@ -59,6 +59,17 @@ export class NotificationController {
     await this.usecase.markAllNotificationsRead(String(user.sub));
   }
 
+  @Delete()
+  @Authenticated()
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete all notifications' })
+  @ApiNoContentResponse({
+    description: 'Successfully deleted all notifications',
+  })
+  async deleteAllNotifications(@CurrentUser() user: JwtPayload): Promise<void> {
+    await this.usecase.deleteAllNotifications(String(user.sub));
+  }
+
   @Delete(':notificationId')
   @Authenticated()
   @HttpCode(HttpStatus.NO_CONTENT)
