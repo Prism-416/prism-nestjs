@@ -5,6 +5,8 @@ export const INTERNAL_SCOPES = [
   'embeddings:write',
   'projects:read',
   'projects:write',
+  'pull_requests:write',
+  'repositories:read',
   'sprints:write',
 ] as const;
 

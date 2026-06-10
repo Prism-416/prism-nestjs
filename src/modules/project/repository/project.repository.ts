@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  ProjectGithubRepositoryLinkRow,
   ProjectRow,
   ProjectSummaryRow,
   ProjectWorkspaceMemberUserRow,
@@ -213,6 +214,40 @@ export class ProjectRepository {
     );
 
     return projects[0] ?? null;
+  }
+
+  async findGithubRepositoryLinkByProjectId(
+    projectId: string,
+    manager?: EntityManager,
+  ): Promise<ProjectGithubRepositoryLinkRow | null> {
+    const links = await this.getManager(manager).query<
+      ProjectGithubRepositoryLinkRow[]
+    >(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId",
+          link.github_installation_id::text AS "githubInstallationId",
+          link.github_repository_id::text AS "githubRepositoryId",
+          link.repository_owner AS "repositoryOwner",
+          link.repository_name AS "repositoryName",
+          link.repository_full_name AS "repositoryFullName"
+        FROM prism_projects_l p
+               INNER JOIN prism_workspaces_l w
+                          ON w.workspace_id = p.workspace_id
+               INNER JOIN prism_workspace_repository_links_l link
+                          ON link.workspace_id = p.workspace_id
+        WHERE p.project_id = $1
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+          AND p.status <> 'archived'
+        ORDER BY link.connected_at DESC
+        LIMIT 1
+      `,
+      [projectId],
+    );
+
+    return links[0] ?? null;
   }
 
   async findProjectByIdAndAdminUserId(

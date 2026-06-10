@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AdminModule } from '@/modules/admin';
 import { DocumentRepository } from '@/modules/document/repository';
+import { GithubModule } from '@/modules/github';
 import { NotificationModule } from '@/modules/notification';
 import { WorkspaceModule } from '@/modules/workspace/workspace.module';
 import {
   CommentController,
+  PullRequestController,
   ProjectController,
   WorkItemController,
 } from '@/modules/project/controller';
@@ -17,20 +19,27 @@ import {
 import { ProjectRealtimePublisherService } from '@/modules/project/services';
 import {
   CommentUseCase,
+  PullRequestUseCase,
   ProjectRealtimeSubscriptionUseCase,
   ProjectUseCase,
   WorkItemUseCase,
 } from '@/modules/project/usecases';
 
 @Module({
-  imports: [AdminModule, NotificationModule, WorkspaceModule],
-  controllers: [ProjectController, WorkItemController, CommentController],
+  imports: [AdminModule, GithubModule, NotificationModule, WorkspaceModule],
+  controllers: [
+    ProjectController,
+    WorkItemController,
+    CommentController,
+    PullRequestController,
+  ],
   providers: [
     CommentRepository,
     DocumentRepository,
     ProjectRepository,
     WorkItemRepository,
     CommentUseCase,
+    PullRequestUseCase,
     ProjectGateway,
     ProjectRealtimePublisherService,
     ProjectRealtimeSubscriptionUseCase,

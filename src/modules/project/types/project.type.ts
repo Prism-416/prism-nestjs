@@ -15,3 +15,13 @@ export type ProjectSummaryRow = Pick<
 export type ProjectWorkspaceMemberUserRow = {
   userId: string;
 };
+
+export type ProjectGithubRepositoryLinkRow = {
+  projectId: string;
+  workspaceId: string;
+  githubInstallationId: string;
+  githubRepositoryId: string;
+  repositoryOwner: string;
+  repositoryName: string;
+  repositoryFullName: string;
+};

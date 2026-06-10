@@ -1,4 +1,4 @@
-import { DuplicateError, NotExistsError } from '@/core/errors';
+import { DomainError, DuplicateError, NotExistsError } from '@/core/errors';
 import { QueryFailedError } from 'typeorm';
 
 const PROJECT_SLUG_UNIQUE_CONSTRAINTS = new Set([
@@ -15,6 +15,41 @@ export class ProjectSlugAlreadyExistsError extends DuplicateError {
 export class ProjectNotFoundError extends NotExistsError {
   constructor() {
     super('Project not found.', 'PROJECT_NOT_FOUND');
+  }
+}
+
+export class ProjectRepositoryLinkNotFoundError extends NotExistsError {
+  constructor() {
+    super(
+      'Project repository link not found.',
+      'PROJECT_REPOSITORY_LINK_NOT_FOUND',
+    );
+  }
+}
+
+export class PullRequestNotFoundError extends NotExistsError {
+  constructor() {
+    super('Pull request not found.', 'PULL_REQUEST_NOT_FOUND');
+  }
+}
+
+export class PullRequestHeadStaleError extends DomainError {
+  constructor() {
+    super(
+      'Pull request head SHA no longer matches the submitted review.',
+      'PULL_REQUEST_HEAD_STALE',
+      409,
+    );
+  }
+}
+
+export class PullRequestReviewCommentAnchorInvalidError extends DomainError {
+  constructor() {
+    super(
+      'Pull request review comment anchor is invalid for the current diff.',
+      'PULL_REQUEST_REVIEW_COMMENT_ANCHOR_INVALID',
+      422,
+    );
   }
 }
 
