@@ -506,7 +506,9 @@ export class SimilarWorkItemResponseDto {
   @ApiProperty({ enum: WORK_ITEM_PRIORITIES })
   priority!: WorkItemPriority;
 
-  @ApiProperty({ description: 'Cosine similarity in [-1, 1]; higher is closer.' })
+  @ApiProperty({
+    description: 'Cosine similarity in [-1, 1]; higher is closer.',
+  })
   similarity!: number;
 }
 

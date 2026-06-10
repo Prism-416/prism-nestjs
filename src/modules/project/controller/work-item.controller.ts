@@ -162,7 +162,9 @@ export class WorkItemController {
 
   @Post('internal/similar')
   @RequireInternalScopes('projects:read')
-  @ApiOperation({ summary: 'Find semantically similar work items for internal workers' })
+  @ApiOperation({
+    summary: 'Find semantically similar work items for internal workers',
+  })
   @ApiDataResponse(SimilarWorkItemResponseDto, { isArray: true })
   async findSimilarWorkItemsForInternal(
     @Param('projectId') projectId: string,
