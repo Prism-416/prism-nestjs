@@ -84,3 +84,8 @@ export type GithubPullRequestReviewResult = {
   reviewId: string;
   url: string;
 };
+
+export type GithubPullRequestCommentResult = {
+  commentId: string;
+  url: string;
+};

@@ -57,7 +57,12 @@ describe('GithubWebhookUseCase', () => {
     createdAt: new Date('2026-01-02T00:00:00.000Z'),
   };
 
-  let github: jest.Mocked<Pick<GithubAppService, 'mapWebhookInstallation'>>;
+  let github: jest.Mocked<
+    Pick<
+      GithubAppService,
+      'mapWebhookInstallation' | 'createPullRequestComment'
+    >
+  >;
   let webhooks: jest.Mocked<Pick<GithubWebhookService, 'verifySignature'>>;
   let installations: jest.Mocked<
     Pick<
@@ -99,6 +104,10 @@ describe('GithubWebhookUseCase', () => {
   beforeEach(() => {
     github = {
       mapWebhookInstallation: jest.fn(),
+      createPullRequestComment: jest.fn().mockResolvedValue({
+        commentId: 'comment-id',
+        url: 'https://github.com/prism-416/prism-nestjs/pull/17#issuecomment-1',
+      }),
     };
     webhooks = {
       verifySignature: jest.fn(),
@@ -163,6 +172,21 @@ describe('GithubWebhookUseCase', () => {
         status: 'queued',
       }),
     );
+    const commentParams = github.createPullRequestComment.mock.calls[0][0];
+    expect(commentParams).toMatchObject({
+      installationId: repositoryLink.githubInstallationId,
+      owner: repositoryLink.repositoryOwner,
+      repo: repositoryLink.repositoryName,
+      pullNumber: 17,
+    });
+    expect(commentParams.body).toContain(
+      'Prism has started reviewing this pull request.',
+    );
+    expect(
+      github.createPullRequestComment.mock.invocationCallOrder[0],
+    ).toBeLessThan(
+      agentDispatch.publishRunRequestedEvent.mock.invocationCallOrder[0],
+    );
     expect(agentDispatch.publishRunRequestedEvent).toHaveBeenCalledTimes(1);
   });
 
@@ -180,7 +204,38 @@ describe('GithubWebhookUseCase', () => {
     });
 
     expect(response.ignored).toBe(false);
+    expect(github.createPullRequestComment).not.toHaveBeenCalled();
     expect(agentDispatch.publishRunRequestedEvent).not.toHaveBeenCalled();
+  });
+
+  it('does not create initial comments for synchronize events', async () => {
+    const response = await usecase.handleWebhook({
+      event: 'pull_request',
+      signature,
+      rawBody,
+      payload: pullRequestPayload({ action: 'synchronize' }),
+    });
+
+    expect(response.ignored).toBe(false);
+    expect(github.createPullRequestComment).not.toHaveBeenCalled();
+    expect(agentDispatch.publishRunRequestedEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispatches the review run when the initial comment fails', async () => {
+    github.createPullRequestComment.mockRejectedValueOnce(
+      new Error('GitHub is unavailable'),
+    );
+
+    const response = await usecase.handleWebhook({
+      event: 'pull_request',
+      signature,
+      rawBody,
+      payload: pullRequestPayload(),
+    });
+
+    expect(response.ignored).toBe(false);
+    expect(github.createPullRequestComment).toHaveBeenCalledTimes(1);
+    expect(agentDispatch.publishRunRequestedEvent).toHaveBeenCalledTimes(1);
   });
 
   it('ignores draft pull requests before they are ready for review', async () => {

@@ -16,6 +16,7 @@ import type {
   GithubInstallationAccountType,
   GithubInstallationState,
   GithubInstallationStatus,
+  GithubPullRequestCommentResult,
   GithubPullRequestCommit,
   GithubPullRequestContent,
   GithubPullRequestFile,
@@ -91,6 +92,12 @@ type GithubApiPullRequestCommit = {
 };
 
 type GithubApiPullRequestReview = {
+  id?: number | string;
+  html_url?: string | null;
+  url?: string | null;
+};
+
+type GithubApiIssueComment = {
   id?: number | string;
   html_url?: string | null;
   url?: string | null;
@@ -306,6 +313,48 @@ export class GithubAppService {
       return {
         reviewId: String(review.id),
         url: review.html_url ?? String(review.url),
+      };
+    } catch (error) {
+      if (error instanceof RequestError && error.status === 404) {
+        throw new GithubPullRequestNotFoundError();
+      }
+
+      throw error;
+    }
+  }
+
+  async createPullRequestComment(params: {
+    installationId: string;
+    owner: string;
+    repo: string;
+    pullNumber: number;
+    body: string;
+  }): Promise<GithubPullRequestCommentResult> {
+    const octokit = await this.getApp().getInstallationOctokit(
+      Number(params.installationId),
+    );
+
+    try {
+      const { data } = await octokit.request(
+        'POST /repos/{owner}/{repo}/issues/{issue_number}/comments',
+        {
+          owner: params.owner,
+          repo: params.repo,
+          issue_number: params.pullNumber,
+          body: params.body,
+        },
+      );
+      const comment = data as GithubApiIssueComment;
+
+      if (!comment.id || (!comment.html_url && !comment.url)) {
+        throw new BadRequestException(
+          'Invalid GitHub pull request comment response.',
+        );
+      }
+
+      return {
+        commentId: String(comment.id),
+        url: comment.html_url ?? String(comment.url),
       };
     } catch (error) {
       if (error instanceof RequestError && error.status === 404) {
