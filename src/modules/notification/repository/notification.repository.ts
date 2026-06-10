@@ -3,6 +3,7 @@ import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
   CreateMentionNotificationsParams,
+  CreateWorkItemAssignmentNotificationsParams,
   CreateWorkspaceInvitationNotificationParams,
   CreateWorkspaceMemberRemovedNotificationParams,
   ListNotificationsParams,
@@ -92,6 +93,89 @@ export class NotificationRepository {
         params.commentBody,
         params.commentId,
         params.itemId,
+      ],
+    );
+
+    return notifications;
+  }
+
+  async createWorkItemAssignmentNotifications(
+    params: CreateWorkItemAssignmentNotificationsParams,
+    manager?: EntityManager,
+  ): Promise<NotificationRow[]> {
+    const notifications = await this.getManager(manager).query<
+      NotificationRow[]
+    >(
+      `
+        WITH recipients AS (
+          SELECT DISTINCT recipient_user_id
+          FROM unnest($1::uuid[]) AS input(recipient_user_id)
+          WHERE recipient_user_id <> $2
+        ),
+        actor AS (
+          SELECT COALESCE(NULLIF(full_name, ''), username, 'Someone') AS actor_name
+          FROM prism_users_l
+          WHERE user_id = $2
+        )
+        INSERT INTO prism_notifications_l (
+          recipient_user_id,
+          actor_user_id,
+          workspace_id,
+          project_id,
+          notification_type,
+          title,
+          body,
+          target_type,
+          target_id,
+          metadata
+        )
+        SELECT
+          recipients.recipient_user_id,
+          $2,
+          $3,
+          $4,
+          'work_item_assigned',
+          CONCAT((SELECT actor_name FROM actor), ' assigned you'),
+          CONCAT('You were assigned to ', $6::text, '.'),
+          'work_item',
+          $5,
+          jsonb_build_object(
+            'itemId', $5::uuid,
+            'workItemTitle', $6::text
+          )
+        FROM recipients
+        ON CONFLICT (recipient_user_id, notification_type, target_id)
+        DO UPDATE SET
+          actor_user_id = EXCLUDED.actor_user_id,
+          workspace_id = EXCLUDED.workspace_id,
+          project_id = EXCLUDED.project_id,
+          title = EXCLUDED.title,
+          body = EXCLUDED.body,
+          metadata = EXCLUDED.metadata,
+          read_at = NULL,
+          created_at = NOW()
+        RETURNING
+          notification_id AS "notificationId",
+          recipient_user_id AS "recipientUserId",
+          actor_user_id AS "actorUserId",
+          workspace_id AS "workspaceId",
+          project_id AS "projectId",
+          notification_type AS "notificationType",
+          title,
+          body,
+          target_type AS "targetType",
+          target_id AS "targetId",
+          metadata,
+          read_at AS "readAt",
+          created_at AS "createdAt"
+      `,
+      [
+        params.recipientUserIds,
+        params.actorUserId,
+        params.workspaceId,
+        params.projectId,
+        params.itemId,
+        params.workItemTitle,
       ],
     );
 

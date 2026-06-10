@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import {
   CreateMentionNotificationsParams,
+  CreateWorkItemAssignmentNotificationsParams,
   CreateWorkspaceInvitationNotificationParams,
   CreateWorkspaceMemberRemovedNotificationParams,
   NotificationRow,
@@ -26,6 +27,17 @@ export class NotificationService {
     }
 
     return this.repo.createWorkItemCommentMentionNotifications(params, manager);
+  }
+
+  async createWorkItemAssignmentNotifications(
+    params: CreateWorkItemAssignmentNotificationsParams,
+    manager?: EntityManager,
+  ): Promise<NotificationRow[]> {
+    if (params.recipientUserIds.length === 0) {
+      return [];
+    }
+
+    return this.repo.createWorkItemAssignmentNotifications(params, manager);
   }
 
   async createWorkspaceInvitationNotification(
