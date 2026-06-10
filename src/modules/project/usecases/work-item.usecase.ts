@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
 import { ObjectStorageDeletionService } from '@/core/object-storage';
+import { NotificationService } from '@/modules/notification/services';
+import type { NotificationRow } from '@/modules/notification/types';
 import { DocumentRepository } from '@/modules/document/repository';
 import {
   PROJECT_EMBEDDING_DIMENSIONS,
@@ -32,6 +34,7 @@ import {
   WORK_ITEM_PRIORITIES,
   WORK_ITEM_STATUSES,
 } from '@/modules/project/types';
+import type { WorkItemAssigneeRow } from '@/modules/project/types';
 import {
   ProjectRepository,
   WorkItemRepository,
@@ -47,6 +50,7 @@ export class WorkItemUseCase {
     private readonly objectStorageDeletionService: ObjectStorageDeletionService,
     private readonly uow: UnitOfWork,
     private readonly realtimePublisher: ProjectRealtimePublisherService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async getWorkItem(
@@ -281,7 +285,7 @@ export class WorkItemUseCase {
   ): Promise<WorkItemResponseDto> {
     this.validateSchedule(dto.startDate ?? null, dto.dueDate ?? null);
 
-    const createdWorkItem = await this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -351,10 +355,27 @@ export class WorkItemUseCase {
           manager,
         );
 
-        return {
+        const createdWorkItem = {
           ...workItem,
           assigneeUsernames: assignees.map((assignee) => assignee.username),
           labelNames: labels.map((label) => label.label),
+        };
+
+        const notifications = await this.createWorkItemAssignmentNotifications(
+          {
+            actorUserId: userId,
+            workspaceId: project.workspaceId,
+            projectId: project.projectId,
+            itemId: workItem.itemId,
+            workItemTitle: workItem.title,
+            assignees,
+          },
+          manager,
+        );
+
+        return {
+          workItem: createdWorkItem,
+          notifications,
         };
       } catch (error) {
         if (isWorkItemParentForeignKeyViolation(error)) {
@@ -365,9 +386,10 @@ export class WorkItemUseCase {
       }
     });
 
-    this.realtimePublisher.publishWorkItemCreated(createdWorkItem);
+    this.realtimePublisher.publishWorkItemCreated(result.workItem);
+    this.notificationService.publishNotifications(result.notifications);
 
-    return createdWorkItem;
+    return result.workItem;
   }
 
   async updateWorkItem(
@@ -376,7 +398,7 @@ export class WorkItemUseCase {
     itemId: string,
     dto: UpdateWorkItemDto,
   ): Promise<WorkItemResponseDto> {
-    const updatedWorkItem = await this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const project =
         await this.projectRepository.findProjectByIdAndMemberUserId(
           projectId,
@@ -388,7 +410,7 @@ export class WorkItemUseCase {
       }
 
       const currentWorkItem =
-        await this.workItemRepository.findWorkItemRecordById(
+        await this.workItemRepository.findWorkItemDetailById(
           project.workspaceId,
           project.projectId,
           itemId,
@@ -403,6 +425,8 @@ export class WorkItemUseCase {
       const nextDueDate =
         dto.dueDate !== undefined ? dto.dueDate : currentWorkItem.dueDate;
       this.validateSchedule(nextStartDate, nextDueDate);
+
+      let newlyAssignedUsers: WorkItemAssigneeRow[] = [];
 
       if (dto.parentId !== undefined) {
         if (dto.parentId === itemId) {
@@ -432,6 +456,13 @@ export class WorkItemUseCase {
         if (assignees.length !== dto.assigneeUsernames.length) {
           throw new WorkItemAssigneeNotFoundError();
         }
+
+        const currentAssigneeUsernames = new Set(
+          currentWorkItem.assigneeUsernames,
+        );
+        newlyAssignedUsers = assignees.filter(
+          (assignee) => !currentAssigneeUsernames.has(assignee.username),
+        );
 
         await this.workItemRepository.replaceWorkItemAssignees(
           project.workspaceId,
@@ -500,12 +531,52 @@ export class WorkItemUseCase {
         throw new WorkItemNotFoundError();
       }
 
-      return updatedWorkItem;
+      const notifications = await this.createWorkItemAssignmentNotifications(
+        {
+          actorUserId: userId,
+          workspaceId: project.workspaceId,
+          projectId: project.projectId,
+          itemId,
+          workItemTitle: updatedWorkItem.title,
+          assignees: newlyAssignedUsers,
+        },
+        manager,
+      );
+
+      return {
+        workItem: updatedWorkItem,
+        notifications,
+      };
     });
 
-    this.realtimePublisher.publishWorkItemUpdated(updatedWorkItem);
+    this.realtimePublisher.publishWorkItemUpdated(result.workItem);
+    this.notificationService.publishNotifications(result.notifications);
 
-    return updatedWorkItem;
+    return result.workItem;
+  }
+
+  private async createWorkItemAssignmentNotifications(
+    params: {
+      actorUserId: string;
+      workspaceId: string;
+      projectId: string;
+      itemId: string;
+      workItemTitle: string;
+      assignees: WorkItemAssigneeRow[];
+    },
+    manager: EntityManager,
+  ): Promise<NotificationRow[]> {
+    return this.notificationService.createWorkItemAssignmentNotifications(
+      {
+        recipientUserIds: params.assignees.map((assignee) => assignee.userId),
+        actorUserId: params.actorUserId,
+        workspaceId: params.workspaceId,
+        projectId: params.projectId,
+        itemId: params.itemId,
+        workItemTitle: params.workItemTitle,
+      },
+      manager,
+    );
   }
 
   private validateSchedule(

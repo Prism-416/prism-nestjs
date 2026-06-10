@@ -1,5 +1,6 @@
 export const NOTIFICATION_TYPES = [
   'work_item_comment_mention',
+  'work_item_assigned',
   'workspace_invitation',
   'workspace_member_removed',
 ] as const;
@@ -7,6 +8,7 @@ export const NOTIFICATION_TYPES = [
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 export const NOTIFICATION_TARGET_TYPES = [
+  'work_item',
   'work_item_comment',
   'workspace_invitation',
   'workspace',
@@ -53,6 +55,15 @@ export type CreateMentionNotificationsParams = {
   itemId: string;
   commentId: string;
   commentBody: string;
+};
+
+export type CreateWorkItemAssignmentNotificationsParams = {
+  recipientUserIds: string[];
+  actorUserId: string;
+  workspaceId: string;
+  projectId: string;
+  itemId: string;
+  workItemTitle: string;
 };
 
 export type CreateWorkspaceInvitationNotificationParams = {
