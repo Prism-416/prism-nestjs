@@ -96,6 +96,22 @@ export type SearchWorkItemsResult = {
   offset: number;
 };
 
+export type SimilarWorkItemRow = {
+  itemId: string;
+  parentId: string | null;
+  title: string;
+  status: WorkItemStatus;
+  priority: WorkItemPriority;
+  similarity: number;
+};
+
+export type FindSimilarWorkItemsParams = {
+  workspaceId: string;
+  projectId: string;
+  embedding: number[];
+  limit: number;
+};
+
 export type ReorderWorkItemParams = {
   itemId: string;
   status: WorkItemStatus;

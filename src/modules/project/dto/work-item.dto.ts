@@ -469,6 +469,49 @@ export class UpsertWorkItemEmbeddingDto {
   embedding!: number[];
 }
 
+export class FindSimilarWorkItemsDto {
+  @ApiProperty({
+    type: [Number],
+    minItems: PROJECT_EMBEDDING_DIMENSIONS,
+    maxItems: PROJECT_EMBEDDING_DIMENSIONS,
+  })
+  @IsArray()
+  @ArrayMinSize(PROJECT_EMBEDDING_DIMENSIONS)
+  @ArrayMaxSize(PROJECT_EMBEDDING_DIMENSIONS)
+  @IsNumber({ allowInfinity: false, allowNaN: false }, { each: true })
+  embedding!: number[];
+
+  @ApiPropertyOptional({ default: 5, minimum: 1, maximum: 20 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(20)
+  limit?: number;
+}
+
+export class SimilarWorkItemResponseDto {
+  @ApiProperty()
+  itemId!: string;
+
+  @ApiProperty({ nullable: true })
+  parentId!: string | null;
+
+  @ApiProperty()
+  title!: string;
+
+  @ApiProperty({ enum: WORK_ITEM_STATUSES })
+  status!: WorkItemStatus;
+
+  @ApiProperty({ enum: WORK_ITEM_PRIORITIES })
+  priority!: WorkItemPriority;
+
+  @ApiProperty({
+    description: 'Cosine similarity in [-1, 1]; higher is closer.',
+  })
+  similarity!: number;
+}
+
 export class WorkItemEmbeddingResponseDto {
   @ApiProperty()
   itemId!: string;

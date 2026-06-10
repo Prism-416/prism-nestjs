@@ -11,10 +11,12 @@ import {
 } from '@/modules/project/constants';
 import {
   CreateWorkItemDto,
+  FindSimilarWorkItemsDto,
   ReorderWorkItemsDto,
   SearchTrashedWorkItemsResponseDto,
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
+  SimilarWorkItemResponseDto,
   UpdateWorkItemDto,
   UpsertWorkItemEmbeddingDto,
   WorkItemEmbeddingResponseDto,
@@ -276,6 +278,23 @@ export class WorkItemUseCase {
     }
 
     return embedding;
+  }
+
+  async findSimilarWorkItemsForInternal(
+    projectId: string,
+    dto: FindSimilarWorkItemsDto,
+  ): Promise<SimilarWorkItemResponseDto[]> {
+    const project = await this.projectRepository.findProjectById(projectId);
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    return this.workItemRepository.findSimilarWorkItems({
+      workspaceId: project.workspaceId,
+      projectId: project.projectId,
+      embedding: dto.embedding,
+      limit: dto.limit ?? 5,
+    });
   }
 
   async createWorkItem(
