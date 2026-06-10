@@ -7,7 +7,10 @@ import {
 } from '@/modules/agent/controller';
 import { AgentGateway } from '@/modules/agent/gateway';
 import { AgentRepository } from '@/modules/agent/repository';
-import { AgentRealtimePublisherService } from '@/modules/agent/services';
+import {
+  AgentDispatchService,
+  AgentRealtimePublisherService,
+} from '@/modules/agent/services';
 import {
   AgentRealtimeSubscriptionUseCase,
   AgentUseCase,
@@ -18,11 +21,12 @@ import {
   controllers: [AgentController, AgentActionController, AgentMemoryController],
   providers: [
     AgentGateway,
+    AgentDispatchService,
     AgentRealtimePublisherService,
     AgentRealtimeSubscriptionUseCase,
     AgentRepository,
     AgentUseCase,
   ],
-  exports: [AgentRealtimePublisherService],
+  exports: [AgentDispatchService, AgentRealtimePublisherService],
 })
 export class AgentModule {}
