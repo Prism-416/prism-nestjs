@@ -19,9 +19,15 @@ export type ProjectWorkspaceMemberUserRow = {
 export type ProjectGithubRepositoryLinkRow = {
   projectId: string;
   workspaceId: string;
+  workspaceRepositoryLinkId: string;
   githubInstallationId: string;
   githubRepositoryId: string;
   repositoryOwner: string;
   repositoryName: string;
   repositoryFullName: string;
+  repositoryUrl: string;
+  defaultBranch: string | null;
+  visibility: 'public' | 'private' | 'internal' | null;
+  connectedByUserId: string | null;
+  connectedAt: Date;
 };

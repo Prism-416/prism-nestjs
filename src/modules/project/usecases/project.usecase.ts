@@ -3,13 +3,18 @@ import { UnitOfWork } from '@/core/database';
 import {
   CreateProjectDto,
   GetProjectsQueryDto,
+  ProjectRepositoryLinkResponseDto,
   ProjectResponseDto,
   ProjectSummaryResponseDto,
   UpdateProjectDto,
+  UpsertProjectRepositoryLinkDto,
 } from '@/modules/project/dto';
 import {
+  isProjectRepositoryLinkUniqueViolation,
   isProjectSlugUniqueViolation,
   ProjectNotFoundError,
+  ProjectRepositoryLinkAlreadyAssignedError,
+  ProjectRepositoryLinkNotFoundError,
   ProjectSlugAlreadyExistsError,
 } from '@/modules/project/errors';
 import { ProjectRepository } from '@/modules/project/repository';
@@ -92,6 +97,26 @@ export class ProjectUseCase {
     return project;
   }
 
+  async getProjectRepositoryLink(
+    userId: string,
+    projectId: string,
+  ): Promise<ProjectRepositoryLinkResponseDto> {
+    const project = await this.repo.findProjectByIdAndMemberUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const link = await this.repo.findGithubRepositoryLinkByProjectId(projectId);
+    if (!link) {
+      throw new ProjectRepositoryLinkNotFoundError();
+    }
+
+    return link;
+  }
+
   async createProject(
     userId: string,
     dto: CreateProjectDto,
@@ -153,6 +178,59 @@ export class ProjectUseCase {
     this.workspaceRealtimePublisher.publishProjectUpdated(updatedProject);
 
     return updatedProject;
+  }
+
+  async upsertProjectRepositoryLink(
+    userId: string,
+    projectId: string,
+    dto: UpsertProjectRepositoryLinkDto,
+  ): Promise<ProjectRepositoryLinkResponseDto> {
+    const project = await this.repo.findProjectByIdAndAdminUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    let link: ProjectRepositoryLinkResponseDto | null;
+
+    try {
+      link = await this.repo.upsertGithubRepositoryLink({
+        projectId,
+        workspaceRepositoryLinkId: dto.workspaceRepositoryLinkId,
+        connectedByUserId: userId,
+      });
+    } catch (error) {
+      if (isProjectRepositoryLinkUniqueViolation(error)) {
+        throw new ProjectRepositoryLinkAlreadyAssignedError();
+      }
+
+      throw error;
+    }
+    if (!link) {
+      throw new ProjectRepositoryLinkNotFoundError();
+    }
+
+    return link;
+  }
+
+  async deleteProjectRepositoryLink(
+    userId: string,
+    projectId: string,
+  ): Promise<void> {
+    const project = await this.repo.findProjectByIdAndAdminUserId(
+      projectId,
+      userId,
+    );
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const deleted = await this.repo.deleteGithubRepositoryLink(projectId);
+    if (!deleted) {
+      throw new ProjectRepositoryLinkNotFoundError();
+    }
   }
 
   async deleteProject(userId: string, projectId: string): Promise<void> {
