@@ -25,6 +25,16 @@ const REVIEWABLE_PULL_REQUEST_ACTIONS = new Set([
   'synchronize',
   'ready_for_review',
 ]);
+const INITIAL_COMMENT_PULL_REQUEST_ACTIONS = new Set([
+  'opened',
+  'reopened',
+  'ready_for_review',
+]);
+const PULL_REQUEST_REVIEW_STARTED_COMMENT = [
+  'Prism has started reviewing this pull request.',
+  '',
+  "I'll post a review here when it's ready.",
+].join('\n');
 
 @Injectable()
 export class GithubWebhookUseCase {
@@ -194,6 +204,15 @@ export class GithubWebhookUseCase {
       return true;
     }
 
+    await this.createPullRequestStartedComment({
+      action,
+      installationId,
+      owner: link.repositoryOwner,
+      repo: link.repositoryName,
+      pullNumber,
+      repositoryFullName,
+    });
+
     const requestedAt = result.run.createdAt.toISOString();
     await this.agentDispatch.publishRunRequestedEvent(
       this.agentDispatch.buildRunRequestedEvent({
@@ -209,6 +228,35 @@ export class GithubWebhookUseCase {
     );
 
     return true;
+  }
+
+  private async createPullRequestStartedComment(params: {
+    action: string;
+    installationId: string;
+    owner: string;
+    repo: string;
+    pullNumber: number;
+    repositoryFullName: string;
+  }): Promise<void> {
+    if (!INITIAL_COMMENT_PULL_REQUEST_ACTIONS.has(params.action)) {
+      return;
+    }
+
+    try {
+      await this.github.createPullRequestComment({
+        installationId: params.installationId,
+        owner: params.owner,
+        repo: params.repo,
+        pullNumber: params.pullNumber,
+        body: PULL_REQUEST_REVIEW_STARTED_COMMENT,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+
+      this.logger.warn(
+        `Unable to create initial pull request comment for repository=${params.repositoryFullName} pullNumber=${params.pullNumber}: ${message}`,
+      );
+    }
   }
 
   private getPayloadRecord(payload: unknown): GithubWebhookPayload {
