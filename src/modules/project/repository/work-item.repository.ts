@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import {
+  FindSimilarWorkItemsParams,
   ReorderWorkItemParams,
   SearchWorkItemsParams,
   SearchWorkItemsResult,
+  SimilarWorkItemRow,
   TrashedWorkItemRow,
   UpsertWorkItemEmbeddingParams,
   WorkItemAssigneeRow,
@@ -1243,6 +1245,44 @@ export class WorkItemRepository {
     );
 
     return embeddings[0] ?? null;
+  }
+
+  async findSimilarWorkItems(
+    params: FindSimilarWorkItemsParams,
+    manager?: EntityManager,
+  ): Promise<SimilarWorkItemRow[]> {
+    return this.getManager(manager).query<SimilarWorkItemRow[]>(
+      `
+        WITH input_embedding AS (
+          SELECT
+            (
+              SELECT ('[' || string_agg(embedding_value.value, ',' ORDER BY embedding_value.ordinality) || ']')::vector
+              FROM jsonb_array_elements_text($3::jsonb) WITH ORDINALITY AS embedding_value(value, ordinality)
+            ) AS embedding
+        )
+        SELECT
+          wi.item_id AS "itemId",
+          wi.parent_id AS "parentId",
+          wi.title,
+          wi.status,
+          wi.priority,
+          1 - (e.embedding <=> input_embedding.embedding) AS similarity
+        FROM prism_work_item_embeddings_l e
+               INNER JOIN prism_work_items_l wi ON wi.item_id = e.item_id
+               CROSS JOIN input_embedding
+        WHERE e.workspace_id = $1
+          AND e.project_id = $2
+          AND wi.deleted_at IS NULL
+        ORDER BY e.embedding <=> input_embedding.embedding
+        LIMIT $4
+      `,
+      [
+        params.workspaceId,
+        params.projectId,
+        JSON.stringify(params.embedding),
+        params.limit,
+      ],
+    );
   }
 
   private getManager(manager?: EntityManager): DataSource | EntityManager {

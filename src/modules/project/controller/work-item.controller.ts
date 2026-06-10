@@ -22,11 +22,13 @@ import {
   CreateWorkItemDto,
   CreateWorkItemForInternalDto,
   DeleteWorkItemForInternalDto,
+  FindSimilarWorkItemsDto,
   ReorderWorkItemsDto,
   ReorderWorkItemsForInternalDto,
   SearchTrashedWorkItemsResponseDto,
   SearchWorkItemsQueryDto,
   SearchWorkItemsResponseDto,
+  SimilarWorkItemResponseDto,
   UpdateWorkItemDto,
   UpdateWorkItemForInternalDto,
   UpsertWorkItemEmbeddingDto,
@@ -156,6 +158,17 @@ export class WorkItemController {
       itemId,
       dto,
     );
+  }
+
+  @Post('internal/similar')
+  @RequireInternalScopes('projects:read')
+  @ApiOperation({ summary: 'Find semantically similar work items for internal workers' })
+  @ApiDataResponse(SimilarWorkItemResponseDto, { isArray: true })
+  async findSimilarWorkItemsForInternal(
+    @Param('projectId') projectId: string,
+    @Body() dto: FindSimilarWorkItemsDto,
+  ): Promise<SimilarWorkItemResponseDto[]> {
+    return this.usecase.findSimilarWorkItemsForInternal(projectId, dto);
   }
 
   @Post()
