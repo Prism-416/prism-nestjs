@@ -661,3 +661,14 @@ export class AgentMemoryEmbeddingResponseDto {
   @ApiProperty()
   embeddedAt!: Date;
 }
+
+export class AgentWorkflowDispatchResponseDto {
+  @ApiProperty()
+  runId!: string;
+
+  @ApiProperty()
+  eventType!: string;
+
+  @ApiProperty()
+  queueMessageId!: string;
+}

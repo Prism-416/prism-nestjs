@@ -48,6 +48,16 @@ export class SprintController {
     return this.usecase.getSprints(String(user.sub), workspaceId);
   }
 
+  @Get('internal')
+  @RequireInternalScopes('sprints:write')
+  @ApiOperation({ summary: 'Retrieve workspace sprints for internal workers' })
+  @ApiDataResponse(SprintResponseDto, { isArray: true })
+  async getSprintsForInternal(
+    @Param('workspaceId', ParseUUIDPipe) workspaceId: string,
+  ): Promise<SprintResponseDto[]> {
+    return this.usecase.getSprintsForInternal(workspaceId);
+  }
+
   @Get(':sprintId/work-items')
   @Authenticated()
   @ApiOperation({ summary: 'Retrieve sprint work items' })

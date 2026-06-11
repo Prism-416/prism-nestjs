@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import type { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
 import {
+  AgentWorkflowDispatchResponseDto,
   AgentActionEventResponseDto,
   AgentActionResponseDto,
   CreateAgentActionEventForInternalDto,
@@ -35,9 +36,13 @@ import {
   AgentStepTargetMismatchError,
   AgentWorkspaceNotFoundError,
   AgentWorkItemNotFoundError,
+  AgentWorkflowTriggerNotSupportedError,
 } from '@/modules/agent/errors';
 import { AgentRepository } from '@/modules/agent/repository';
-import { AgentRealtimePublisherService } from '@/modules/agent/services';
+import {
+  AgentRealtimePublisherService,
+  AgentWorkflowDispatchService,
+} from '@/modules/agent/services';
 import {
   AGENT_EMBEDDING_DIMENSIONS,
   AgentRunStatus,
@@ -52,12 +57,23 @@ const AGENT_RUN_CANCELLABLE_STATUSES: AgentRunStatus[] = [
 const AGENT_ACTION_APPROVABLE_STATUSES = ['proposed'];
 const AGENT_ACTION_CANCELLABLE_STATUSES = ['proposed', 'approved'];
 
+const MANUAL_WORKFLOW_TRIGGERS: Record<string, string> = {
+  'refine-backlog': 'refine_backlog',
+  'plan-sprint': 'plan_sprint',
+};
+
+const SCHEDULED_WORKFLOW_TRIGGERS: Record<string, string> = {
+  'stale-work-scan': 'stale_work_scan',
+  'sprint-planning': 'sprint_planning',
+};
+
 @Injectable()
 export class AgentUseCase {
   constructor(
     private readonly repo: AgentRepository,
     private readonly uow: UnitOfWork,
     private readonly realtimePublisher: AgentRealtimePublisherService,
+    private readonly workflowDispatch: AgentWorkflowDispatchService,
   ) {}
 
   async searchAgentRuns(
@@ -74,6 +90,45 @@ export class AgentUseCase {
       workItemId: query.workItemId,
       limit: query.limit ?? 50,
       offset: query.offset ?? 0,
+    });
+  }
+
+  async dispatchWorkflowForMember(
+    userId: string,
+    workspaceId: string,
+    projectId: string,
+    trigger: string,
+  ): Promise<AgentWorkflowDispatchResponseDto> {
+    const eventType = MANUAL_WORKFLOW_TRIGGERS[trigger];
+    if (!eventType) {
+      throw new AgentWorkflowTriggerNotSupportedError();
+    }
+    const workspace = await this.getWorkspaceForUser(userId, workspaceId);
+
+    return this.workflowDispatch.dispatch({
+      kind: 'manual',
+      eventType,
+      workspaceId: workspace.workspaceId,
+      projectId,
+      actorUserId: userId,
+    });
+  }
+
+  async dispatchWorkflowForInternal(
+    workspaceId: string,
+    projectId: string,
+    trigger: string,
+  ): Promise<AgentWorkflowDispatchResponseDto> {
+    const eventType = SCHEDULED_WORKFLOW_TRIGGERS[trigger];
+    if (!eventType) {
+      throw new AgentWorkflowTriggerNotSupportedError();
+    }
+
+    return this.workflowDispatch.dispatch({
+      kind: 'scheduled',
+      eventType,
+      workspaceId,
+      projectId,
     });
   }
 
