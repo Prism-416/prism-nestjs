@@ -21,7 +21,10 @@ import {
   GithubWebhookService,
 } from '@/modules/github/services';
 import { GithubWebhookUseCase } from '@/modules/github/usecases/github-webhook.usecase';
-import { ProjectRepository } from '@/modules/project/repository';
+import {
+  ProjectRepository,
+  WorkItemRepository,
+} from '@/modules/project/repository';
 
 describe('GithubWebhookUseCase', () => {
   const rawBody = Buffer.from('{}');
@@ -75,6 +78,9 @@ describe('GithubWebhookUseCase', () => {
   let projects: jest.Mocked<
     Pick<ProjectRepository, 'findGithubRepositoryLinkByInstallationRepository'>
   >;
+  let workItems: jest.Mocked<
+    Pick<WorkItemRepository, 'findWorkItemProjectByWorkspaceCode'>
+  >;
   let agentRuns: jest.Mocked<
     Pick<AgentRepository, 'createAgentRunForInternal'>
   >;
@@ -96,6 +102,7 @@ describe('GithubWebhookUseCase', () => {
     pull_request: {
       number: 17,
       draft: false,
+      title: 'Improve onboarding flow',
       head: { sha: 'abc123' },
     },
     ...overrides,
@@ -122,6 +129,9 @@ describe('GithubWebhookUseCase', () => {
         .fn()
         .mockResolvedValue(repositoryLink),
     };
+    workItems = {
+      findWorkItemProjectByWorkspaceCode: jest.fn().mockResolvedValue(null),
+    };
     agentRuns = {
       createAgentRunForInternal: jest.fn().mockResolvedValue({
         run,
@@ -147,6 +157,7 @@ describe('GithubWebhookUseCase', () => {
       webhooks as unknown as GithubWebhookService,
       installations as unknown as GithubInstallationRepository,
       projects as unknown as ProjectRepository,
+      workItems as unknown as WorkItemRepository,
       agentRuns as unknown as AgentRepository,
       agentDispatch as unknown as AgentDispatchService,
     );
@@ -299,5 +310,58 @@ describe('GithubWebhookUseCase', () => {
       expect.objectContaining({ projectId: undefined }),
     );
     expect(agentDispatch.publishRunRequestedEvent).toHaveBeenCalledTimes(1);
+  });
+
+  it('resolves the project id from the task code in the pull request title', async () => {
+    const workItemProject = {
+      projectId: '99999999-9999-4999-8999-999999999999',
+      workspaceId: repositoryLink.workspaceId,
+      itemId: '88888888-8888-4888-8888-888888888888',
+    };
+    workItems.findWorkItemProjectByWorkspaceCode.mockResolvedValue(
+      workItemProject,
+    );
+
+    const response = await usecase.handleWebhook({
+      event: 'pull_request',
+      signature,
+      rawBody,
+      payload: pullRequestPayload({
+        pull_request: {
+          number: 17,
+          draft: false,
+          title: '[task-346] dispatch agent workflows',
+          head: { sha: 'abc123' },
+        },
+      }),
+    });
+
+    expect(response.ignored).toBe(false);
+    expect(workItems.findWorkItemProjectByWorkspaceCode).toHaveBeenCalledWith(
+      repositoryLink.workspaceId,
+      'TASK',
+      346,
+    );
+    expect(agentRuns.createAgentRunForInternal).toHaveBeenCalledWith(
+      expect.objectContaining({ workItemId: workItemProject.itemId }),
+    );
+    expect(agentDispatch.buildRunRequestedEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: workItemProject.projectId }),
+    );
+  });
+
+  it('falls back to the linked project when the title has no task code', async () => {
+    const response = await usecase.handleWebhook({
+      event: 'pull_request',
+      signature,
+      rawBody,
+      payload: pullRequestPayload(),
+    });
+
+    expect(response.ignored).toBe(false);
+    expect(workItems.findWorkItemProjectByWorkspaceCode).not.toHaveBeenCalled();
+    expect(agentDispatch.buildRunRequestedEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: repositoryLink.projectId }),
+    );
   });
 });
