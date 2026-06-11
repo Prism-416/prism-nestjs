@@ -7,6 +7,7 @@ import { APP_GUARD, APP_INTERCEPTOR, RouterModule } from '@nestjs/core';
 import { AppController } from '@/app.controller';
 import { AppService } from '@/app.service';
 import { CoreModule } from '@/core/core.module';
+import { LastActiveInterceptor } from '@/core/auth';
 import { DataResponseInterceptor } from '@/core/response';
 import { envValidationSchema } from '@/core/config/env.validation';
 import { buildTypeOrmOptions } from '@/core/database/typeorm.options';
@@ -144,6 +145,10 @@ const buildAppImports = () => [
     {
       provide: APP_INTERCEPTOR,
       useClass: DataResponseInterceptor,
+    },
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: LastActiveInterceptor,
     },
   ],
 })

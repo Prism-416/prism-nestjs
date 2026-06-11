@@ -4,6 +4,7 @@ import {
   AuthTokenCookieInterceptor,
   JwtAuthenticationGuard,
   JwtTokenService,
+  LastActiveService,
   RefreshTokenCookieInterceptor,
 } from '@/core/auth';
 import { UnitOfWork } from '@/core/database';
@@ -29,6 +30,7 @@ import {
     JwtAuthenticationGuard,
     AuthTokenCookieInterceptor,
     RefreshTokenCookieInterceptor,
+    LastActiveService,
     PasswordService,
     UnitOfWork,
     WebSocketAuthService,
@@ -42,6 +44,7 @@ import {
     JwtAuthenticationGuard,
     AuthTokenCookieInterceptor,
     RefreshTokenCookieInterceptor,
+    LastActiveService,
     PasswordService,
     UnitOfWork,
     WebSocketAuthService,

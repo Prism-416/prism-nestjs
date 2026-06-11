@@ -4,6 +4,7 @@ import {
   AdminEmbeddingCoverageController,
   AdminEmbeddingJobController,
   AdminServiceTokenController,
+  AdminUserMetricsController,
 } from '@/modules/admin/controller';
 import {
   AdminAuthenticationGuard,
@@ -13,6 +14,7 @@ import {
   AdminAuditRepository,
   AdminEmbeddingCoverageRepository,
   AdminEmbeddingJobRepository,
+  AdminUserMetricsRepository,
   InternalRepository,
 } from '@/modules/admin/repository';
 import {
@@ -23,6 +25,7 @@ import {
   AdminAuditUseCase,
   AdminEmbeddingCoverageUseCase,
   AdminEmbeddingJobUseCase,
+  AdminUserMetricsUseCase,
   InternalUseCase,
 } from '@/modules/admin/usecases';
 
@@ -32,12 +35,15 @@ import {
     AdminEmbeddingCoverageController,
     AdminEmbeddingJobController,
     AdminServiceTokenController,
+    AdminUserMetricsController,
   ],
   providers: [
     AdminEmbeddingCoverageRepository,
     AdminEmbeddingCoverageUseCase,
     AdminEmbeddingJobRepository,
     AdminEmbeddingJobUseCase,
+    AdminUserMetricsRepository,
+    AdminUserMetricsUseCase,
     AdminAuditRepository,
     AdminAuditUseCase,
     AdminPasswordAttemptLimiterService,
