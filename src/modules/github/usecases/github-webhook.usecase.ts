@@ -250,6 +250,19 @@ export class GithubWebhookUseCase {
       headSha,
     });
 
+    const diffReference = await this.uploadPullRequestDiff({
+      action,
+      deliveryId,
+      runId,
+      workspaceId: link.workspaceId,
+      installationId,
+      owner: link.repositoryOwner,
+      repo: link.repositoryName,
+      pullNumber,
+      repositoryFullName,
+      headSha,
+    });
+
     await this.agentDispatch.publishRunRequestedEvent(
       this.agentDispatch.buildRunRequestedEvent({
         runId,
@@ -258,10 +271,66 @@ export class GithubWebhookUseCase {
         repositoryFullName,
         pullNumber,
         headSha,
+        diffObjectName: diffReference?.diffObjectName,
+        diffObjectVersionId: diffReference?.diffObjectVersionId,
       }),
     );
 
     return true;
+  }
+
+  private async uploadPullRequestDiff(params: {
+    action: string;
+    deliveryId?: string;
+    runId: string;
+    workspaceId: string;
+    installationId: string;
+    owner: string;
+    repo: string;
+    pullNumber: number;
+    repositoryFullName: string;
+    headSha: string;
+  }): Promise<{
+    diffObjectName: string;
+    diffObjectVersionId: string | null;
+  } | null> {
+    const objectName = this.agentDispatch.buildPullRequestDiffObjectName({
+      workspaceId: params.workspaceId,
+      runId: params.runId,
+    });
+
+    try {
+      const pullRequest = await this.github.getPullRequestContent({
+        installationId: params.installationId,
+        owner: params.owner,
+        repo: params.repo,
+        pullNumber: params.pullNumber,
+        includeDiff: true,
+        includeFiles: true,
+      });
+      const { diffObjectVersionId } =
+        await this.agentDispatch.uploadPullRequestDiff({
+          objectName,
+          runId: params.runId,
+          workspaceId: params.workspaceId,
+          repositoryFullName: params.repositoryFullName,
+          pullNumber: params.pullNumber,
+          headSha: params.headSha,
+          pullRequest,
+        });
+
+      this.logger.log(
+        `GitHub pull_request diff uploaded action=${params.action} delivery=${params.deliveryId ?? 'unknown'} runId=${params.runId} repository=${params.repositoryFullName} pullNumber=${params.pullNumber} headSha=${params.headSha} files=${pullRequest.files.length} truncated=${pullRequest.truncated} objectName=${objectName}`,
+      );
+
+      return { diffObjectName: objectName, diffObjectVersionId };
+    } catch (error) {
+      this.logger.warn(
+        `GitHub pull_request diff upload failed action=${params.action} delivery=${params.deliveryId ?? 'unknown'} runId=${params.runId} repository=${params.repositoryFullName} pullNumber=${params.pullNumber} headSha=${params.headSha} objectName=${objectName} ${this.formatErrorForLog(error)}`,
+      );
+
+      return null;
+    }
   }
 
   private async resolvePullRequestProject(
