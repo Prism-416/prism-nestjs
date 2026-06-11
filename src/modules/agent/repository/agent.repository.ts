@@ -246,7 +246,8 @@ export class AgentRepository {
             $7::text AS trigger_type,
             $8::text AS status,
             $9::text AS objective,
-            $10::text AS system_prompt_version
+            $10::text AS system_prompt_version,
+            COALESCE($11::timestamptz, NOW()) AS created_at
         ),
         inserted_run AS (
           INSERT INTO prism_agent_runs_l (
@@ -261,7 +262,8 @@ export class AgentRepository {
             objective,
             system_prompt_version,
             started_at,
-            completed_at
+            completed_at,
+            created_at
           )
           SELECT
             input_run.run_id,
@@ -278,7 +280,8 @@ export class AgentRepository {
             CASE
               WHEN input_run.status IN ('completed', 'failed', 'cancelled') THEN NOW()
               ELSE NULL
-            END
+            END,
+            input_run.created_at
           FROM input_run
           ON CONFLICT (run_id) DO NOTHING
           RETURNING
@@ -333,6 +336,7 @@ export class AgentRepository {
         params.status,
         params.objective,
         params.systemPromptVersion ?? null,
+        params.createdAt ?? null,
       ],
     );
 

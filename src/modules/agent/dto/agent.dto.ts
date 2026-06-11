@@ -98,6 +98,11 @@ export class CreateAgentRunForInternalDto extends CreateAgentRunDto {
   @IsString()
   @IsIn(AGENT_RUN_STATUSES)
   status?: AgentRunStatus;
+
+  @ApiPropertyOptional({ format: 'date-time' })
+  @IsOptional()
+  @IsDateString()
+  createdAt?: string;
 }
 
 export class SearchAgentRunsQueryDto {
