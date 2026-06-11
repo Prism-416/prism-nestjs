@@ -203,6 +203,47 @@ completed, failed, cancelled, and pending-project counts. It does not expose job
 IDs, project IDs, target IDs, object names, error messages, content hashes, or
 document content.
 
+## User Metrics
+
+Summarize aggregate user metrics:
+
+```bash
+curl -sS "$API_BASE_URL/admin/users/metrics" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+The user metrics summary returns aggregate counts only, including total users,
+verified and unverified users, users per auth provider, users with an active
+session, users in or without a workspace, and new-user counts over the last 24
+hours, 7 days, and 30 days. It does not expose user IDs, emails, names, or any
+other per-user data.
+
+Summarize daily user signups over a window:
+
+```bash
+curl -sS "$API_BASE_URL/admin/users/signups?windowDays=30" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+The signup trend returns one bucket per calendar day in the window, each with a
+date and a signup count, plus the total signups across the window. The window
+defaults to 30 days and accepts 1 to 365 days.
+
+Summarize active users (DAU/WAU/MAU):
+
+```bash
+curl -sS "$API_BASE_URL/admin/users/activity" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+The activity summary returns distinct active-user counts over rolling windows:
+`dau` (last 24 hours), `wau` (last 7 days), `mau` (last 30 days), plus
+`stickiness` (DAU / MAU, null when MAU is 0). A user is "active" when they make
+an authenticated request: an interceptor stamps `prism_users_l.last_active_at`
+(throttled to one write per user every 5 minutes). Because only the latest
+activity timestamp is kept, this gives an accurate live snapshot but no
+historical daily series. The summary exposes aggregate counts only.
+
 ## Admin Audit Events
 
 Successful service-account and service-token mutations write metadata-only audit
@@ -244,6 +285,9 @@ curl -sS "$API_BASE_URL/admin/audit-events?targetType=service_account&targetId=$
 - `POST /admin/service-api-tokens`
 - `PATCH /admin/service-api-tokens/:apiTokenId`
 - `POST /admin/service-api-tokens/:apiTokenId/revoke`
+- `GET /admin/users/metrics`
+- `GET /admin/users/signups`
+- `GET /admin/users/activity`
 
 ## Supported Scopes
 
