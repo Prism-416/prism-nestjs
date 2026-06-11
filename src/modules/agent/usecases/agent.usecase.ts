@@ -83,6 +83,16 @@ export class AgentUseCase {
   ): Promise<SearchAgentRunsResponseDto> {
     const workspace = await this.getWorkspaceForUser(userId, workspaceId);
 
+    // Lazy sweep: a run abandoned mid-flight (crashed or timed-out worker
+    // invocation, exhausted redelivery) has nothing left to finalize it, so
+    // close out runs stuck past the threshold whenever the list is read.
+    const expiredRuns = await this.repo.expireStaleAgentRuns(
+      workspace.workspaceId,
+    );
+    for (const expiredRun of expiredRuns) {
+      this.realtimePublisher.publishAgentRunUpdated(expiredRun);
+    }
+
     return this.repo.searchAgentRuns({
       workspaceId: workspace.workspaceId,
       status: query.status,
