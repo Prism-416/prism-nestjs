@@ -4,7 +4,8 @@ import { OciQueueService } from '@/core/queue';
 import type { AgentRunRequestedEvent } from '@/modules/agent/types';
 
 const AGENT_RUN_QUEUE_CHANNEL = 'agent-runs';
-const AGENT_RUN_EVENT_TYPE = 'agent.run.requested';
+const PR_REVIEW_REQUESTED_EVENT_KIND = 'domain';
+const PR_REVIEW_REQUESTED_EVENT_TYPE = 'pr.review_requested';
 const AGENT_RUN_STDOUT_QUEUE_MESSAGE_ID_PREFIX = 'stdout';
 
 @Injectable()
@@ -18,25 +19,23 @@ export class AgentDispatchService {
     runId: string;
     workspaceId: string;
     projectId?: string;
-    agentType: string;
-    requestedAt: string;
     repositoryFullName: string;
     pullNumber: number;
     headSha: string;
   }): AgentRunRequestedEvent {
     return {
-      type: AGENT_RUN_EVENT_TYPE,
-      version: '1.0',
-      runId: params.runId,
-      workspaceId: params.workspaceId,
-      ...(params.projectId ? { projectId: params.projectId } : {}),
-      agentType: params.agentType,
-      requestedAt: params.requestedAt,
-      target: {
-        kind: 'github_pull_request',
-        repositoryFullName: params.repositoryFullName,
-        pullNumber: params.pullNumber,
-        headSha: params.headSha,
+      event: {
+        kind: PR_REVIEW_REQUESTED_EVENT_KIND,
+        event_type: PR_REVIEW_REQUESTED_EVENT_TYPE,
+        workspace_id: params.workspaceId,
+        ...(params.projectId ? { project_id: params.projectId } : {}),
+        correlation_id: params.runId,
+        payload: {
+          runId: params.runId,
+          pullNumber: params.pullNumber,
+          headSha: params.headSha,
+          repositoryFullName: params.repositoryFullName,
+        },
       },
     };
   }
@@ -44,11 +43,14 @@ export class AgentDispatchService {
   async publishRunRequestedEvent(
     event: AgentRunRequestedEvent,
   ): Promise<{ queueMessageId: string }> {
+    const { event: runtimeEvent } = event;
+    const { runId } = runtimeEvent.payload;
+
     if (this.isStdoutDispatchMode()) {
       this.writeStdoutPayload('agent.run.event', event);
 
       return {
-        queueMessageId: `${AGENT_RUN_STDOUT_QUEUE_MESSAGE_ID_PREFIX}:${event.runId}`,
+        queueMessageId: `${AGENT_RUN_STDOUT_QUEUE_MESSAGE_ID_PREFIX}:${runId}`,
       };
     }
 
@@ -60,11 +62,13 @@ export class AgentDispatchService {
           metadata: {
             channelId: AGENT_RUN_QUEUE_CHANNEL,
             customProperties: {
-              eventType: event.type,
-              runId: event.runId,
-              workspaceId: event.workspaceId,
-              ...(event.projectId ? { projectId: event.projectId } : {}),
-              agentType: event.agentType,
+              eventKind: runtimeEvent.kind,
+              eventType: runtimeEvent.event_type,
+              runId,
+              workspaceId: runtimeEvent.workspace_id,
+              ...(runtimeEvent.project_id
+                ? { projectId: runtimeEvent.project_id }
+                : {}),
             },
           },
         },
