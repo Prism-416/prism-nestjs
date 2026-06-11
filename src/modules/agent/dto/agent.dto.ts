@@ -180,7 +180,7 @@ export class UpsertAgentStepForInternalDto {
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))
   @IsString()
   @IsNotEmpty()
-  @MaxLength(100)
+  @MaxLength(255)
   title!: string;
 
   @ApiPropertyOptional()

@@ -812,7 +812,7 @@ CREATE TABLE IF NOT EXISTS prism_agent_steps_l
     step_order         INT          NOT NULL,
     step_type          VARCHAR(30)  NOT NULL,
     status             VARCHAR(20)  NOT NULL DEFAULT 'pending',
-    title              VARCHAR(100) NOT NULL,
+    title              VARCHAR(255) NOT NULL,
     input_object_name  TEXT,
     output_object_name TEXT,
     input_summary      TEXT,
