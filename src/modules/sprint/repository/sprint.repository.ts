@@ -228,6 +228,7 @@ export class SprintRepository {
       workspaceId: string | null;
       projectId: string | null;
       parentId: string | null;
+      code: string | null;
       title: string | null;
       description: string | null;
       startDate: string | null;
@@ -252,6 +253,7 @@ export class SprintRepository {
             wi.workspace_id,
             wi.project_id,
             wi.parent_id,
+            wi.item_seq,
             wi.title,
             wi.description,
             wi.start_date,
@@ -319,6 +321,16 @@ export class SprintRepository {
           pi.workspace_id AS "workspaceId",
           pi.project_id AS "projectId",
           pi.parent_id AS "parentId",
+          ws.item_code_prefix || '-' || LPAD(
+            pi.item_seq::text,
+            GREATEST(3, LENGTH((
+              SELECT MAX(live.item_seq)
+              FROM prism_work_items_l live
+              WHERE live.workspace_id = pi.workspace_id
+                AND live.deleted_at IS NULL
+            )::text)),
+            '0'
+          ) AS "code",
           pi.title,
           pi.description,
           pi.start_date AS "startDate",
@@ -355,6 +367,8 @@ export class SprintRepository {
         FROM total_count tc
                LEFT JOIN paged_items pi
                          ON TRUE
+               LEFT JOIN prism_workspaces_l ws
+                         ON ws.workspace_id = pi.workspace_id
         ORDER BY pi.sort_order ASC NULLS LAST, pi.created_at DESC NULLS LAST, pi.item_id DESC NULLS LAST
       `,
       [
@@ -382,6 +396,7 @@ export class SprintRepository {
           workspaceId: row.workspaceId as string,
           projectId: row.projectId as string,
           parentId: row.parentId,
+          code: row.code as string,
           title: row.title as string,
           description: row.description as string,
           startDate: row.startDate,

@@ -939,6 +939,7 @@ export class WorkspaceUseCase {
             dto.description !== undefined
               ? dto.description
               : workspace.description,
+          itemCodePrefix: dto.itemCodePrefix,
         },
         manager,
       );

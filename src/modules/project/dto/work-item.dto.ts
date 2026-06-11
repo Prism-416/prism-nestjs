@@ -310,6 +310,9 @@ export class WorkItemResponseDto {
   @ApiProperty({ nullable: true })
   parentId!: string | null;
 
+  @ApiProperty({ description: 'Human-readable work item code, e.g. "PRSM-001"' })
+  code!: string;
+
   @ApiProperty()
   title!: string;
 
@@ -370,6 +373,9 @@ export class TrashedWorkItemResponseDto {
 
   @ApiProperty({ nullable: true })
   parentId!: string | null;
+
+  @ApiProperty({ description: 'Human-readable work item code, e.g. "PRSM-001"' })
+  code!: string;
 
   @ApiProperty()
   title!: string;
@@ -496,6 +502,9 @@ export class SimilarWorkItemResponseDto {
 
   @ApiProperty({ nullable: true })
   parentId!: string | null;
+
+  @ApiProperty({ description: 'Human-readable work item code, e.g. "PRSM-001"' })
+  code!: string;
 
   @ApiProperty()
   title!: string;

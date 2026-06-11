@@ -6,6 +6,7 @@ export type WorkspaceRow = {
   slug: string;
   description: string | null;
   ownerId: string;
+  itemCodePrefix: string;
   createdAt: Date;
 };
 
