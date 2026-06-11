@@ -11,9 +11,7 @@ async function applyConfiguredSchema(queryRunner: QueryRunner): Promise<void> {
   }
 }
 
-export class IncreaseAgentStepTitleLength1781700000000
-  implements MigrationInterface
-{
+export class IncreaseAgentStepTitleLength1781700000000 implements MigrationInterface {
   name = 'IncreaseAgentStepTitleLength1781700000000';
 
   public async up(queryRunner: QueryRunner): Promise<void> {
