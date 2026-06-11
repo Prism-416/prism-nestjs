@@ -2,9 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource, EntityManager } from 'typeorm';
 import type {
+  AdminUserActiveTrend,
   AdminUserActivitySummary,
   AdminUserMetricsSummary,
   AdminUserSignupTrend,
+  GetAdminUserActiveTrendParams,
   GetAdminUserSignupTrendParams,
 } from '@/modules/admin/types';
 
@@ -35,6 +37,13 @@ type AdminUserActivitySummaryRow = {
   dau: string | number;
   wau: string | number;
   mau: string | number;
+};
+
+type AdminUserActiveBucketRow = {
+  date: string;
+  activeUsers: string | number;
+  newUsers: string | number;
+  returningUsers: string | number;
 };
 
 @Injectable()
@@ -214,6 +223,66 @@ export class AdminUserMetricsRepository {
       wau: Number(row.wau),
       mau,
       stickiness: mau > 0 ? Number((dau / mau).toFixed(4)) : null,
+    };
+  }
+
+  async getActiveUserTrend(
+    params: GetAdminUserActiveTrendParams,
+    manager?: EntityManager,
+  ): Promise<AdminUserActiveTrend> {
+    const rows = await this.getManager(manager).query<
+      AdminUserActiveBucketRow[]
+    >(
+      `
+        WITH bounds AS (
+          SELECT
+            CURRENT_DATE AS end_day,
+            CURRENT_DATE - ($1::INT - 1) AS start_day
+        ),
+        days AS (
+          SELECT generate_series(
+            (SELECT start_day FROM bounds),
+            (SELECT end_day FROM bounds),
+            INTERVAL '1 day'
+          )::DATE AS day
+        ),
+        windowed AS (
+          SELECT
+            a.activity_date,
+            a.user_id,
+            u.created_at::DATE AS signup_date
+          FROM prism_user_daily_activity_l a
+                 INNER JOIN prism_users_l u
+                            ON u.user_id = a.user_id
+          WHERE a.activity_date >= (SELECT start_day FROM bounds)
+        )
+        SELECT
+          to_char(d.day, 'YYYY-MM-DD') AS "date",
+          COUNT(w.user_id) AS "activeUsers",
+          COUNT(w.user_id) FILTER (
+            WHERE w.signup_date = d.day
+          ) AS "newUsers",
+          COUNT(w.user_id) FILTER (
+            WHERE w.signup_date < d.day
+          ) AS "returningUsers"
+        FROM days d
+               LEFT JOIN windowed w
+                         ON w.activity_date = d.day
+        GROUP BY d.day
+        ORDER BY d.day
+      `,
+      [params.windowDays],
+    );
+
+    return {
+      generatedAt: new Date(),
+      windowDays: params.windowDays,
+      buckets: rows.map((row) => ({
+        date: row.date,
+        activeUsers: Number(row.activeUsers),
+        newUsers: Number(row.newUsers),
+        returningUsers: Number(row.returningUsers),
+      })),
     };
   }
 

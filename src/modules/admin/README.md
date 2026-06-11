@@ -244,6 +244,21 @@ an authenticated request: an interceptor stamps `prism_users_l.last_active_at`
 activity timestamp is kept, this gives an accurate live snapshot but no
 historical daily series. The summary exposes aggregate counts only.
 
+Summarize the daily active-user trend (new vs returning):
+
+```bash
+curl -sS "$API_BASE_URL/admin/users/activity/trend?windowDays=30" \
+  -H "x-admin-password: $ADMIN_PASSWORD"
+```
+
+The trend returns one bucket per calendar day in the window, each with
+`activeUsers` (distinct users active that day), `newUsers` (active users who
+signed up that day), and `returningUsers` (active users who signed up earlier);
+`newUsers + returningUsers == activeUsers`. The window defaults to 30 days and
+accepts 1 to 365 days. The per-day series is sourced from an append-only
+activity log populated by the request interceptor, so it is accurate only from
+the day that log started recording; days before then read as zero.
+
 ## Admin Audit Events
 
 Successful service-account and service-token mutations write metadata-only audit
@@ -288,6 +303,7 @@ curl -sS "$API_BASE_URL/admin/audit-events?targetType=service_account&targetId=$
 - `GET /admin/users/metrics`
 - `GET /admin/users/signups`
 - `GET /admin/users/activity`
+- `GET /admin/users/activity/trend`
 
 ## Supported Scopes
 

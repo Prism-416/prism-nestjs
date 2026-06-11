@@ -38,3 +38,20 @@ export type AdminUserActivitySummary = {
   mau: number;
   stickiness: number | null;
 };
+
+export type AdminUserActiveBucket = {
+  date: string;
+  activeUsers: number;
+  newUsers: number;
+  returningUsers: number;
+};
+
+export type GetAdminUserActiveTrendParams = {
+  windowDays: number;
+};
+
+export type AdminUserActiveTrend = {
+  generatedAt: Date;
+  windowDays: number;
+  buckets: AdminUserActiveBucket[];
+};
