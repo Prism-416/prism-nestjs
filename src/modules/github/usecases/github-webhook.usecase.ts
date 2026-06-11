@@ -233,14 +233,11 @@ export class GithubWebhookUseCase {
       headSha,
     });
 
-    const requestedAt = result.run.createdAt.toISOString();
     await this.agentDispatch.publishRunRequestedEvent(
       this.agentDispatch.buildRunRequestedEvent({
         runId,
         workspaceId: link.workspaceId,
         projectId: link.projectId ?? undefined,
-        agentType: PULL_REQUEST_REVIEW_AGENT_TYPE,
-        requestedAt,
         repositoryFullName,
         pullNumber,
         headSha,

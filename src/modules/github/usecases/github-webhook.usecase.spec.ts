@@ -130,9 +130,13 @@ describe('GithubWebhookUseCase', () => {
     };
     agentDispatch = {
       buildRunRequestedEvent: jest.fn().mockReturnValue({
-        type: 'agent.run.requested',
-        version: '1.0',
-        runId: run.runId,
+        event: {
+          kind: 'domain',
+          event_type: 'pr.review_requested',
+          workspace_id: run.workspaceId,
+          correlation_id: run.runId,
+          payload: { runId: run.runId },
+        },
       }),
       publishRunRequestedEvent: jest
         .fn()

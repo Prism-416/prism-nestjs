@@ -105,20 +105,24 @@ export type CreateAgentRunForInternalParams = {
   systemPromptVersion?: string;
 };
 
-export type AgentRunRequestedEvent = {
-  type: 'agent.run.requested';
-  version: '1.0';
+export type PullRequestReviewRequestedPayload = {
   runId: string;
-  workspaceId: string;
-  projectId?: string;
-  agentType: string;
-  requestedAt: string;
-  target: {
-    kind: 'github_pull_request';
-    repositoryFullName: string;
-    pullNumber: number;
-    headSha: string;
-  };
+  pullNumber: number;
+  headSha: string;
+  repositoryFullName: string;
+};
+
+export type PullRequestReviewRequestedEvent = {
+  kind: 'domain';
+  event_type: 'pr.review_requested';
+  workspace_id: string;
+  project_id?: string;
+  correlation_id: string;
+  payload: PullRequestReviewRequestedPayload;
+};
+
+export type AgentRunRequestedEvent = {
+  event: PullRequestReviewRequestedEvent;
 };
 
 export type CancelAgentRunParams = {
