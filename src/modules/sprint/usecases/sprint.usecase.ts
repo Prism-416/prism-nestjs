@@ -57,7 +57,6 @@ export class SprintUseCase {
     return this.repo.findSprintsByWorkspaceId(workspaceId);
   }
 
-
   async getSprintWorkItems(
     userId: string,
     workspaceId: string,
