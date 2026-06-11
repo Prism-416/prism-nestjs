@@ -50,7 +50,7 @@ describe('GithubWebhookUseCase', () => {
   const run = {
     runId: '55555555-5555-4555-8555-555555555555',
     workspaceId: repositoryLink.workspaceId,
-    triggeredByUserId: repositoryLink.connectedByUserId,
+    triggeredByUserId: null,
     workItemId: null,
     parentRunId: null,
     agentType: 'pull-request-review',
@@ -218,7 +218,7 @@ describe('GithubWebhookUseCase', () => {
     expect(agentRuns.createAgentRunForInternal).toHaveBeenCalledWith(
       expect.objectContaining({
         workspaceId: repositoryLink.workspaceId,
-        triggeredByUserId: repositoryLink.connectedByUserId,
+        triggeredByUserId: undefined,
         agentType: 'pull-request-review',
         triggerType: 'webhook',
         status: 'queued',
