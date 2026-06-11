@@ -14,6 +14,7 @@ import {
   WorkItemEmbeddingRow,
   WorkItemLabelRow,
   WorkItemPriority,
+  WorkItemProjectLookupRow,
   WorkItemRow,
   WorkItemStatus,
 } from '@/modules/project/types';
@@ -1363,6 +1364,29 @@ export class WorkItemRepository {
             )::text)),
             '0'
           ) AS "code"`;
+  }
+
+  async findWorkItemProjectsByCode(
+    itemCodePrefix: string,
+    itemSeq: number,
+    manager?: EntityManager,
+  ): Promise<WorkItemProjectLookupRow[]> {
+    return this.getManager(manager).query<WorkItemProjectLookupRow[]>(
+      `
+        SELECT
+          wi.project_id AS "projectId",
+          wi.workspace_id AS "workspaceId",
+          wi.item_id AS "itemId"
+        FROM prism_work_items_l wi
+               INNER JOIN prism_workspaces_l ws
+                          ON ws.workspace_id = wi.workspace_id
+        WHERE ws.item_code_prefix = $1
+          AND wi.item_seq = $2
+          AND wi.deleted_at IS NULL
+        LIMIT 2
+      `,
+      [itemCodePrefix, itemSeq],
+    );
   }
 
   private getManager(manager?: EntityManager): DataSource | EntityManager {

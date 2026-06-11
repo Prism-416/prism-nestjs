@@ -15,6 +15,26 @@ export class WorkItemNotFoundError extends NotExistsError {
   }
 }
 
+export class WorkItemCodeInvalidError extends DomainError {
+  constructor() {
+    super(
+      'Work item code must match the PREFIX-NUMBER format, e.g. "PRSM-001".',
+      'WORK_ITEM_CODE_INVALID',
+      400,
+    );
+  }
+}
+
+export class WorkItemCodeAmbiguousError extends DomainError {
+  constructor() {
+    super(
+      'Work item code matches multiple workspaces.',
+      'WORK_ITEM_CODE_AMBIGUOUS',
+      409,
+    );
+  }
+}
+
 export class WorkItemAssigneeNotFoundError extends NotExistsError {
   constructor() {
     super('Work item assignee not found.', 'WORK_ITEM_ASSIGNEE_NOT_FOUND');

@@ -310,7 +310,9 @@ export class WorkItemResponseDto {
   @ApiProperty({ nullable: true })
   parentId!: string | null;
 
-  @ApiProperty({ description: 'Human-readable work item code, e.g. "PRSM-001"' })
+  @ApiProperty({
+    description: 'Human-readable work item code, e.g. "PRSM-001"',
+  })
   code!: string;
 
   @ApiProperty()
@@ -374,7 +376,9 @@ export class TrashedWorkItemResponseDto {
   @ApiProperty({ nullable: true })
   parentId!: string | null;
 
-  @ApiProperty({ description: 'Human-readable work item code, e.g. "PRSM-001"' })
+  @ApiProperty({
+    description: 'Human-readable work item code, e.g. "PRSM-001"',
+  })
   code!: string;
 
   @ApiProperty()
@@ -503,7 +507,9 @@ export class SimilarWorkItemResponseDto {
   @ApiProperty({ nullable: true })
   parentId!: string | null;
 
-  @ApiProperty({ description: 'Human-readable work item code, e.g. "PRSM-001"' })
+  @ApiProperty({
+    description: 'Human-readable work item code, e.g. "PRSM-001"',
+  })
   code!: string;
 
   @ApiProperty()
@@ -519,6 +525,17 @@ export class SimilarWorkItemResponseDto {
     description: 'Cosine similarity in [-1, 1]; higher is closer.',
   })
   similarity!: number;
+}
+
+export class WorkItemProjectLookupResponseDto {
+  @ApiProperty()
+  projectId!: string;
+
+  @ApiProperty()
+  workspaceId!: string;
+
+  @ApiProperty()
+  itemId!: string;
 }
 
 export class WorkItemEmbeddingResponseDto {

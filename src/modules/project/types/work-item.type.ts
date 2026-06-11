@@ -119,3 +119,9 @@ export type ReorderWorkItemParams = {
   status: WorkItemStatus;
   sortOrder: number;
 };
+
+export type WorkItemProjectLookupRow = {
+  projectId: string;
+  workspaceId: string;
+  itemId: string;
+};
