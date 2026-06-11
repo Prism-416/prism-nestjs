@@ -236,6 +236,7 @@ export class AgentUseCase {
           status: dto.status ?? 'queued',
           objective: dto.objective,
           systemPromptVersion: dto.systemPromptVersion,
+          createdAt: dto.createdAt ? new Date(dto.createdAt) : undefined,
         },
         manager,
       );

@@ -49,6 +49,7 @@ export class AgentWorkflowDispatchService {
       workspace_id: params.workspaceId,
       project_id: params.projectId,
       payload,
+      occurred_at: new Date().toISOString(),
       correlation_id: runId,
       idempotency_key: `${params.kind}:${params.eventType}:${runId}`,
     };

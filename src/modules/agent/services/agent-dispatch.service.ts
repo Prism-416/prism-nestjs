@@ -29,6 +29,7 @@ export class AgentDispatchService {
         event_type: PR_REVIEW_REQUESTED_EVENT_TYPE,
         workspace_id: params.workspaceId,
         ...(params.projectId ? { project_id: params.projectId } : {}),
+        occurred_at: new Date().toISOString(),
         correlation_id: params.runId,
         payload: {
           runId: params.runId,

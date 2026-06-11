@@ -103,6 +103,7 @@ export type CreateAgentRunForInternalParams = {
   status: AgentRunStatus;
   objective: string;
   systemPromptVersion?: string;
+  createdAt?: Date;
 };
 
 export type PullRequestReviewRequestedPayload = {
@@ -117,6 +118,7 @@ export type PullRequestReviewRequestedEvent = {
   event_type: 'pr.review_requested';
   workspace_id: string;
   project_id?: string;
+  occurred_at: string;
   correlation_id: string;
   payload: PullRequestReviewRequestedPayload;
 };
