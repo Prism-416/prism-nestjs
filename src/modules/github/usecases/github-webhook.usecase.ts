@@ -229,7 +229,8 @@ export class GithubWebhookUseCase {
     const result = await this.agentRuns.createAgentRunForInternal({
       workspaceId: link.workspaceId,
       runId,
-      triggeredByUserId: link.connectedByUserId ?? undefined,
+      // Webhook-triggered review has no reliable requester to attribute, so leave it null.
+      triggeredByUserId: undefined,
       workItemId: workItemProject?.itemId,
       agentType: PULL_REQUEST_REVIEW_AGENT_TYPE,
       triggerType: 'webhook',

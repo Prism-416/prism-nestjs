@@ -152,9 +152,11 @@ export class CreatePullRequestReviewCommentForInternalDto {
 }
 
 export class CreatePullRequestReviewForInternalDto {
-  @ApiProperty()
+  // Webhook-triggered reviews have no requester; only validated when present.
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
   @IsUUID()
-  requestedByUserId!: string;
+  requestedByUserId?: string | null;
 
   @ApiProperty({
     description:
