@@ -23,6 +23,11 @@ type HandleGithubWebhookParams = {
   payload: unknown;
 };
 
+type PullRequestTaskCodeResolution = {
+  parsed: boolean;
+  workItemProject: WorkItemProjectLookupRow | null;
+};
+
 const PULL_REQUEST_REVIEW_AGENT_TYPE = 'pull-request-review';
 const REVIEWABLE_PULL_REQUEST_ACTIONS = new Set([
   'opened',
@@ -190,10 +195,18 @@ export class GithubWebhookUseCase {
       return false;
     }
 
-    const workItemProject = await this.resolvePullRequestProject(
+    const taskCodeResolution = await this.resolvePullRequestTaskCode(
       link.workspaceId,
       this.getOptionalString(pullRequest.title),
     );
+    if (!taskCodeResolution.parsed) {
+      this.logger.log(
+        `GitHub pull_request webhook ignored reason=task_code_parse_failed action=${action} delivery=${deliveryId ?? 'unknown'} installation=${installationId} repositoryId=${repositoryId} repository=${repositoryFullName} pullNumber=${pullNumber} headSha=${headSha}`,
+      );
+      return false;
+    }
+
+    const { workItemProject } = taskCodeResolution;
     const projectId = workItemProject?.projectId ?? link.projectId ?? null;
 
     if (workItemProject) {
@@ -333,24 +346,27 @@ export class GithubWebhookUseCase {
     }
   }
 
-  private async resolvePullRequestProject(
+  private async resolvePullRequestTaskCode(
     workspaceId: string,
     title: string | null,
-  ): Promise<WorkItemProjectLookupRow | null> {
+  ): Promise<PullRequestTaskCodeResolution> {
     if (!title) {
-      return null;
+      return { parsed: false, workItemProject: null };
     }
 
     const code = extractWorkItemCode(title);
     if (!code) {
-      return null;
+      return { parsed: false, workItemProject: null };
     }
 
-    return this.workItems.findWorkItemProjectByWorkspaceCode(
-      workspaceId,
-      code.prefix,
-      code.seq,
-    );
+    const workItemProject =
+      await this.workItems.findWorkItemProjectByWorkspaceCode(
+        workspaceId,
+        code.prefix,
+        code.seq,
+      );
+
+    return { parsed: true, workItemProject };
   }
 
   private async createPullRequestStartedComment(params: {

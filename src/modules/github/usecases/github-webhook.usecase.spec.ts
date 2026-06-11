@@ -110,7 +110,7 @@ describe('GithubWebhookUseCase', () => {
     pull_request: {
       number: 17,
       draft: false,
-      title: 'Improve onboarding flow',
+      title: '[task-346] Improve onboarding flow',
       head: { sha: 'abc123' },
     },
     ...overrides,
@@ -446,18 +446,24 @@ describe('GithubWebhookUseCase', () => {
     );
   });
 
-  it('falls back to the linked project when the title has no task code', async () => {
+  it('ignores pull request review requests when task code parsing fails', async () => {
     const response = await usecase.handleWebhook({
       event: 'pull_request',
       signature,
       rawBody,
-      payload: pullRequestPayload(),
+      payload: pullRequestPayload({
+        pull_request: {
+          number: 17,
+          draft: false,
+          title: '[TASK-0] Improve onboarding flow',
+          head: { sha: 'abc123' },
+        },
+      }),
     });
 
-    expect(response.ignored).toBe(false);
+    expect(response.ignored).toBe(true);
     expect(workItems.findWorkItemProjectByWorkspaceCode).not.toHaveBeenCalled();
-    expect(agentDispatch.buildRunRequestedEvent).toHaveBeenCalledWith(
-      expect.objectContaining({ projectId: repositoryLink.projectId }),
-    );
+    expect(agentRuns.createAgentRunForInternal).not.toHaveBeenCalled();
+    expect(agentDispatch.publishRunRequestedEvent).not.toHaveBeenCalled();
   });
 });
