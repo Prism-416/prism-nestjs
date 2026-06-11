@@ -258,7 +258,7 @@ export class AgentUseCase {
     workspaceId: string,
     runId: string,
   ): Promise<AgentRunResponseDto> {
-    const cancelledRun = await this.uow.run(async (manager) => {
+    const result = await this.uow.run(async (manager) => {
       const workspace = await this.getWorkspaceForUser(
         userId,
         workspaceId,
@@ -274,6 +274,13 @@ export class AgentUseCase {
         throw new AgentRunNotFoundError();
       }
 
+      // Idempotent: a run already cancelled has reached the requested terminal
+      // state, so a repeated cancel (e.g. a double-clicked stop) is a no-op
+      // that returns the run as-is instead of erroring.
+      if (run.status === 'cancelled') {
+        return { run, didCancel: false };
+      }
+
       if (!AGENT_RUN_CANCELLABLE_STATUSES.includes(run.status)) {
         throw new AgentRunNotCancellableError();
       }
@@ -286,16 +293,31 @@ export class AgentUseCase {
         },
         manager,
       );
-      if (!cancelledRun) {
-        throw new AgentRunNotCancellableError();
+      if (cancelledRun) {
+        return { run: cancelledRun, didCancel: true };
       }
 
-      return cancelledRun;
+      // The conditional update matched nothing: the run left the cancellable
+      // set between our read and write (a concurrent cancel, or a worker
+      // finalizing it). Re-read to tell an idempotent no-op apart from a
+      // genuine conflict.
+      const current = await this.repo.findAgentRunById(
+        workspace.workspaceId,
+        runId,
+        manager,
+      );
+      if (current?.status === 'cancelled') {
+        return { run: current, didCancel: false };
+      }
+
+      throw new AgentRunNotCancellableError();
     });
 
-    this.realtimePublisher.publishAgentRunUpdated(cancelledRun);
+    if (result.didCancel) {
+      this.realtimePublisher.publishAgentRunUpdated(result.run);
+    }
 
-    return cancelledRun;
+    return result.run;
   }
 
   async updateAgentRunStatusForInternal(
