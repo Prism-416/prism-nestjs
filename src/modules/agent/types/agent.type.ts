@@ -110,7 +110,7 @@ export type AgentRunRequestedEvent = {
   version: '1.0';
   runId: string;
   workspaceId: string;
-  projectId: string;
+  projectId?: string;
   agentType: string;
   requestedAt: string;
   target: {

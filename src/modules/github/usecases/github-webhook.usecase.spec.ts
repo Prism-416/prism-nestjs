@@ -256,7 +256,7 @@ describe('GithubWebhookUseCase', () => {
     expect(agentRuns.createAgentRunForInternal).not.toHaveBeenCalled();
   });
 
-  it('ignores pull request events for repositories without a project link', async () => {
+  it('ignores pull request events for repositories without a workspace link', async () => {
     projects.findGithubRepositoryLinkByInstallationRepository.mockResolvedValue(
       null,
     );
@@ -270,5 +270,30 @@ describe('GithubWebhookUseCase', () => {
 
     expect(response.ignored).toBe(true);
     expect(agentRuns.createAgentRunForInternal).not.toHaveBeenCalled();
+  });
+
+  it('dispatches the review run for a workspace-linked repository without a project connection', async () => {
+    projects.findGithubRepositoryLinkByInstallationRepository.mockResolvedValue(
+      {
+        ...repositoryLink,
+        projectId: null,
+      },
+    );
+
+    const response = await usecase.handleWebhook({
+      event: 'pull_request',
+      signature,
+      rawBody,
+      payload: pullRequestPayload(),
+    });
+
+    expect(response.ignored).toBe(false);
+    expect(agentRuns.createAgentRunForInternal).toHaveBeenCalledWith(
+      expect.objectContaining({ workspaceId: repositoryLink.workspaceId }),
+    );
+    expect(agentDispatch.buildRunRequestedEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ projectId: undefined }),
+    );
+    expect(agentDispatch.publishRunRequestedEvent).toHaveBeenCalledTimes(1);
   });
 });

@@ -6,6 +6,7 @@ import {
   ProjectRow,
   ProjectSummaryRow,
   ProjectWorkspaceMemberUserRow,
+  WorkspaceRepositoryLinkRow,
 } from '@/modules/project/types';
 
 @Injectable()
@@ -263,14 +264,14 @@ export class ProjectRepository {
       githubRepositoryId: string;
     },
     manager?: EntityManager,
-  ): Promise<ProjectGithubRepositoryLinkRow | null> {
+  ): Promise<WorkspaceRepositoryLinkRow | null> {
     const links = await this.getManager(manager).query<
-      ProjectGithubRepositoryLinkRow[]
+      WorkspaceRepositoryLinkRow[]
     >(
       `
         SELECT
-          p.project_id AS "projectId",
-          p.workspace_id AS "workspaceId",
+          prl.project_id AS "projectId",
+          link.workspace_id AS "workspaceId",
           link.link_id AS "workspaceRepositoryLinkId",
           link.github_installation_id::text AS "githubInstallationId",
           link.github_repository_id::text AS "githubRepositoryId",
@@ -280,21 +281,18 @@ export class ProjectRepository {
           link.repository_url AS "repositoryUrl",
           link.default_branch AS "defaultBranch",
           link.visibility,
-          prl.connected_by AS "connectedByUserId",
-          prl.connected_at AS "connectedAt"
+          link.connected_by AS "connectedByUserId",
+          link.connected_at AS "connectedAt"
         FROM prism_workspace_repository_links_l link
-               INNER JOIN prism_project_repository_links_l prl
-                          ON prl.workspace_repository_link_id = link.link_id
-               INNER JOIN prism_projects_l p
-                          ON p.project_id = prl.project_id
                INNER JOIN prism_workspaces_l w
-                          ON w.workspace_id = p.workspace_id
+                          ON w.workspace_id = link.workspace_id
+               LEFT JOIN prism_project_repository_links_l prl
+                         ON prl.workspace_repository_link_id = link.link_id
         WHERE link.github_installation_id = $1
           AND link.github_repository_id = $2
           AND w.deleted_at IS NULL
           AND w.status = 'active'
-          AND p.status <> 'archived'
-        ORDER BY prl.connected_at DESC
+        ORDER BY link.connected_at DESC
         LIMIT 1
       `,
       [params.githubInstallationId, params.githubRepositoryId],
