@@ -17,7 +17,7 @@ export class AgentDispatchService {
   buildRunRequestedEvent(params: {
     runId: string;
     workspaceId: string;
-    projectId: string;
+    projectId?: string;
     agentType: string;
     requestedAt: string;
     repositoryFullName: string;
@@ -29,7 +29,7 @@ export class AgentDispatchService {
       version: '1.0',
       runId: params.runId,
       workspaceId: params.workspaceId,
-      projectId: params.projectId,
+      ...(params.projectId ? { projectId: params.projectId } : {}),
       agentType: params.agentType,
       requestedAt: params.requestedAt,
       target: {
@@ -63,7 +63,7 @@ export class AgentDispatchService {
               eventType: event.type,
               runId: event.runId,
               workspaceId: event.workspaceId,
-              projectId: event.projectId,
+              ...(event.projectId ? { projectId: event.projectId } : {}),
               agentType: event.agentType,
             },
           },

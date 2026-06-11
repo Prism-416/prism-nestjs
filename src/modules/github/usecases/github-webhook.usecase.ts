@@ -192,7 +192,9 @@ export class GithubWebhookUseCase {
     });
     const objective = [
       `Review GitHub PR #${pullNumber} for ${repositoryFullName}.`,
-      `Project: ${link.projectId}.`,
+      link.projectId
+        ? `Project: ${link.projectId}.`
+        : `Workspace: ${link.workspaceId}.`,
       `Head SHA: ${headSha}.`,
     ].join(' ');
     const result = await this.agentRuns.createAgentRunForInternal({
@@ -236,7 +238,7 @@ export class GithubWebhookUseCase {
       this.agentDispatch.buildRunRequestedEvent({
         runId,
         workspaceId: link.workspaceId,
-        projectId: link.projectId,
+        projectId: link.projectId ?? undefined,
         agentType: PULL_REQUEST_REVIEW_AGENT_TYPE,
         requestedAt,
         repositoryFullName,

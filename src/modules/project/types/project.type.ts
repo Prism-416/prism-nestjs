@@ -31,3 +31,12 @@ export type ProjectGithubRepositoryLinkRow = {
   connectedByUserId: string | null;
   connectedAt: Date;
 };
+
+// Repositories are bound to workspaces, not projects, so the webhook lookup
+// resolves a workspace repository link and a project connection is optional.
+export type WorkspaceRepositoryLinkRow = Omit<
+  ProjectGithubRepositoryLinkRow,
+  'projectId'
+> & {
+  projectId: string | null;
+};
