@@ -1,3 +1,5 @@
+import type { GithubPullRequestContent } from '@/modules/github/types';
+
 export const AGENT_RUN_TRIGGER_TYPES = [
   'manual',
   'event',
@@ -111,6 +113,20 @@ export type PullRequestReviewRequestedPayload = {
   pullNumber: number;
   headSha: string;
   repositoryFullName: string;
+  diffObjectName?: string;
+  diffObjectVersionId?: string;
+};
+
+export const PULL_REQUEST_REVIEW_DIFF_SCHEMA_VERSION = '1.0';
+
+export type PullRequestReviewDiffPayload = {
+  schemaVersion: string;
+  runId: string;
+  workspaceId: string;
+  repositoryFullName: string;
+  pullNumber: number;
+  headSha: string;
+  pullRequest: GithubPullRequestContent;
 };
 
 export type PullRequestReviewRequestedEvent = {

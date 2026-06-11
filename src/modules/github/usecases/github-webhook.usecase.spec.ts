@@ -12,6 +12,9 @@ jest.mock('octokit', () => ({
 jest.mock('@/core/queue', () => ({
   OciQueueService: jest.fn(),
 }));
+jest.mock('@/core/object-storage', () => ({
+  OciObjectStorageService: jest.fn(),
+}));
 
 import { AgentRepository } from '@/modules/agent/repository';
 import { AgentDispatchService } from '@/modules/agent/services';
@@ -63,7 +66,9 @@ describe('GithubWebhookUseCase', () => {
   let github: jest.Mocked<
     Pick<
       GithubAppService,
-      'mapWebhookInstallation' | 'createPullRequestComment'
+      | 'mapWebhookInstallation'
+      | 'createPullRequestComment'
+      | 'getPullRequestContent'
     >
   >;
   let webhooks: jest.Mocked<Pick<GithubWebhookService, 'verifySignature'>>;
@@ -87,7 +92,10 @@ describe('GithubWebhookUseCase', () => {
   let agentDispatch: jest.Mocked<
     Pick<
       AgentDispatchService,
-      'buildRunRequestedEvent' | 'publishRunRequestedEvent'
+      | 'buildRunRequestedEvent'
+      | 'publishRunRequestedEvent'
+      | 'buildPullRequestDiffObjectName'
+      | 'uploadPullRequestDiff'
     >
   >;
   let usecase: GithubWebhookUseCase;
@@ -114,6 +122,26 @@ describe('GithubWebhookUseCase', () => {
       createPullRequestComment: jest.fn().mockResolvedValue({
         commentId: 'comment-id',
         url: 'https://github.com/prism-416/prism-nestjs/pull/17#issuecomment-1',
+      }),
+      getPullRequestContent: jest.fn().mockResolvedValue({
+        pullNumber: 17,
+        title: 'Improve onboarding flow',
+        state: 'open',
+        headSha: 'abc123',
+        baseSha: 'def456',
+        author: 'octocat',
+        body: '',
+        files: [
+          {
+            filename: 'src/app.ts',
+            status: 'modified',
+            additions: 1,
+            deletions: 0,
+            patch: '@@ -1 +1,2 @@\n a\n+b',
+          },
+        ],
+        commits: [{ sha: 'abc123', message: 'Improve onboarding flow' }],
+        truncated: false,
       }),
     };
     webhooks = {
@@ -151,6 +179,15 @@ describe('GithubWebhookUseCase', () => {
       publishRunRequestedEvent: jest
         .fn()
         .mockResolvedValue({ queueMessageId: 'queue-message-id' }),
+      buildPullRequestDiffObjectName: jest
+        .fn()
+        .mockImplementation(
+          (params: { workspaceId: string; runId: string }) =>
+            `workspaces/${params.workspaceId}/pull-request-reviews/${params.runId}.json`,
+        ),
+      uploadPullRequestDiff: jest
+        .fn()
+        .mockResolvedValue({ diffObjectVersionId: 'diff-version-id' }),
     };
     usecase = new GithubWebhookUseCase(
       github as unknown as GithubAppService,
@@ -203,6 +240,65 @@ describe('GithubWebhookUseCase', () => {
       agentDispatch.publishRunRequestedEvent.mock.invocationCallOrder[0],
     );
     expect(agentDispatch.publishRunRequestedEvent).toHaveBeenCalledTimes(1);
+
+    const runCreateParams =
+      agentRuns.createAgentRunForInternal.mock.calls[0][0];
+    const expectedDiffObjectName = [
+      'workspaces',
+      run.workspaceId,
+      'pull-request-reviews',
+      `${runCreateParams.runId}.json`,
+    ].join('/');
+    expect(github.getPullRequestContent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        installationId: repositoryLink.githubInstallationId,
+        owner: repositoryLink.repositoryOwner,
+        repo: repositoryLink.repositoryName,
+        pullNumber: 17,
+        includeDiff: true,
+        includeFiles: true,
+      }),
+    );
+    expect(agentDispatch.uploadPullRequestDiff).toHaveBeenCalledWith(
+      expect.objectContaining({
+        objectName: expectedDiffObjectName,
+        runId: runCreateParams.runId,
+        workspaceId: run.workspaceId,
+        pullNumber: 17,
+        headSha: 'abc123',
+      }),
+    );
+    const uploadParams = agentDispatch.uploadPullRequestDiff.mock.calls[0][0];
+    expect(uploadParams.pullRequest).toMatchObject({ pullNumber: 17 });
+    expect(agentDispatch.buildRunRequestedEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        diffObjectName: expectedDiffObjectName,
+        diffObjectVersionId: 'diff-version-id',
+      }),
+    );
+  });
+
+  it('dispatches the review run without a diff reference when the diff upload fails', async () => {
+    github.getPullRequestContent.mockRejectedValueOnce(
+      new Error('object storage is unavailable'),
+    );
+
+    const response = await usecase.handleWebhook({
+      event: 'pull_request',
+      signature,
+      rawBody,
+      payload: pullRequestPayload(),
+    });
+
+    expect(response.ignored).toBe(false);
+    expect(agentDispatch.uploadPullRequestDiff).not.toHaveBeenCalled();
+    expect(agentDispatch.publishRunRequestedEvent).toHaveBeenCalledTimes(1);
+    expect(agentDispatch.buildRunRequestedEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        diffObjectName: undefined,
+        diffObjectVersionId: undefined,
+      }),
+    );
   });
 
   it('does not republish dispatch events for duplicate pull request deliveries', async () => {
