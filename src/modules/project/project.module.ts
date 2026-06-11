@@ -9,6 +9,7 @@ import {
   PullRequestController,
   ProjectController,
   WorkItemController,
+  WorkItemLookupController,
 } from '@/modules/project/controller';
 import { ProjectGateway } from '@/modules/project/gateway';
 import {
@@ -29,6 +30,7 @@ import {
   imports: [AdminModule, GithubModule, NotificationModule, WorkspaceModule],
   controllers: [
     ProjectController,
+    WorkItemLookupController,
     WorkItemController,
     CommentController,
     PullRequestController,

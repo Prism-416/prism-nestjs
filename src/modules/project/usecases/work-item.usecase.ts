@@ -20,12 +20,15 @@ import {
   UpdateWorkItemDto,
   UpsertWorkItemEmbeddingDto,
   WorkItemEmbeddingResponseDto,
+  WorkItemProjectLookupResponseDto,
   WorkItemResponseDto,
 } from '@/modules/project/dto';
 import {
   isWorkItemParentForeignKeyViolation,
   ProjectNotFoundError,
   WorkItemAssigneeNotFoundError,
+  WorkItemCodeAmbiguousError,
+  WorkItemCodeInvalidError,
   WorkItemEmbeddingTargetMismatchError,
   WorkItemNotFoundError,
   WorkItemParentInvalidError,
@@ -42,6 +45,7 @@ import {
   WorkItemRepository,
 } from '@/modules/project/repository';
 import { ProjectRealtimePublisherService } from '@/modules/project/services';
+import { parseWorkItemCode } from '@/modules/project/utils';
 
 @Injectable()
 export class WorkItemUseCase {
@@ -99,6 +103,28 @@ export class WorkItemUseCase {
     }
 
     return workItem;
+  }
+
+  async getProjectByTaskCodeForInternal(
+    taskCode: string,
+  ): Promise<WorkItemProjectLookupResponseDto> {
+    const parsedCode = parseWorkItemCode(taskCode);
+    if (!parsedCode) {
+      throw new WorkItemCodeInvalidError();
+    }
+
+    const matches = await this.workItemRepository.findWorkItemProjectsByCode(
+      parsedCode.prefix,
+      parsedCode.seq,
+    );
+    if (matches.length === 0) {
+      throw new WorkItemNotFoundError();
+    }
+    if (matches.length > 1) {
+      throw new WorkItemCodeAmbiguousError();
+    }
+
+    return matches[0];
   }
 
   async searchWorkItems(
