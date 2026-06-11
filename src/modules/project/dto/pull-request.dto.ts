@@ -160,6 +160,16 @@ export class CreatePullRequestReviewForInternalDto {
 
   @ApiProperty({
     description:
+      'Full name (owner/repo) of the repository the review targets. Resolved against the project workspace.',
+  })
+  @Transform(({ value }) => normalizeTrimmedString(value as unknown))
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(255)
+  repositoryFullName!: string;
+
+  @ApiProperty({
+    description:
       'Pull request head SHA the review was computed against. Stale values return 409.',
   })
   @Transform(({ value }) => normalizeTrimmedString(value as unknown))

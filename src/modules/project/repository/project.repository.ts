@@ -258,6 +258,50 @@ export class ProjectRepository {
     return links[0] ?? null;
   }
 
+  // Repositories are linked at workspace scope, so internal callers identify the
+  // repository by full name and we resolve it through the project's workspace
+  // without requiring a project-repository association.
+  async findWorkspaceRepositoryLinkByProjectAndRepository(
+    projectId: string,
+    repositoryFullName: string,
+    manager?: EntityManager,
+  ): Promise<ProjectGithubRepositoryLinkRow | null> {
+    const links = await this.getManager(manager).query<
+      ProjectGithubRepositoryLinkRow[]
+    >(
+      `
+        SELECT
+          p.project_id AS "projectId",
+          p.workspace_id AS "workspaceId",
+          link.link_id AS "workspaceRepositoryLinkId",
+          link.github_installation_id::text AS "githubInstallationId",
+          link.github_repository_id::text AS "githubRepositoryId",
+          link.repository_owner AS "repositoryOwner",
+          link.repository_name AS "repositoryName",
+          link.repository_full_name AS "repositoryFullName",
+          link.repository_url AS "repositoryUrl",
+          link.default_branch AS "defaultBranch",
+          link.visibility,
+          link.connected_by AS "connectedByUserId",
+          link.connected_at AS "connectedAt"
+        FROM prism_projects_l p
+               INNER JOIN prism_workspaces_l w
+                          ON w.workspace_id = p.workspace_id
+               INNER JOIN prism_workspace_repository_links_l link
+                          ON link.workspace_id = p.workspace_id
+        WHERE p.project_id = $1
+          AND link.repository_full_name = $2
+          AND w.deleted_at IS NULL
+          AND w.status = 'active'
+          AND p.status <> 'archived'
+        LIMIT 1
+      `,
+      [projectId, repositoryFullName],
+    );
+
+    return links[0] ?? null;
+  }
+
   async findGithubRepositoryLinkByInstallationRepository(
     params: {
       githubInstallationId: string;

@@ -48,7 +48,10 @@ export class PullRequestUseCase {
     pullNumber: number,
     dto: CreatePullRequestReviewForInternalDto,
   ): Promise<CreatePullRequestReviewForInternalResponseDto> {
-    const link = await this.findProjectRepositoryLinkOrThrow(projectId);
+    const link = await this.resolveReviewRepositoryLinkOrThrow(
+      projectId,
+      dto.repositoryFullName,
+    );
     const comments = this.normalizeReviewComments(dto.comments ?? []);
     const pullRequest =
       comments.length > 0
@@ -99,6 +102,30 @@ export class PullRequestUseCase {
     const link =
       await this.projectRepository.findGithubRepositoryLinkByProjectId(
         projectId,
+      );
+    if (!link) {
+      throw new ProjectRepositoryLinkNotFoundError();
+    }
+
+    return link;
+  }
+
+  // Repositories live at workspace scope, so the review caller supplies the
+  // repository full name and we resolve it via the project's workspace rather
+  // than a project-repository association.
+  private async resolveReviewRepositoryLinkOrThrow(
+    projectId: string,
+    repositoryFullName: string,
+  ) {
+    const project = await this.projectRepository.findProjectById(projectId);
+    if (!project) {
+      throw new ProjectNotFoundError();
+    }
+
+    const link =
+      await this.projectRepository.findWorkspaceRepositoryLinkByProjectAndRepository(
+        projectId,
+        repositoryFullName,
       );
     if (!link) {
       throw new ProjectRepositoryLinkNotFoundError();

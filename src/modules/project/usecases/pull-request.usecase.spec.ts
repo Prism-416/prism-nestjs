@@ -38,6 +38,7 @@ describe('PullRequestUseCase', () => {
   };
   const dto = {
     requestedByUserId: '33333333-3333-4333-8333-333333333333',
+    repositoryFullName: link.repositoryFullName,
     headSha: 'expected-head',
     event: 'COMMENT' as const,
     summary: 'Review summary',
@@ -46,7 +47,9 @@ describe('PullRequestUseCase', () => {
   let projectRepository: jest.Mocked<
     Pick<
       ProjectRepository,
-      'findProjectById' | 'findGithubRepositoryLinkByProjectId'
+      | 'findProjectById'
+      | 'findGithubRepositoryLinkByProjectId'
+      | 'findWorkspaceRepositoryLinkByProjectAndRepository'
     >
   >;
   let github: jest.Mocked<
@@ -63,6 +66,9 @@ describe('PullRequestUseCase', () => {
     projectRepository = {
       findProjectById: jest.fn().mockResolvedValue(project),
       findGithubRepositoryLinkByProjectId: jest.fn().mockResolvedValue(link),
+      findWorkspaceRepositoryLinkByProjectAndRepository: jest
+        .fn()
+        .mockResolvedValue(link),
     };
     github = {
       getPullRequestContent: jest.fn(),
