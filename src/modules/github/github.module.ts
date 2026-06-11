@@ -14,7 +14,10 @@ import {
   GithubInstallationUseCase,
   GithubWebhookUseCase,
 } from '@/modules/github/usecases';
-import { ProjectRepository } from '@/modules/project/repository';
+import {
+  ProjectRepository,
+  WorkItemRepository,
+} from '@/modules/project/repository';
 
 @Module({
   controllers: [GithubInstallationController, GithubWebhookController],
@@ -27,6 +30,7 @@ import { ProjectRepository } from '@/modules/project/repository';
     GithubInstallationUseCase,
     GithubWebhookUseCase,
     ProjectRepository,
+    WorkItemRepository,
   ],
   exports: [GithubAppService, GithubInstallationRepository],
 })

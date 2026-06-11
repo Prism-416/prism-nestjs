@@ -6,7 +6,12 @@ import { GithubWebhookResponseDto } from '@/modules/github/dto';
 import { GithubInstallationRepository } from '@/modules/github/repository';
 import { GithubAppService } from '@/modules/github/services/github-app.service';
 import { GithubWebhookService } from '@/modules/github/services/github-webhook.service';
-import { ProjectRepository } from '@/modules/project/repository';
+import {
+  ProjectRepository,
+  WorkItemRepository,
+} from '@/modules/project/repository';
+import type { WorkItemProjectLookupRow } from '@/modules/project/types';
+import { extractWorkItemCode } from '@/modules/project/utils';
 
 type GithubWebhookPayload = Record<string, unknown>;
 
@@ -45,6 +50,7 @@ export class GithubWebhookUseCase {
     private readonly webhooks: GithubWebhookService,
     private readonly installations: GithubInstallationRepository,
     private readonly projects: ProjectRepository,
+    private readonly workItems: WorkItemRepository,
     private readonly agentRuns: AgentRepository,
     private readonly agentDispatch: AgentDispatchService,
   ) {}
@@ -184,6 +190,18 @@ export class GithubWebhookUseCase {
       return false;
     }
 
+    const workItemProject = await this.resolvePullRequestProject(
+      link.workspaceId,
+      this.getOptionalString(pullRequest.title),
+    );
+    const projectId = workItemProject?.projectId ?? link.projectId ?? null;
+
+    if (workItemProject) {
+      this.logger.log(
+        `GitHub pull_request resolved project from task code action=${action} delivery=${deliveryId ?? 'unknown'} installation=${installationId} repositoryId=${repositoryId} repository=${repositoryFullName} pullNumber=${pullNumber} workspace=${link.workspaceId} projectId=${workItemProject.projectId} workItemId=${workItemProject.itemId}`,
+      );
+    }
+
     const runId = this.buildPullRequestReviewRunId({
       installationId,
       repositoryId,
@@ -192,15 +210,14 @@ export class GithubWebhookUseCase {
     });
     const objective = [
       `Review GitHub PR #${pullNumber} for ${repositoryFullName}.`,
-      link.projectId
-        ? `Project: ${link.projectId}.`
-        : `Workspace: ${link.workspaceId}.`,
+      projectId ? `Project: ${projectId}.` : `Workspace: ${link.workspaceId}.`,
       `Head SHA: ${headSha}.`,
     ].join(' ');
     const result = await this.agentRuns.createAgentRunForInternal({
       workspaceId: link.workspaceId,
       runId,
       triggeredByUserId: link.connectedByUserId ?? undefined,
+      workItemId: workItemProject?.itemId,
       agentType: PULL_REQUEST_REVIEW_AGENT_TYPE,
       triggerType: 'webhook',
       status: 'queued',
@@ -237,7 +254,7 @@ export class GithubWebhookUseCase {
       this.agentDispatch.buildRunRequestedEvent({
         runId,
         workspaceId: link.workspaceId,
-        projectId: link.projectId ?? undefined,
+        projectId: projectId ?? undefined,
         repositoryFullName,
         pullNumber,
         headSha,
@@ -245,6 +262,26 @@ export class GithubWebhookUseCase {
     );
 
     return true;
+  }
+
+  private async resolvePullRequestProject(
+    workspaceId: string,
+    title: string | null,
+  ): Promise<WorkItemProjectLookupRow | null> {
+    if (!title) {
+      return null;
+    }
+
+    const code = extractWorkItemCode(title);
+    if (!code) {
+      return null;
+    }
+
+    return this.workItems.findWorkItemProjectByWorkspaceCode(
+      workspaceId,
+      code.prefix,
+      code.seq,
+    );
   }
 
   private async createPullRequestStartedComment(params: {

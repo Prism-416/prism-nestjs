@@ -1389,6 +1389,35 @@ export class WorkItemRepository {
     );
   }
 
+  async findWorkItemProjectByWorkspaceCode(
+    workspaceId: string,
+    itemCodePrefix: string,
+    itemSeq: number,
+    manager?: EntityManager,
+  ): Promise<WorkItemProjectLookupRow | null> {
+    const rows = await this.getManager(manager).query<
+      WorkItemProjectLookupRow[]
+    >(
+      `
+        SELECT
+          wi.project_id AS "projectId",
+          wi.workspace_id AS "workspaceId",
+          wi.item_id AS "itemId"
+        FROM prism_work_items_l wi
+               INNER JOIN prism_workspaces_l ws
+                          ON ws.workspace_id = wi.workspace_id
+        WHERE wi.workspace_id = $1
+          AND ws.item_code_prefix = $2
+          AND wi.item_seq = $3
+          AND wi.deleted_at IS NULL
+        LIMIT 1
+      `,
+      [workspaceId, itemCodePrefix, itemSeq],
+    );
+
+    return rows[0] ?? null;
+  }
+
   private getManager(manager?: EntityManager): DataSource | EntityManager {
     return manager ?? this.dataSource;
   }
