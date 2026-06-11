@@ -31,6 +31,7 @@ export class WorkItemRepository {
       workspaceId: string | null;
       projectId: string | null;
       parentId: string | null;
+      code: string | null;
       title: string | null;
       description: string | null;
       startDate: string | null;
@@ -53,6 +54,7 @@ export class WorkItemRepository {
             wi.workspace_id,
             wi.project_id,
             wi.parent_id,
+            wi.item_seq,
             wi.title,
             wi.description,
             wi.start_date,
@@ -117,6 +119,7 @@ export class WorkItemRepository {
           pi.workspace_id AS "workspaceId",
           pi.project_id AS "projectId",
           pi.parent_id AS "parentId",
+          ${WorkItemRepository.workItemCodeColumn('pi')},
           pi.title,
           pi.description,
           pi.start_date AS "startDate",
@@ -153,6 +156,8 @@ export class WorkItemRepository {
         FROM total_count tc
                LEFT JOIN paged_items pi
                          ON TRUE
+               LEFT JOIN prism_workspaces_l ws
+                         ON ws.workspace_id = pi.workspace_id
         ORDER BY pi.sort_order ASC NULLS LAST, pi.created_at DESC NULLS LAST, pi.item_id DESC NULLS LAST
       `,
       [
@@ -181,6 +186,7 @@ export class WorkItemRepository {
           workspaceId: row.workspaceId as string,
           projectId: row.projectId as string,
           parentId: row.parentId,
+          code: row.code as string,
           title: row.title as string,
           description: row.description as string,
           startDate: row.startDate,
@@ -232,24 +238,27 @@ export class WorkItemRepository {
     const items = await this.getManager(manager).query<WorkItemRow[]>(
       `
         SELECT
-          item_id AS "itemId",
-          workspace_id AS "workspaceId",
-          project_id AS "projectId",
-          parent_id AS "parentId",
-          title,
-          description,
-          start_date AS "startDate",
-          due_date AS "dueDate",
-          priority,
-          status,
-          sort_order AS "sortOrder",
-          status_changed_at AS "statusChangedAt",
-          created_at AS "createdAt"
-        FROM prism_work_items_l
-        WHERE workspace_id = $1
-          AND project_id = $2
-          AND item_id = $3
-          AND deleted_at IS NULL
+          wi.item_id AS "itemId",
+          wi.workspace_id AS "workspaceId",
+          wi.project_id AS "projectId",
+          wi.parent_id AS "parentId",
+          ${WorkItemRepository.workItemCodeColumn('wi')},
+          wi.title,
+          wi.description,
+          wi.start_date AS "startDate",
+          wi.due_date AS "dueDate",
+          wi.priority,
+          wi.status,
+          wi.sort_order AS "sortOrder",
+          wi.status_changed_at AS "statusChangedAt",
+          wi.created_at AS "createdAt"
+        FROM prism_work_items_l wi
+               INNER JOIN prism_workspaces_l ws
+                          ON ws.workspace_id = wi.workspace_id
+        WHERE wi.workspace_id = $1
+          AND wi.project_id = $2
+          AND wi.item_id = $3
+          AND wi.deleted_at IS NULL
         LIMIT 1
       `,
       [workspaceId, projectId, itemId],
@@ -271,6 +280,7 @@ export class WorkItemRepository {
           wi.workspace_id AS "workspaceId",
           wi.project_id AS "projectId",
           wi.parent_id AS "parentId",
+          ${WorkItemRepository.workItemCodeColumn('wi')},
           wi.title,
           wi.description,
           wi.start_date AS "startDate",
@@ -304,6 +314,8 @@ export class WorkItemRepository {
             ARRAY[]::text[]
           ) AS "labelNames"
         FROM prism_work_items_l wi
+               INNER JOIN prism_workspaces_l ws
+                          ON ws.workspace_id = wi.workspace_id
         WHERE wi.workspace_id = $1
           AND wi.project_id = $2
           AND wi.item_id = $3
@@ -333,6 +345,7 @@ export class WorkItemRepository {
           wi.workspace_id AS "workspaceId",
           wi.project_id AS "projectId",
           wi.parent_id AS "parentId",
+          ${WorkItemRepository.workItemCodeColumn('wi')},
           wi.title,
           wi.description,
           wi.start_date AS "startDate",
@@ -366,6 +379,8 @@ export class WorkItemRepository {
             ARRAY[]::text[]
           ) AS "labelNames"
         FROM prism_work_items_l wi
+               INNER JOIN prism_workspaces_l ws
+                          ON ws.workspace_id = wi.workspace_id
         WHERE wi.workspace_id = $1
           AND wi.project_id = $2
           AND wi.item_id = ANY($3::uuid[])
@@ -389,6 +404,7 @@ export class WorkItemRepository {
           wi.workspace_id AS "workspaceId",
           wi.project_id AS "projectId",
           wi.parent_id AS "parentId",
+          ${WorkItemRepository.workItemCodeColumn('wi')},
           wi.title,
           wi.description,
           wi.start_date AS "startDate",
@@ -422,6 +438,8 @@ export class WorkItemRepository {
             ARRAY[]::text[]
           ) AS "labelNames"
         FROM prism_work_items_l wi
+               INNER JOIN prism_workspaces_l ws
+                          ON ws.workspace_id = wi.workspace_id
         WHERE wi.workspace_id = $1
           AND wi.project_id = $2
           AND wi.parent_id = $3
@@ -449,6 +467,12 @@ export class WorkItemRepository {
   ): Promise<WorkItemRow> {
     const items = await this.getManager(manager).query<WorkItemRow[]>(
       `
+        WITH next_seq AS (
+          UPDATE prism_workspaces_l
+          SET item_seq_counter = item_seq_counter + 1
+          WHERE workspace_id = $1
+          RETURNING item_seq_counter AS seq
+        )
         INSERT INTO prism_work_items_l (
           workspace_id,
           project_id,
@@ -458,13 +482,14 @@ export class WorkItemRepository {
           priority,
           status,
           sort_order,
+          item_seq,
           created_by,
           status_changed_at,
           archived_at,
           start_date,
           due_date
         )
-        VALUES (
+        SELECT
           $1,
           $2,
           $3,
@@ -484,17 +509,27 @@ export class WorkItemRepository {
             ),
             0
           ),
+          next_seq.seq,
           $8,
           NOW(),
           CASE WHEN $9 THEN NOW() ELSE NULL END,
           $10::date,
           $11::date
-        )
+        FROM next_seq
         RETURNING
           item_id AS "itemId",
           workspace_id AS "workspaceId",
           project_id AS "projectId",
           parent_id AS "parentId",
+          (
+            SELECT ws.item_code_prefix
+            FROM prism_workspaces_l ws
+            WHERE ws.workspace_id = prism_work_items_l.workspace_id
+          ) || '-' || LPAD(
+            item_seq::text,
+            GREATEST(3, LENGTH(item_seq::text)),
+            '0'
+          ) AS "code",
           title,
           description,
           start_date AS "startDate",
@@ -591,6 +626,20 @@ export class WorkItemRepository {
           workspace_id AS "workspaceId",
           project_id AS "projectId",
           parent_id AS "parentId",
+          (
+            SELECT ws.item_code_prefix
+            FROM prism_workspaces_l ws
+            WHERE ws.workspace_id = wi.workspace_id
+          ) || '-' || LPAD(
+            wi.item_seq::text,
+            GREATEST(3, LENGTH((
+              SELECT MAX(live.item_seq)
+              FROM prism_work_items_l live
+              WHERE live.workspace_id = wi.workspace_id
+                AND live.deleted_at IS NULL
+            )::text)),
+            '0'
+          ) AS "code",
           title,
           description,
           start_date AS "startDate",
@@ -820,6 +869,8 @@ export class WorkItemRepository {
       `
         SELECT wi.item_id AS "itemId"
         FROM prism_work_items_l wi
+               INNER JOIN prism_workspaces_l ws
+                          ON ws.workspace_id = wi.workspace_id
         WHERE wi.workspace_id = $1
           AND wi.project_id = $2
           AND wi.item_id = $3
@@ -922,6 +973,7 @@ export class WorkItemRepository {
           wi.workspace_id AS "workspaceId",
           wi.project_id AS "projectId",
           wi.parent_id AS "parentId",
+          ${WorkItemRepository.workItemCodeColumn('wi')},
           wi.title,
           wi.description,
           wi.start_date AS "startDate",
@@ -958,6 +1010,7 @@ export class WorkItemRepository {
           ) AS "labelNames"
         FROM counts c
                INNER JOIN prism_work_items_l wi ON wi.item_id = c.root_id
+               INNER JOIN prism_workspaces_l ws ON ws.workspace_id = wi.workspace_id
         ORDER BY wi.deleted_at DESC, wi.item_id DESC
       `,
       [workspaceId, projectId],
@@ -976,6 +1029,8 @@ export class WorkItemRepository {
       `
         SELECT wi.item_id AS "itemId"
         FROM prism_work_items_l wi
+               INNER JOIN prism_workspaces_l ws
+                          ON ws.workspace_id = wi.workspace_id
         WHERE wi.workspace_id = $1
           AND wi.project_id = $2
           AND wi.deleted_at IS NOT NULL
@@ -1263,12 +1318,14 @@ export class WorkItemRepository {
         SELECT
           wi.item_id AS "itemId",
           wi.parent_id AS "parentId",
+          ${WorkItemRepository.workItemCodeColumn('wi')},
           wi.title,
           wi.status,
           wi.priority,
           1 - (e.embedding <=> input_embedding.embedding) AS similarity
         FROM prism_work_item_embeddings_l e
                INNER JOIN prism_work_items_l wi ON wi.item_id = e.item_id
+               INNER JOIN prism_workspaces_l ws ON ws.workspace_id = wi.workspace_id
                CROSS JOIN input_embedding
         WHERE e.workspace_id = $1
           AND e.project_id = $2
@@ -1283,6 +1340,29 @@ export class WorkItemRepository {
         params.limit,
       ],
     );
+  }
+
+  /**
+   * SQL fragment that renders the public work item code (e.g. "PRSM-001").
+   *
+   * The numeric part is zero-padded to the width of the workspace's largest
+   * live sequence number, with a floor of 3 digits — so codes read PRSM-001..
+   * PRSM-999 and only widen to PRSM-1000 once a workspace passes 999. Requires
+   * `prism_workspaces_l ws` to be joined on `<alias>.workspace_id` and emits a
+   * column aliased "code".
+   */
+  private static workItemCodeColumn(alias: string): string {
+    return `
+          ws.item_code_prefix || '-' || LPAD(
+            ${alias}.item_seq::text,
+            GREATEST(3, LENGTH((
+              SELECT MAX(live.item_seq)
+              FROM prism_work_items_l live
+              WHERE live.workspace_id = ${alias}.workspace_id
+                AND live.deleted_at IS NULL
+            )::text)),
+            '0'
+          ) AS "code"`;
   }
 
   private getManager(manager?: EntityManager): DataSource | EntityManager {

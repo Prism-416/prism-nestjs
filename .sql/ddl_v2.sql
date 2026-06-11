@@ -207,6 +207,8 @@ CREATE TABLE IF NOT EXISTS prism_workspaces_l
     timezone     VARCHAR(50) NOT NULL DEFAULT 'UTC',
     locale       VARCHAR(20) NOT NULL DEFAULT 'en-US',
     status       VARCHAR(20) NOT NULL DEFAULT 'active',
+    item_code_prefix VARCHAR(4) NOT NULL DEFAULT 'TASK',
+    item_seq_counter INTEGER    NOT NULL DEFAULT 0,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     deleted_at   TIMESTAMPTZ,
@@ -214,6 +216,7 @@ CREATE TABLE IF NOT EXISTS prism_workspaces_l
     CONSTRAINT uq_workspaces_slug UNIQUE (slug),
     CONSTRAINT ck_workspaces_name_not_blank CHECK (LENGTH(TRIM(name)) > 0),
     CONSTRAINT ck_workspaces_slug_not_blank CHECK (LENGTH(TRIM(slug)) > 0),
+    CONSTRAINT ck_workspaces_item_code_prefix CHECK (item_code_prefix ~ '^[A-Z]{3,4}$'),
     CONSTRAINT ck_workspaces_status CHECK (status IN ('active', 'deleted'))
 );
 
@@ -381,6 +384,7 @@ CREATE TABLE IF NOT EXISTS prism_work_items_l
     priority          VARCHAR(10)  NOT NULL DEFAULT 'medium',
     status            VARCHAR(20)  NOT NULL DEFAULT 'todo',
     sort_order        INTEGER      NOT NULL DEFAULT 0,
+    item_seq          INTEGER      NOT NULL,
     created_by        UUID         REFERENCES prism_users_l (user_id) ON DELETE SET NULL,
     status_changed_at TIMESTAMPTZ,
     created_at        TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
@@ -391,6 +395,7 @@ CREATE TABLE IF NOT EXISTS prism_work_items_l
     CONSTRAINT uq_work_items_workspace_item UNIQUE (workspace_id, item_id),
     CONSTRAINT uq_work_items_project_item UNIQUE (project_id, item_id),
     CONSTRAINT uq_work_items_workspace_project_item UNIQUE (workspace_id, project_id, item_id),
+    CONSTRAINT uq_work_items_workspace_seq UNIQUE (workspace_id, item_seq),
 
     CONSTRAINT fk_work_items_project_workspace
         FOREIGN KEY (workspace_id, project_id)

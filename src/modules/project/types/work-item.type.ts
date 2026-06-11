@@ -19,6 +19,7 @@ export type WorkItemRow = {
   workspaceId: string;
   projectId: string;
   parentId: string | null;
+  code: string;
   title: string;
   description: string;
   startDate: string | null;
@@ -99,6 +100,7 @@ export type SearchWorkItemsResult = {
 export type SimilarWorkItemRow = {
   itemId: string;
   parentId: string | null;
+  code: string;
   title: string;
   status: WorkItemStatus;
   priority: WorkItemPriority;

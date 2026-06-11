@@ -16,6 +16,7 @@ import {
   WorkspaceRow,
   WorkspaceUserRow,
 } from '@/modules/workspace/types';
+import { buildDefaultItemCodePrefix } from '@/modules/workspace/utils';
 
 @Injectable()
 export class WorkspaceRepository {
@@ -34,6 +35,7 @@ export class WorkspaceRepository {
           w.slug,
           w.description,
           w.owner_id AS "ownerId",
+          w.item_code_prefix AS "itemCodePrefix",
           w.created_at AS "createdAt"
         FROM prism_workspaces_l w
                INNER JOIN prism_workspace_members_l wm
@@ -64,6 +66,7 @@ export class WorkspaceRepository {
           w.slug,
           w.description,
           w.owner_id AS "ownerId",
+          w.item_code_prefix AS "itemCodePrefix",
           w.created_at AS "createdAt"
         FROM prism_workspaces_l w
                INNER JOIN prism_workspace_members_l wm
@@ -93,6 +96,7 @@ export class WorkspaceRepository {
           w.slug,
           w.description,
           w.owner_id AS "ownerId",
+          w.item_code_prefix AS "itemCodePrefix",
           w.created_at AS "createdAt"
         FROM prism_workspaces_l w
                INNER JOIN prism_workspace_members_l wm
@@ -121,6 +125,7 @@ export class WorkspaceRepository {
           slug,
           description,
           owner_id AS "ownerId",
+          item_code_prefix AS "itemCodePrefix",
           created_at AS "createdAt"
         FROM prism_workspaces_l
         WHERE workspace_id = $1
@@ -148,6 +153,7 @@ export class WorkspaceRepository {
           slug,
           description,
           owner_id AS "ownerId",
+          item_code_prefix AS "itemCodePrefix",
           created_at AS "createdAt"
         FROM prism_workspaces_l
         WHERE owner_id = $1
@@ -265,6 +271,7 @@ export class WorkspaceRepository {
             w.slug,
             w.description,
             w.owner_id,
+            w.item_code_prefix,
             w.created_at
           FROM prism_workspaces_l w
                  INNER JOIN prism_workspace_members_l wm
@@ -294,6 +301,7 @@ export class WorkspaceRepository {
           mw.slug,
           mw.description,
           mw.owner_id AS "ownerId",
+          mw.item_code_prefix AS "itemCodePrefix",
           COALESCE(wmc.member_count, 0) AS "memberCount",
           COALESCE(wpc.project_count, 0) AS "projectCount",
           mw.created_at AS "createdAt"
@@ -677,6 +685,7 @@ export class WorkspaceRepository {
           slug,
           description,
           owner_id AS "ownerId",
+          item_code_prefix AS "itemCodePrefix",
           created_at AS "createdAt"
       `,
       [workspaceId, ownerId],
@@ -724,17 +733,24 @@ export class WorkspaceRepository {
   ): Promise<WorkspaceRow> {
     const workspaces = await this.getManager(manager).query<WorkspaceRow[]>(
       `
-        INSERT INTO prism_workspaces_l (name, slug, description, owner_id)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO prism_workspaces_l (name, slug, description, owner_id, item_code_prefix)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING
           workspace_id AS "workspaceId",
           name,
           slug,
           description,
           owner_id AS "ownerId",
+          item_code_prefix AS "itemCodePrefix",
           created_at AS "createdAt"
       `,
-      [params.name, params.slug, params.description ?? null, params.ownerId],
+      [
+        params.name,
+        params.slug,
+        params.description ?? null,
+        params.ownerId,
+        buildDefaultItemCodePrefix(params.name),
+      ],
     );
 
     return workspaces[0];
@@ -1073,6 +1089,7 @@ export class WorkspaceRepository {
       workspaceId: string;
       name: string;
       description: string | null;
+      itemCodePrefix?: string | null;
     },
     manager?: EntityManager,
   ): Promise<WorkspaceRow> {
@@ -1080,7 +1097,8 @@ export class WorkspaceRepository {
       `
         UPDATE prism_workspaces_l
         SET name = $2,
-            description = $3
+            description = $3,
+            item_code_prefix = COALESCE($4, item_code_prefix)
         WHERE workspace_id = $1
         RETURNING
           workspace_id AS "workspaceId",
@@ -1088,9 +1106,15 @@ export class WorkspaceRepository {
           slug,
           description,
           owner_id AS "ownerId",
+          item_code_prefix AS "itemCodePrefix",
           created_at AS "createdAt"
       `,
-      [params.workspaceId, params.name, params.description],
+      [
+        params.workspaceId,
+        params.name,
+        params.description,
+        params.itemCodePrefix ?? null,
+      ],
     );
 
     return workspaces[0];
@@ -1140,6 +1164,7 @@ export class WorkspaceRepository {
           w.slug,
           w.description,
           w.owner_id AS "ownerId",
+          w.item_code_prefix AS "itemCodePrefix",
           w.created_at AS "createdAt"
       `,
       [workspaceId, userId],

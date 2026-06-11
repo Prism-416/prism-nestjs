@@ -119,6 +119,22 @@ export class UpdateWorkspaceDto {
   @IsString()
   @MaxLength(1000)
   description?: string;
+
+  @ApiPropertyOptional({
+    description: '3-4 letter prefix for work item codes, e.g. "PRSM"',
+  })
+  @Transform(({ value }) => {
+    const normalized = normalizeOptionalTrimmedString(value as unknown);
+    return typeof normalized === 'string'
+      ? normalized.toUpperCase()
+      : normalized;
+  })
+  @IsOptional()
+  @IsString()
+  @Matches(/^[A-Z]{3,4}$/, {
+    message: 'itemCodePrefix must be 3-4 letters',
+  })
+  itemCodePrefix?: string;
 }
 
 export class UpdateWorkspaceMemberRoleDto {
@@ -157,6 +173,9 @@ export class WorkspaceResponseDto {
 
   @ApiProperty()
   description!: string | null;
+
+  @ApiProperty({ description: '3-4 letter prefix for work item codes' })
+  itemCodePrefix!: string;
 
   @ApiProperty()
   createdAt!: Date;
