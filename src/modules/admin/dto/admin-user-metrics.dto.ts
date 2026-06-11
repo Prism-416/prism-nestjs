@@ -12,6 +12,16 @@ export class GetUserSignupTrendQueryDto {
   windowDays?: number;
 }
 
+export class GetUserActiveTrendQueryDto {
+  @ApiPropertyOptional({ default: 30, minimum: 1, maximum: 365 })
+  @Type(() => Number)
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  windowDays?: number;
+}
+
 export class UserMetricsSummaryResponseDto {
   @ApiProperty()
   generatedAt!: Date;
@@ -96,4 +106,29 @@ export class UserActivitySummaryResponseDto {
     description: 'DAU / MAU ratio, rounded to 4 decimals; null when MAU is 0',
   })
   stickiness!: number | null;
+}
+
+export class UserActiveBucketResponseDto {
+  @ApiProperty({ example: '2026-06-11' })
+  date!: string;
+
+  @ApiProperty({ description: 'Distinct users active that day' })
+  activeUsers!: number;
+
+  @ApiProperty({ description: 'Active users who signed up that day' })
+  newUsers!: number;
+
+  @ApiProperty({ description: 'Active users who signed up before that day' })
+  returningUsers!: number;
+}
+
+export class UserActiveTrendResponseDto {
+  @ApiProperty()
+  generatedAt!: Date;
+
+  @ApiProperty()
+  windowDays!: number;
+
+  @ApiProperty({ type: [UserActiveBucketResponseDto] })
+  buckets!: UserActiveBucketResponseDto[];
 }

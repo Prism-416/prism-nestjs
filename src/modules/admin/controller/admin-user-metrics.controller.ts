@@ -3,7 +3,9 @@ import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiDataResponse } from '@/core/response';
 import { AdminAuthenticated } from '@/modules/admin/decorators';
 import {
+  GetUserActiveTrendQueryDto,
   GetUserSignupTrendQueryDto,
+  UserActiveTrendResponseDto,
   UserActivitySummaryResponseDto,
   UserMetricsSummaryResponseDto,
   UserSignupTrendResponseDto,
@@ -39,5 +41,15 @@ export class AdminUserMetricsController {
   @ApiDataResponse(UserActivitySummaryResponseDto)
   getActivitySummary(): Promise<UserActivitySummaryResponseDto> {
     return this.usecase.getActivitySummary();
+  }
+
+  @Get('activity/trend')
+  @AdminAuthenticated()
+  @ApiOperation({ summary: 'Summarize daily active users (new vs returning)' })
+  @ApiDataResponse(UserActiveTrendResponseDto)
+  getActiveUserTrend(
+    @Query() query: GetUserActiveTrendQueryDto,
+  ): Promise<UserActiveTrendResponseDto> {
+    return this.usecase.getActiveUserTrend(query);
   }
 }
