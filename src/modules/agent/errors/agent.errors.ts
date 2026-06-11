@@ -111,3 +111,13 @@ export class AgentMemoryEmbeddingTargetMismatchError extends DomainError {
     );
   }
 }
+
+export class AgentWorkflowTriggerNotSupportedError extends DomainError {
+  constructor() {
+    super(
+      'Agent workflow trigger is not supported.',
+      'AGENT_WORKFLOW_TRIGGER_NOT_SUPPORTED',
+      400,
+    );
+  }
+}

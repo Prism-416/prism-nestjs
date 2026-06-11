@@ -51,6 +51,13 @@ export class SprintUseCase {
     return this.repo.findSprintsByWorkspaceId(workspace.workspaceId);
   }
 
+  async getSprintsForInternal(
+    workspaceId: string,
+  ): Promise<SprintResponseDto[]> {
+    return this.repo.findSprintsByWorkspaceId(workspaceId);
+  }
+
+
   async getSprintWorkItems(
     userId: string,
     workspaceId: string,
