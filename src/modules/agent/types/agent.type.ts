@@ -64,6 +64,9 @@ export type AgentRunRow = {
   workspaceId: string;
   triggeredByUserId: string | null;
   workItemId: string | null;
+  workItemCode: string | null;
+  workItemTitle: string | null;
+  projectId: string | null;
   parentRunId: string | null;
   agentType: string;
   triggerType: AgentRunTriggerType;

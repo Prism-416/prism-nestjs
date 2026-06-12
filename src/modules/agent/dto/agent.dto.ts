@@ -350,6 +350,27 @@ export class AgentRunResponseDto {
   @ApiProperty({ nullable: true })
   workItemId!: string | null;
 
+  @ApiProperty({
+    nullable: true,
+    description:
+      "Readable code of the linked work item (e.g. 'PRSM-001'), snapshotted at run creation. Null when the run has no linked work item.",
+  })
+  workItemCode!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Title of the linked work item, snapshotted at run creation. Null when the run has no linked work item.',
+  })
+  workItemTitle!: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    description:
+      'Project the linked work item belonged to at run creation, used to deep-link to the work item. Null when the run has no linked work item.',
+  })
+  projectId!: string | null;
+
   @ApiProperty({ nullable: true })
   parentRunId!: string | null;
 
