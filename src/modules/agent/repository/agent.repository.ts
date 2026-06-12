@@ -33,6 +33,9 @@ type AgentRunDbRow = {
   workspaceId: string;
   triggeredByUserId: string | null;
   workItemId: string | null;
+  workItemCode: string | null;
+  workItemTitle: string | null;
+  projectId: string | null;
   parentRunId: string | null;
   agentType: string;
   triggerType: AgentRunRow['triggerType'];
@@ -112,6 +115,9 @@ export class AgentRepository {
             r.workspace_id,
             r.triggered_by_user_id,
             r.work_item_id,
+            r.work_item_code_snapshot,
+            r.work_item_title_snapshot,
+            r.work_item_project_id,
             r.parent_run_id,
             r.agent_type,
             r.trigger_type,
@@ -143,6 +149,9 @@ export class AgentRepository {
           pr.workspace_id AS "workspaceId",
           pr.triggered_by_user_id AS "triggeredByUserId",
           pr.work_item_id AS "workItemId",
+          pr.work_item_code_snapshot AS "workItemCode",
+          pr.work_item_title_snapshot AS "workItemTitle",
+          pr.work_item_project_id AS "projectId",
           pr.parent_run_id AS "parentRunId",
           pr.agent_type AS "agentType",
           pr.trigger_type AS "triggerType",
@@ -191,18 +200,34 @@ export class AgentRepository {
           workspace_id,
           triggered_by_user_id,
           work_item_id,
+          work_item_code_snapshot,
+          work_item_title_snapshot,
+          work_item_project_id,
           parent_run_id,
           agent_type,
           trigger_type,
           objective,
           system_prompt_version
         )
-        VALUES ($1, $2, $3, $4, $5, 'manual', $6, $7)
+        SELECT
+          $1, $2, $3,
+          work_item_snapshot.code,
+          work_item_snapshot.title,
+          work_item_snapshot.project_id,
+          $4, $5, 'manual', $6, $7
+        FROM (SELECT 1) AS anchor
+               LEFT JOIN LATERAL (
+                 ${AgentRepository.workItemSnapshotLateral('$1::uuid', '$3::uuid')}
+               ) work_item_snapshot
+                         ON TRUE
         RETURNING
           run_id AS "runId",
           workspace_id AS "workspaceId",
           triggered_by_user_id AS "triggeredByUserId",
           work_item_id AS "workItemId",
+          work_item_code_snapshot AS "workItemCode",
+          work_item_title_snapshot AS "workItemTitle",
+          work_item_project_id AS "projectId",
           parent_run_id AS "parentRunId",
           agent_type AS "agentType",
           trigger_type AS "triggerType",
@@ -255,6 +280,9 @@ export class AgentRepository {
             workspace_id,
             triggered_by_user_id,
             work_item_id,
+            work_item_code_snapshot,
+            work_item_title_snapshot,
+            work_item_project_id,
             parent_run_id,
             agent_type,
             trigger_type,
@@ -270,6 +298,9 @@ export class AgentRepository {
             input_run.workspace_id,
             input_run.triggered_by_user_id,
             input_run.work_item_id,
+            work_item_snapshot.code,
+            work_item_snapshot.title,
+            work_item_snapshot.project_id,
             input_run.parent_run_id,
             input_run.agent_type,
             input_run.trigger_type,
@@ -283,12 +314,19 @@ export class AgentRepository {
             END,
             input_run.created_at
           FROM input_run
+                 LEFT JOIN LATERAL (
+                   ${AgentRepository.workItemSnapshotLateral('input_run.workspace_id', 'input_run.work_item_id')}
+                 ) work_item_snapshot
+                           ON TRUE
           ON CONFLICT (run_id) DO NOTHING
           RETURNING
             run_id AS "runId",
             workspace_id AS "workspaceId",
             triggered_by_user_id AS "triggeredByUserId",
             work_item_id AS "workItemId",
+            work_item_code_snapshot AS "workItemCode",
+            work_item_title_snapshot AS "workItemTitle",
+            work_item_project_id AS "projectId",
             parent_run_id AS "parentRunId",
             agent_type AS "agentType",
             trigger_type AS "triggerType",
@@ -308,6 +346,9 @@ export class AgentRepository {
           r.workspace_id AS "workspaceId",
           r.triggered_by_user_id AS "triggeredByUserId",
           r.work_item_id AS "workItemId",
+          r.work_item_code_snapshot AS "workItemCode",
+          r.work_item_title_snapshot AS "workItemTitle",
+          r.work_item_project_id AS "projectId",
           r.parent_run_id AS "parentRunId",
           r.agent_type AS "agentType",
           r.trigger_type AS "triggerType",
@@ -361,6 +402,9 @@ export class AgentRepository {
           workspace_id AS "workspaceId",
           triggered_by_user_id AS "triggeredByUserId",
           work_item_id AS "workItemId",
+          work_item_code_snapshot AS "workItemCode",
+          work_item_title_snapshot AS "workItemTitle",
+          work_item_project_id AS "projectId",
           parent_run_id AS "parentRunId",
           agent_type AS "agentType",
           trigger_type AS "triggerType",
@@ -399,6 +443,9 @@ export class AgentRepository {
           workspace_id AS "workspaceId",
           triggered_by_user_id AS "triggeredByUserId",
           work_item_id AS "workItemId",
+          work_item_code_snapshot AS "workItemCode",
+          work_item_title_snapshot AS "workItemTitle",
+          work_item_project_id AS "projectId",
           parent_run_id AS "parentRunId",
           agent_type AS "agentType",
           trigger_type AS "triggerType",
@@ -440,6 +487,9 @@ export class AgentRepository {
           workspace_id AS "workspaceId",
           triggered_by_user_id AS "triggeredByUserId",
           work_item_id AS "workItemId",
+          work_item_code_snapshot AS "workItemCode",
+          work_item_title_snapshot AS "workItemTitle",
+          work_item_project_id AS "projectId",
           parent_run_id AS "parentRunId",
           agent_type AS "agentType",
           trigger_type AS "triggerType",
@@ -474,6 +524,9 @@ export class AgentRepository {
           workspace_id AS "workspaceId",
           triggered_by_user_id AS "triggeredByUserId",
           work_item_id AS "workItemId",
+          work_item_code_snapshot AS "workItemCode",
+          work_item_title_snapshot AS "workItemTitle",
+          work_item_project_id AS "projectId",
           parent_run_id AS "parentRunId",
           agent_type AS "agentType",
           trigger_type AS "triggerType",
@@ -1267,12 +1320,52 @@ export class AgentRepository {
     return embeddings[0] ?? null;
   }
 
+  /**
+   * Subquery that resolves the readable identity (code/title/project) of a
+   * linked work item, snapshotted into an agent run at creation. The code
+   * mirrors WorkItemRepository.workItemCodeColumn: the sequence is zero-padded
+   * to the width of the workspace's largest live sequence number, floored at 3
+   * digits. Meant to be used as a LEFT JOIN LATERAL so a run with no (or an
+   * unresolvable) work item yields NULL columns instead of dropping the row.
+   *
+   * `workspaceExpr` / `workItemExpr` are raw SQL expressions for the workspace
+   * id and work item id (e.g. a positional parameter `$1::uuid` or a column
+   * reference `input_run.work_item_id`) supplied by the caller's query shape.
+   */
+  private static workItemSnapshotLateral(
+    workspaceExpr: string,
+    workItemExpr: string,
+  ): string {
+    return `
+                 SELECT
+                   ws.item_code_prefix || '-' || LPAD(
+                     wi.item_seq::text,
+                     GREATEST(3, LENGTH((
+                       SELECT MAX(live.item_seq)
+                       FROM prism_work_items_l live
+                       WHERE live.workspace_id = wi.workspace_id
+                         AND live.deleted_at IS NULL
+                     )::text)),
+                     '0'
+                   ) AS code,
+                   wi.title,
+                   wi.project_id
+                 FROM prism_work_items_l wi
+                        INNER JOIN prism_workspaces_l ws
+                                   ON ws.workspace_id = wi.workspace_id
+                 WHERE wi.workspace_id = ${workspaceExpr}
+                   AND wi.item_id = ${workItemExpr}`;
+  }
+
   private mapAgentRunRow(row: AgentRunDbRow): AgentRunRow {
     return {
       runId: row.runId,
       workspaceId: row.workspaceId,
       triggeredByUserId: row.triggeredByUserId,
       workItemId: row.workItemId,
+      workItemCode: row.workItemCode,
+      workItemTitle: row.workItemTitle,
+      projectId: row.projectId,
       parentRunId: row.parentRunId,
       agentType: row.agentType,
       triggerType: row.triggerType,
