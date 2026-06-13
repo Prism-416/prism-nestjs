@@ -257,7 +257,7 @@ export class AgentRepository {
     manager?: EntityManager,
   ): Promise<CreateAgentRunForInternalResult | null> {
     const runs = await this.getManager(manager).query<
-      Array<AgentRunDbRow & { wasCreated: boolean }>
+      Array<AgentRunDbRow & { wasCreated: boolean; wasUpdated: boolean }>
     >(
       `
         WITH input_run AS (
@@ -336,10 +336,56 @@ export class AgentRepository {
             started_at AS "startedAt",
             completed_at AS "completedAt",
             created_at AS "createdAt",
-            TRUE AS "wasCreated"
+            TRUE AS "wasCreated",
+            FALSE AS "wasUpdated"
+        ),
+        updated_existing_run AS (
+          UPDATE prism_agent_runs_l r
+          SET
+            status = input_run.status,
+            started_at = CASE
+              WHEN input_run.status = 'running' THEN COALESCE(r.started_at, NOW())
+              ELSE r.started_at
+            END,
+            completed_at = CASE
+              WHEN input_run.status IN ('completed', 'failed', 'cancelled') THEN COALESCE(r.completed_at, NOW())
+              ELSE r.completed_at
+            END
+          FROM input_run
+          WHERE r.run_id = input_run.run_id
+            AND r.workspace_id = input_run.workspace_id
+            AND NOT EXISTS (SELECT 1 FROM inserted_run)
+            AND r.status IN ('queued', 'running', 'waiting')
+            AND (
+              r.status <> input_run.status
+              OR (input_run.status = 'running' AND r.started_at IS NULL)
+              OR (input_run.status IN ('completed', 'failed', 'cancelled') AND r.completed_at IS NULL)
+            )
+          RETURNING
+            r.run_id AS "runId",
+            r.workspace_id AS "workspaceId",
+            r.triggered_by_user_id AS "triggeredByUserId",
+            r.work_item_id AS "workItemId",
+            r.work_item_code_snapshot AS "workItemCode",
+            r.work_item_title_snapshot AS "workItemTitle",
+            r.work_item_project_id AS "projectId",
+            r.parent_run_id AS "parentRunId",
+            r.agent_type AS "agentType",
+            r.trigger_type AS "triggerType",
+            r.status,
+            r.objective,
+            r.system_prompt_version AS "systemPromptVersion",
+            r.started_at AS "startedAt",
+            r.completed_at AS "completedAt",
+            r.created_at AS "createdAt",
+            FALSE AS "wasCreated",
+            TRUE AS "wasUpdated"
         )
         SELECT *
         FROM inserted_run
+        UNION ALL
+        SELECT *
+        FROM updated_existing_run
         UNION ALL
         SELECT
           r.run_id AS "runId",
@@ -358,12 +404,14 @@ export class AgentRepository {
           r.started_at AS "startedAt",
           r.completed_at AS "completedAt",
           r.created_at AS "createdAt",
-          FALSE AS "wasCreated"
+          FALSE AS "wasCreated",
+          FALSE AS "wasUpdated"
         FROM prism_agent_runs_l r
                INNER JOIN input_run
                           ON input_run.run_id = r.run_id
         WHERE r.workspace_id = input_run.workspace_id
           AND NOT EXISTS (SELECT 1 FROM inserted_run)
+          AND NOT EXISTS (SELECT 1 FROM updated_existing_run)
         LIMIT 1
       `,
       [
@@ -386,8 +434,8 @@ export class AgentRepository {
       return null;
     }
 
-    const { wasCreated, ...row } = run;
-    return { run: this.mapAgentRunRow(row), wasCreated };
+    const { wasCreated, wasUpdated, ...row } = run;
+    return { run: this.mapAgentRunRow(row), wasCreated, wasUpdated };
   }
 
   async findAgentRunById(
@@ -482,6 +530,10 @@ export class AgentRepository {
           END
         WHERE workspace_id = $1
           AND run_id = $2
+          AND (
+            status IN ('queued', 'running', 'waiting')
+            OR status = $3::text
+          )
         RETURNING
           run_id AS "runId",
           workspace_id AS "workspaceId",

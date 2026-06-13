@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import type { EntityManager } from 'typeorm';
 import { UnitOfWork } from '@/core/database';
+import { AgentRepository } from '@/modules/agent/repository';
+import { AgentRealtimePublisherService } from '@/modules/agent/services';
+import type { AgentRunRow } from '@/modules/agent/types';
 import {
   CreateFeatureProvisioningRequestDto,
   FeatureProvisioningRequestResponseDto,
@@ -22,11 +25,15 @@ import type {
 } from '@/modules/workspace/types';
 
 const DISPATCH_ERROR_MESSAGE_MAX_LENGTH = 1000;
+const FEATURE_PROVISIONING_AGENT_TYPE = 'project_manager';
+const FEATURE_PROVISIONING_OBJECTIVE_MAX_LENGTH = 5000;
 
 @Injectable()
 export class FeatureProvisioningUseCase {
   constructor(
     private readonly repo: WorkspaceRepository,
+    private readonly agentRepo: AgentRepository,
+    private readonly agentRealtime: AgentRealtimePublisherService,
     private readonly uow: UnitOfWork,
     private readonly dispatchService: FeatureProvisioningDispatchService,
   ) {}
@@ -40,6 +47,7 @@ export class FeatureProvisioningUseCase {
     const created = await this.uow.run(async (manager) =>
       this.createPendingRequest(userId, workspaceId, dto, requestId, manager),
     );
+    this.agentRealtime.publishAgentRunCreated(created.agentRun);
 
     let payloadVersionId: string | null = null;
 
@@ -81,6 +89,14 @@ export class FeatureProvisioningUseCase {
         payloadVersionId,
         errorMessage: this.toDispatchErrorMessage(error),
       });
+      const failedRun = await this.agentRepo.updateAgentRunStatus({
+        workspaceId: created.request.workspaceId,
+        runId: created.request.requestId,
+        status: 'failed',
+      });
+      if (failedRun) {
+        this.agentRealtime.publishAgentRunUpdated(failedRun);
+      }
 
       throw error;
     }
@@ -113,6 +129,7 @@ export class FeatureProvisioningUseCase {
   ): Promise<{
     request: FeatureProvisioningRequestRow;
     payload: FeatureProvisioningPayload;
+    agentRun: AgentRunRow;
   }> {
     const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
       workspaceId,
@@ -151,9 +168,26 @@ export class FeatureProvisioningUseCase {
       },
       manager,
     );
+    const agentRunResult = await this.agentRepo.createAgentRunForInternal(
+      {
+        workspaceId: workspace.workspaceId,
+        runId: request.requestId,
+        triggeredByUserId: userId,
+        agentType: FEATURE_PROVISIONING_AGENT_TYPE,
+        triggerType: 'event',
+        status: 'queued',
+        objective: this.toAgentRunObjective(dto.featureSpecification),
+        createdAt: request.createdAt,
+      },
+      manager,
+    );
+    if (!agentRunResult) {
+      throw new Error('Feature provisioning agent run could not be created.');
+    }
 
     return {
       request,
+      agentRun: agentRunResult.run,
       payload: this.buildPayload({
         request,
         workspace,
@@ -162,6 +196,12 @@ export class FeatureProvisioningUseCase {
         featureSpecification: dto.featureSpecification,
       }),
     };
+  }
+
+  private toAgentRunObjective(featureSpecification: string): string {
+    return featureSpecification
+      .trim()
+      .slice(0, FEATURE_PROVISIONING_OBJECTIVE_MAX_LENGTH);
   }
 
   private buildPayload(params: {

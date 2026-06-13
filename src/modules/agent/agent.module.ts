@@ -35,6 +35,10 @@ import {
     AgentRepository,
     AgentUseCase,
   ],
-  exports: [AgentDispatchService, AgentRealtimePublisherService],
+  exports: [
+    AgentDispatchService,
+    AgentRealtimePublisherService,
+    AgentRepository,
+  ],
 })
 export class AgentModule {}
