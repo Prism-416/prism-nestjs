@@ -18,6 +18,68 @@ import {
 } from '@/modules/workspace/types';
 import { buildDefaultItemCodePrefix } from '@/modules/workspace/utils';
 
+type AccessibleWorkspaceProjectSummaryRow = {
+  projectId: string | null;
+  workspaceId: string;
+  name: string | null;
+  slug: string | null;
+  description: string | null;
+  createdAt: Date | null;
+};
+
+type AccessibleWorkspaceJobRow = {
+  jobId: string | null;
+  workspaceId: string;
+  name: string | null;
+  description: string | null;
+  createdAt: Date | null;
+};
+
+function toAccessibleWorkspaceProjects(
+  rows: AccessibleWorkspaceProjectSummaryRow[],
+): WorkspaceProjectSummaryRow[] | null {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return rows.flatMap((row) =>
+    row.projectId && row.name && row.slug && row.createdAt
+      ? [
+          {
+            projectId: row.projectId,
+            workspaceId: row.workspaceId,
+            name: row.name,
+            slug: row.slug,
+            description: row.description,
+            createdAt: row.createdAt,
+          },
+        ]
+      : [],
+  );
+}
+
+function toAccessibleWorkspaceJobs(
+  rows: AccessibleWorkspaceJobRow[],
+): WorkspaceJobRow[] | null {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return rows.flatMap((row) =>
+    row.jobId && row.name && row.createdAt
+      ? [
+          {
+            jobId: row.jobId,
+            workspaceId: row.workspaceId,
+            name: row.name,
+            description: row.description,
+            createdAt: row.createdAt,
+          },
+        ]
+      : [],
+  );
+}
+
 @Injectable()
 export class WorkspaceRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
@@ -319,9 +381,26 @@ export class WorkspaceRepository {
   async findWorkspaceMembersByWorkspaceId(
     workspaceId: string,
     manager?: EntityManager,
+    accessUserId?: string,
   ): Promise<WorkspaceMemberRow[]> {
     return this.getManager(manager).query<WorkspaceMemberRow[]>(
       `
+        WITH accessible_workspace AS (
+          SELECT w.workspace_id
+          FROM prism_workspaces_l w
+          WHERE w.workspace_id = $1
+            AND w.deleted_at IS NULL
+            AND w.status = 'active'
+            AND (
+              $2::uuid IS NULL
+              OR EXISTS (
+                SELECT 1
+                FROM prism_workspace_members_l access_member
+                WHERE access_member.workspace_id = w.workspace_id
+                  AND access_member.user_id = $2
+              )
+            )
+        )
         SELECT
           u.user_id AS "userId",
           u.full_name AS "fullName",
@@ -330,7 +409,9 @@ export class WorkspaceRepository {
           COALESCE(member_jobs.job_ids, ARRAY[]::text[]) AS "jobIds",
           COALESCE(member_jobs.job_names, ARRAY[]::text[]) AS "jobNames",
           wm.joined_at AS "joinedAt"
-        FROM prism_workspace_members_l wm
+        FROM accessible_workspace aw
+               INNER JOIN prism_workspace_members_l wm
+                          ON wm.workspace_id = aw.workspace_id
                INNER JOIN prism_users_l u
                           ON u.user_id = wm.user_id
                LEFT JOIN LATERAL (
@@ -344,7 +425,6 @@ export class WorkspaceRepository {
                  WHERE wmjm.workspace_id = wm.workspace_id
                    AND wmjm.user_id = wm.user_id
                ) member_jobs ON TRUE
-        WHERE wm.workspace_id = $1
         ORDER BY
           CASE wm.role
             WHEN 'owner' THEN 0
@@ -354,7 +434,7 @@ export class WorkspaceRepository {
             END,
           u.username
       `,
-      [workspaceId],
+      [workspaceId, accessUserId ?? null],
     );
   }
 
@@ -469,30 +549,39 @@ export class WorkspaceRepository {
   async findProjectsByWorkspaceSlugAndMemberUserId(
     userId: string,
     workspaceSlug: string,
-  ): Promise<WorkspaceProjectSummaryRow[]> {
-    return this.dataSource.query<WorkspaceProjectSummaryRow[]>(
+  ): Promise<WorkspaceProjectSummaryRow[] | null> {
+    const rows = await this.dataSource.query<
+      AccessibleWorkspaceProjectSummaryRow[]
+    >(
       `
+        WITH accessible_workspace AS (
+          SELECT w.workspace_id
+          FROM prism_workspaces_l w
+                 INNER JOIN prism_workspace_members_l wm
+                            ON wm.workspace_id = w.workspace_id
+          WHERE w.slug = $2
+            AND wm.user_id = $1
+            AND w.deleted_at IS NULL
+            AND w.status = 'active'
+          LIMIT 1
+        )
         SELECT
           p.project_id AS "projectId",
-          p.workspace_id AS "workspaceId",
+          aw.workspace_id AS "workspaceId",
           p.name,
           p.slug,
           p.description,
           p.created_at AS "createdAt"
-        FROM prism_projects_l p
-               INNER JOIN prism_workspaces_l w
-                          ON w.workspace_id = p.workspace_id
-               INNER JOIN prism_workspace_members_l wm
-                          ON wm.workspace_id = p.workspace_id
-                         AND wm.user_id = $1
-        WHERE w.deleted_at IS NULL
-          AND w.status = 'active'
-          AND w.slug = $2
-          AND p.status <> 'archived'
-        ORDER BY p.created_at DESC
+        FROM accessible_workspace aw
+               LEFT JOIN prism_projects_l p
+                         ON p.workspace_id = aw.workspace_id
+                        AND p.status <> 'archived'
+        ORDER BY p.created_at DESC NULLS LAST
       `,
       [userId, workspaceSlug],
     );
+
+    return toAccessibleWorkspaceProjects(rows);
   }
 
   async findProjectByWorkspaceId(
@@ -997,6 +1086,43 @@ export class WorkspaceRepository {
       `,
       [workspaceId],
     );
+  }
+
+  async findWorkspaceJobsByWorkspaceIdAndMemberUserId(
+    workspaceId: string,
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<WorkspaceJobRow[] | null> {
+    const rows = await this.getManager(manager).query<
+      AccessibleWorkspaceJobRow[]
+    >(
+      `
+        WITH accessible_workspace AS (
+          SELECT w.workspace_id
+          FROM prism_workspaces_l w
+                 INNER JOIN prism_workspace_members_l wm
+                            ON wm.workspace_id = w.workspace_id
+          WHERE w.workspace_id = $1
+            AND wm.user_id = $2
+            AND w.deleted_at IS NULL
+            AND w.status = 'active'
+          LIMIT 1
+        )
+        SELECT
+          j.job_id AS "jobId",
+          aw.workspace_id AS "workspaceId",
+          j.name,
+          j.description,
+          j.created_at AS "createdAt"
+        FROM accessible_workspace aw
+               LEFT JOIN prism_jobs_l j
+                         ON j.workspace_id = aw.workspace_id
+        ORDER BY j.created_at ASC NULLS LAST
+      `,
+      [workspaceId, userId],
+    );
+
+    return toAccessibleWorkspaceJobs(rows);
   }
 
   async updateWorkspaceJob(
