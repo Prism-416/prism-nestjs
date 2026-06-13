@@ -54,6 +54,11 @@ const AGENT_RUN_CANCELLABLE_STATUSES: AgentRunStatus[] = [
   'running',
   'waiting',
 ];
+const AGENT_RUN_TERMINAL_STATUSES: AgentRunStatus[] = [
+  'completed',
+  'failed',
+  'cancelled',
+];
 const AGENT_ACTION_APPROVABLE_STATUSES = ['proposed'];
 const AGENT_ACTION_CANCELLABLE_STATUSES = ['proposed', 'approved'];
 
@@ -248,6 +253,8 @@ export class AgentUseCase {
 
     if (result.wasCreated) {
       this.realtimePublisher.publishAgentRunCreated(result.run);
+    } else if (result.wasUpdated) {
+      this.realtimePublisher.publishAgentRunUpdated(result.run);
     }
 
     return result.run;
@@ -332,13 +339,19 @@ export class AgentUseCase {
       runId,
       status: dto.status,
     });
-    if (!run) {
-      throw new AgentRunNotFoundError();
+
+    if (run) {
+      this.realtimePublisher.publishAgentRunUpdated(run);
+
+      return run;
     }
 
-    this.realtimePublisher.publishAgentRunUpdated(run);
+    const current = await this.repo.findAgentRunById(workspaceId, runId);
+    if (current && AGENT_RUN_TERMINAL_STATUSES.includes(current.status)) {
+      return current;
+    }
 
-    return run;
+    throw new AgentRunNotFoundError();
   }
 
   async getAgentRunStateForInternal(

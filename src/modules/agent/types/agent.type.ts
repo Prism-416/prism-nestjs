@@ -321,4 +321,5 @@ export type UpsertAgentActionResult = {
 export type CreateAgentRunForInternalResult = {
   run: AgentRunRow;
   wasCreated: boolean;
+  wasUpdated: boolean;
 };

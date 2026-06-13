@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { OciEmailModule } from '@/core/email';
 import { AdminModule } from '@/modules/admin';
+import { AgentModule } from '@/modules/agent/agent.module';
 import { GithubModule } from '@/modules/github';
 import { NotificationModule } from '@/modules/notification';
 import {
@@ -27,7 +28,13 @@ import {
 } from '@/modules/workspace/usecases';
 
 @Module({
-  imports: [AdminModule, GithubModule, NotificationModule, OciEmailModule],
+  imports: [
+    AdminModule,
+    AgentModule,
+    GithubModule,
+    NotificationModule,
+    OciEmailModule,
+  ],
   controllers: [
     WorkspaceController,
     WorkspaceRepositoryLinkController,
