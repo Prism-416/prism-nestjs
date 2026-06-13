@@ -9,120 +9,118 @@ import {
   WorkspaceRepositoryLinkRow,
 } from '@/modules/project/types';
 
+type AccessibleProjectSummaryRow = {
+  projectId: string | null;
+  workspaceId: string;
+  name: string | null;
+  slug: string | null;
+  description: string | null;
+  createdAt: Date | null;
+};
+
+function toAccessibleProjects(
+  rows: AccessibleProjectSummaryRow[],
+): ProjectSummaryRow[] | null {
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return rows.flatMap((row) =>
+    row.projectId && row.name && row.slug && row.createdAt
+      ? [
+          {
+            projectId: row.projectId,
+            workspaceId: row.workspaceId,
+            name: row.name,
+            slug: row.slug,
+            description: row.description,
+            createdAt: row.createdAt,
+          },
+        ]
+      : [],
+  );
+}
+
 @Injectable()
 export class ProjectRepository {
   constructor(@InjectDataSource() private readonly dataSource: DataSource) {}
-
-  async existsWorkspaceByIdAndMemberUserId(
-    workspaceId: string,
-    userId: string,
-    manager?: EntityManager,
-  ): Promise<boolean> {
-    const workspaces = await this.getManager(manager).query<
-      Array<{ workspaceId: string }>
-    >(
-      `
-        SELECT
-          w.workspace_id AS "workspaceId"
-        FROM prism_workspaces_l w
-               INNER JOIN prism_workspace_members_l wm
-                          ON wm.workspace_id = w.workspace_id
-        WHERE w.workspace_id = $1
-          AND wm.user_id = $2
-          AND w.deleted_at IS NULL
-          AND w.status = 'active'
-        LIMIT 1
-      `,
-      [workspaceId, userId],
-    );
-
-    return workspaces.length > 0;
-  }
-
-  async existsWorkspaceBySlugAndMemberUserId(
-    workspaceSlug: string,
-    userId: string,
-    manager?: EntityManager,
-  ): Promise<boolean> {
-    const workspaces = await this.getManager(manager).query<
-      Array<{ workspaceId: string }>
-    >(
-      `
-        SELECT
-          w.workspace_id AS "workspaceId"
-        FROM prism_workspaces_l w
-               INNER JOIN prism_workspace_members_l wm
-                          ON wm.workspace_id = w.workspace_id
-        WHERE w.slug = $1
-          AND wm.user_id = $2
-          AND w.deleted_at IS NULL
-          AND w.status = 'active'
-        LIMIT 1
-      `,
-      [workspaceSlug, userId],
-    );
-
-    return workspaces.length > 0;
-  }
 
   async findProjectsByMemberUserId(
     userId: string,
     workspaceId: string,
     manager?: EntityManager,
-  ): Promise<ProjectSummaryRow[]> {
-    return this.getManager(manager).query<ProjectSummaryRow[]>(
+  ): Promise<ProjectSummaryRow[] | null> {
+    const rows = await this.getManager(manager).query<
+      AccessibleProjectSummaryRow[]
+    >(
       `
+        WITH accessible_workspace AS (
+          SELECT w.workspace_id
+          FROM prism_workspaces_l w
+                 INNER JOIN prism_workspace_members_l wm
+                            ON wm.workspace_id = w.workspace_id
+          WHERE w.workspace_id = $2
+            AND wm.user_id = $1
+            AND w.deleted_at IS NULL
+            AND w.status = 'active'
+          LIMIT 1
+        )
         SELECT
           p.project_id AS "projectId",
-          p.workspace_id AS "workspaceId",
+          aw.workspace_id AS "workspaceId",
           p.name,
           p.slug,
           p.description,
           p.created_at AS "createdAt"
-        FROM prism_projects_l p
-               INNER JOIN prism_workspaces_l w
-                          ON w.workspace_id = p.workspace_id
-               INNER JOIN prism_workspace_members_l wm
-                          ON wm.workspace_id = p.workspace_id
-                         AND wm.user_id = $1
-        WHERE w.deleted_at IS NULL
-          AND w.status = 'active'
-          AND p.workspace_id = $2
-          AND p.status <> 'archived'
-        ORDER BY p.created_at DESC
+        FROM accessible_workspace aw
+               LEFT JOIN prism_projects_l p
+                         ON p.workspace_id = aw.workspace_id
+                        AND p.status <> 'archived'
+        ORDER BY p.created_at DESC NULLS LAST
       `,
       [userId, workspaceId],
     );
+
+    return toAccessibleProjects(rows);
   }
 
   async findProjectsByWorkspaceSlugAndMemberUserId(
     userId: string,
     workspaceSlug: string,
     manager?: EntityManager,
-  ): Promise<ProjectSummaryRow[]> {
-    return this.getManager(manager).query<ProjectSummaryRow[]>(
+  ): Promise<ProjectSummaryRow[] | null> {
+    const rows = await this.getManager(manager).query<
+      AccessibleProjectSummaryRow[]
+    >(
       `
+        WITH accessible_workspace AS (
+          SELECT w.workspace_id
+          FROM prism_workspaces_l w
+                 INNER JOIN prism_workspace_members_l wm
+                            ON wm.workspace_id = w.workspace_id
+          WHERE w.slug = $2
+            AND wm.user_id = $1
+            AND w.deleted_at IS NULL
+            AND w.status = 'active'
+          LIMIT 1
+        )
         SELECT
           p.project_id AS "projectId",
-          p.workspace_id AS "workspaceId",
+          aw.workspace_id AS "workspaceId",
           p.name,
           p.slug,
           p.description,
           p.created_at AS "createdAt"
-        FROM prism_projects_l p
-               INNER JOIN prism_workspaces_l w
-                          ON w.workspace_id = p.workspace_id
-               INNER JOIN prism_workspace_members_l wm
-                          ON wm.workspace_id = p.workspace_id
-                         AND wm.user_id = $1
-        WHERE w.deleted_at IS NULL
-          AND w.status = 'active'
-          AND w.slug = $2
-          AND p.status <> 'archived'
-        ORDER BY p.created_at DESC
+        FROM accessible_workspace aw
+               LEFT JOIN prism_projects_l p
+                         ON p.workspace_id = aw.workspace_id
+                        AND p.status <> 'archived'
+        ORDER BY p.created_at DESC NULLS LAST
       `,
       [userId, workspaceSlug],
     );
+
+    return toAccessibleProjects(rows);
   }
 
   async findProjectBySlugAndMemberUserId(

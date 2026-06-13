@@ -186,33 +186,31 @@ export class WorkspaceUseCase {
     userId: string,
     workspaceSlug: string,
   ): Promise<ProjectSummaryResponseDto[]> {
-    const workspace = await this.repo.findWorkspaceBySlugAndMemberUserId(
-      workspaceSlug,
+    const projects = await this.repo.findProjectsByWorkspaceSlugAndMemberUserId(
       userId,
+      workspaceSlug,
     );
-    if (!workspace) {
+    if (!projects) {
       throw new WorkspaceNotFoundError();
     }
 
-    return this.repo.findProjectsByWorkspaceSlugAndMemberUserId(
-      userId,
-      workspaceSlug,
-    );
+    return projects;
   }
 
   async getWorkspaceMembers(
     userId: string,
     workspaceId: string,
   ): Promise<WorkspaceMemberResponseDto[]> {
-    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+    const members = await this.repo.findWorkspaceMembersByWorkspaceId(
       workspaceId,
+      undefined,
       userId,
     );
-    if (!workspace) {
+    if (members.length === 0) {
       throw new WorkspaceNotFoundError();
     }
 
-    return this.repo.findWorkspaceMembersByWorkspaceId(workspaceId);
+    return members;
   }
 
   async getWorkspaceMemberWorkloads(
@@ -538,15 +536,15 @@ export class WorkspaceUseCase {
     userId: string,
     workspaceId: string,
   ): Promise<WorkspaceJobResponseDto[]> {
-    const workspace = await this.repo.findWorkspaceByIdAndMemberUserId(
+    const jobs = await this.repo.findWorkspaceJobsByWorkspaceIdAndMemberUserId(
       workspaceId,
       userId,
     );
-    if (!workspace) {
+    if (!jobs) {
       throw new WorkspaceNotFoundError();
     }
 
-    return this.repo.findWorkspaceJobsByWorkspaceId(workspaceId);
+    return jobs;
   }
 
   async createWorkspaceJobs(
